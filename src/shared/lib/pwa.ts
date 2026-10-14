@@ -37,7 +37,7 @@ export function installHelp(): string {
 
 /** Register the service worker in production builds so the app opens with the network down. */
 export function registerServiceWorker() {
-  if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js').catch(() => {
         /* offline caching unavailable: the app still works online */

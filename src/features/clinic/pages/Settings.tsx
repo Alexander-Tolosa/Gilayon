@@ -10,7 +10,7 @@ import { useClinic } from '../store/store'
 export default function Settings() {
   const t = useT()
   const toast = useToast()
-  const { data, me, updateCategoryRank, updateStaff, resetDemo } = useClinic()
+  const { data, me, updateCategoryRank, setSignatureImage, changePin, resetDemo } = useClinic()
   const [pin, setPin] = useState({ current: '', next: '' })
   const [reset, setReset] = useState(false)
   if (!me) return null
@@ -47,17 +47,16 @@ export default function Settings() {
           </div>
           <SignaturePad
             onSave={(dataUrl) => {
-              updateStaff(me.staff_id, { signature_image: dataUrl })
+              setSignatureImage(dataUrl)
               toast({ tone: 'ok', title: 'Signature saved', body: 'Logged in the audit trail.' })
             }}
           />
           <form
             className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault()
-              if (pin.current !== me.pin) return toast({ tone: 'warn', title: 'Current PIN is incorrect' })
               if (!/^\d{4}$/.test(pin.next)) return toast({ tone: 'warn', title: 'The new PIN must be 4 digits' })
-              updateStaff(me.staff_id, { pin: pin.next })
+              if (!(await changePin(pin.current, pin.next))) return toast({ tone: 'warn', title: 'Current PIN is incorrect' })
               setPin({ current: '', next: '' })
               toast({ tone: 'ok', title: 'PIN changed' })
             }}

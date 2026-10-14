@@ -131,12 +131,12 @@ export function Signature({ staff, className }: { staff: Staff; className?: stri
   )
 }
 
-export function PinModal({ open, onClose, onSubmit, title, children }: { open: boolean; onClose: () => void; onSubmit: (pin: string) => 'ok' | 'bad-pin' | 'offline'; title: string; children?: ReactNode }) {
+export function PinModal({ open, onClose, onSubmit, title, children }: { open: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<'ok' | 'bad-pin' | 'offline'>; title: string; children?: ReactNode }) {
   const t = useT()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
-  const submit = (value: string) => {
-    const r = onSubmit(value)
+  const submit = async (value: string) => {
+    const r = await onSubmit(value)
     if (r === 'ok') {
       setPin('')
       setError('')

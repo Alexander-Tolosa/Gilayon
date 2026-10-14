@@ -186,7 +186,10 @@ export function buildSeed(): ClinicData {
     const senior = chance(0.1)
     const person = addPerson({ full_name: makeName(sex), birthdate: senior ? birth(60, 64) : birth(23, 59), sex, contact: phone() })
     const hired = Math.max(1995, thisYear - between(1, ageOf(person.birthdate) - 21))
-    employees.push({ employee_id: id('emp'), person_id: person.person_id, employee_no: `IPG-${hired}-${pad(between(1, 1999), 4)}`, office: pick(OFFICES), position: pick(POSITIONS) })
+    // Employee numbers are unique on the HR list; re-draw on the rare collision.
+    let employee_no = `IPG-${hired}-${pad(between(1, 1999), 4)}`
+    while (employees.some((e) => e.employee_no === employee_no)) employee_no = `IPG-${hired}-${pad(between(1, 1999), 4)}`
+    employees.push({ employee_id: id('emp'), person_id: person.person_id, employee_no, office: pick(OFFICES), position: pick(POSITIONS) })
     const civil: CivilStatus = ageOf(person.birthdate) > 30 && chance(0.7) ? 'Married' : chance(0.05) ? 'Widowed' : 'Single'
     const pt = addPatient(person, {
       civil_status: civil,

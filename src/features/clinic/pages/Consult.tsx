@@ -106,10 +106,15 @@ export default function Consult() {
     }
   }
 
-  const save = (thenSign: boolean) => {
+  const save = async (thenSign: boolean) => {
     const input = build()
     if (!input) return window.scrollTo({ top: 0, behavior: 'smooth' })
-    const result = saveConsultation(input)
+    let result: 'saved' | 'local'
+    try {
+      result = await saveConsultation(input)
+    } catch {
+      return // the store already told the doctor why it was not saved
+    }
     setSaved({ input, result, signed: false })
     const hasDocs = input.rx.length > 0 || !!input.certificate
     if (result === 'local') toast({ tone: 'warn', title: 'Saved on this computer', body: 'It syncs when the clinic server is reachable. Documents stay drafts marked "not yet signed".' })

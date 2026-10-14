@@ -80,3 +80,11 @@ coverage/
 .vscode/
 .idea/
 *.swp
+
+# Next.js / local database
+.next/
+next-env.d.ts
+.data/
+uploads/
+*.tsbuildinfo
+.gstack/

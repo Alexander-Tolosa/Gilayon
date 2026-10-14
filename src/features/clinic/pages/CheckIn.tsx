@@ -620,8 +620,8 @@ function PriorityStep({ patientId, onBack, onIssued }: { patientId: string; onBa
           size="lg"
           className="h-16 text-xl"
           disabled={!online}
-          onClick={() => {
-            const tk = issueTicket(patientId, cats, service, reason)
+          onClick={async () => {
+            const tk = await issueTicket(patientId, cats, service, reason)
             if (tk) onIssued(tk)
             else toast({ tone: 'warn', title: 'Needs the clinic server' })
           }}
