@@ -109,7 +109,7 @@ const FIL: Record<string, string> = {
   Allergies: 'Mga allergy',
   'No known allergies': 'Walang kilalang allergy',
   'Print patient summary': 'I-print ang buod ng pasyente',
-  'Visits today': 'Mga bisita ngayon',
+  'Visits today': 'Mga pagbisita ngayon',
   'Average wait': 'Karaniwang paghihintay',
   'New patients': 'Bagong pasyente',
   'Returning patients': 'Dating pasyente',
