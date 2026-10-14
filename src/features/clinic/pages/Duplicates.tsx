@@ -100,7 +100,7 @@ function Review({ pair, onClose }: { pair: DuplicatePair | null; onClose: () => 
   const [reason, setReason] = useState('Same name, birthdate and sex; confirmed with the patient.')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  if (!pair) return <Modal open={false} onClose={onClose} title="" children={null} />
+  if (!pair) return null
 
   const hrA = data.employees.some((e) => e.person_id === pair.a.person_id)
   const hrB = data.employees.some((e) => e.person_id === pair.b.person_id)

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { BackupStatus, ConsultInput, SecurityStatus, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
@@ -55,6 +55,7 @@ const EMPTY: Snapshot = {
   audit: [],
   offsite: { pending: 0, lastAt: 0 },
   merged: {},
+  auditSeenAt: 0,
   mergedRecords: [],
   notDuplicates: [],
   lastImport: { at: 0, count: 0, source: '' },
@@ -199,6 +200,7 @@ type Api = {
   mergePatients: (keepPatientId: string, duplicatePatientId: string, reason: string) => Promise<string | null>
   unmergePatient: (patientId: string, reason: string) => Promise<string | null>
   markNotDuplicate: (a: string, b: string) => Promise<string | null>
+  markAuditSeen: (upTo: number) => Promise<void>
   fetchBackups: () => Promise<BackupStatus | null>
   fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
@@ -221,12 +223,17 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => ss.get<string | null>(S_TOKEN, null))
   const [session, setSession] = useState<string | null>(() => ss.get<string | null>(S_SESSION, null))
   const [network, setNetworkState] = useState<NetworkMode>(() => ss.get<NetworkMode>(S_NET, 'online'))
-  const [pending, setPending] = useState<PendingOp[]>([])
+  // Everything waiting on this computer, for whoever signed in here; each person only sees their own.
+  const [queued, setPending] = useState<PendingOp[]>([])
+  const pending = useMemo(() => queued.filter((o) => o.staff_id === session), [queued, session])
   const [recent, setRecent] = useState<string[]>(() => ss.get<string[]>(S_RECENT, []))
   const tokenRef = useRef(token)
   const networkRef = useRef(network)
-  tokenRef.current = token
-  networkRef.current = network
+  // Keep the refs in step with state after each commit (not during render), before any effect runs.
+  useLayoutEffect(() => {
+    tokenRef.current = token
+    networkRef.current = network
+  }, [token, network])
 
   useEffect(() => ss.set(S_TOKEN, token), [token])
   useEffect(() => ss.set(S_SESSION, session), [session])
@@ -299,7 +306,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const online = network !== 'offline' && connected
 
   const pendingRef = useRef(pending)
-  pendingRef.current = pending
+  useLayoutEffect(() => {
+    pendingRef.current = pending
+  }, [pending])
   const flushing = useRef(false)
 
   /** Adds an entry to the outbox. It is on disk (IndexedDB) before the screen says "saved on this computer". */
@@ -333,10 +342,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   // Whoever signs in gets their own unsent entries back from disk (also after a restart).
   useEffect(() => {
     let live = true
-    if (!session) {
-      setPending([])
-      return
-    }
+    if (!session) return
     void loadOutbox(session).then((ops) => live && setPending((cur) => [...ops, ...cur.filter((c) => !ops.some((o) => o.op_id === c.op_id))]))
     return () => {
       live = false
@@ -636,6 +642,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       mergePatients: (keep, duplicate, reason) => call('/api/patients/merge', { keep_patient_id: keep, duplicate_patient_id: duplicate, reason }),
       unmergePatient: (patientId, reason) => call(`/api/patients/${patientId}/unmerge`, { reason }),
       markNotDuplicate: (a, b) => call('/api/patients/not-duplicate', { a, b }),
+      markAuditSeen: async (upTo) => void (await call('/api/audit/seen', { up_to: upTo })),
       fetchSecurity: async () => {
         try {
           return await api<SecurityStatus>('/api/security', { token: tokenRef.current })

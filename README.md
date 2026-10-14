@@ -28,7 +28,7 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
 | Duplicate patients | Staff review pairs with the same birthdate and sex and a similar name (**Patients > Review possible duplicates**, or the warning on a record) and merge them with a reason. Nothing is moved or deleted: the older record is marked `merged_into` the survivor, screens show both histories together, signed documents keep the record they were issued under, and writes aimed at the old record land on the survivor. Two people on the HR list under different employee numbers can never be merged. A doctor can undo a merge from the surviving record. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
-| Audit log | Written in the same transaction as every change; the database refuses deletes. |
+| Audit log | Written in the same transaction as every change; the database refuses deletes. Each doctor has their own "seen up to" mark: the My queue screen lists other people's notable changes since then (new patients, edits, scans, flags, voids, merges, offline syncs, backups), the Audit trail shows a count, and **Mark all as seen** moves the mark forward. |
 | Transport | `npm run start:https` terminates TLS 1.2+ with a certificate from the clinic's own CA. See [HTTPS](#https-and-running-as-a-service). |
 | Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
@@ -132,7 +132,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | Append-only consultations, required fields, templates, duplicate warning | `/clinic/consult`, patient record |
 | E-signed Rx (several drugs) and medical certificate, PIN + one tap, license and PTR, document number | Consult, `/print/rx`, `/print/mc` |
 | Void with a reason, then reissue | `/clinic/documents` |
-| Daily report, audit trail | `/clinic/report`, `/clinic/audit` |
+| Daily report, census (patients and visits per day, week, month and year), audit trail | `/clinic/report`, `/clinic/audit` |
 | Scans of old paper records | Check-in and patient record → *Old paper records* |
 | Offline badge on every screen (Online / Clinic network only / Offline) | Top bar of the clinic screens |
 | English and Filipino labels | EN/FIL switch (clinic screens) |

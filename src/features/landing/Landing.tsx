@@ -27,6 +27,8 @@ import { DOCTORS } from '../portal/data/seed'
 import '@fontsource/allura'
 import { cn, img, PHOTOS } from '../../shared/lib/utils'
 
+const YEAR = new Date().getFullYear()
+
 /* ----------------------------------- Nav ----------------------------------- */
 
 const NAV = [
@@ -522,7 +524,7 @@ function Footer() {
         ))}
       </div>
       <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {new Date().getFullYear()} Himsog · Team KasCoders, Hack Iloilo 2026.</p>
+        <p>© {YEAR} Himsog · Team KasCoders, Hack Iloilo 2026.</p>
         <p>Prototype with synthetic data only. Not for real patient data.</p>
       </div>
     </footer>

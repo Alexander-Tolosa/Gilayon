@@ -18,8 +18,12 @@ export function BackupCard() {
 
   const load = useCallback(async () => setSt(await fetchBackups()), [fetchBackups])
   useEffect(() => {
-    void load()
-  }, [load, data.offsite.lastAt])
+    let live = true
+    void fetchBackups().then((v) => live && setSt(v))
+    return () => {
+      live = false
+    }
+  }, [fetchBackups, data.offsite.lastAt])
 
   const go = async () => {
     setBusy(true)

@@ -131,3 +131,11 @@ export async function changeOwnPassword(q: Q, actor: Actor, current: string, nex
   await q.update(t.staff).set({ password_hash: await hashSecret(next), must_change_password: false }).where(eq(t.staff.staff_id, actor.staff_id))
   await audit(q, actor.staff_id, { action: 'edit', table: 'staff', record: actor.staff_id, summary: 'Changed own password' })
 }
+
+/** Moves a doctor's "seen up to" mark forward (never back, never into the future). */
+export async function markAuditSeen(q: Q, actor: Actor, upTo: number) {
+  const key = `audit_seen:${actor.staff_id}`
+  const [row] = await q.select().from(t.meta).where(eq(t.meta.key, key))
+  const value = Math.max((row?.value as number | undefined) ?? 0, Math.min(Math.floor(upTo), Date.now()))
+  await q.insert(t.meta).values({ key, value }).onConflictDoUpdate({ target: t.meta.key, set: { value } })
+}
