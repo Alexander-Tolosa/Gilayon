@@ -23,3 +23,16 @@ export type ConsultInput = {
   doc_id: string
   lab_ids: string[]
 }
+
+export type BackupFile = { name: string; bytes: number; modified: number }
+
+/** GET /api/backups */
+export type BackupStatus = {
+  configured: boolean
+  problem: string | null
+  encrypted: boolean
+  offsiteConfigured: boolean
+  last: { ok: boolean; at?: number; file?: string; bytes?: number; scans?: number; offsite?: { ok: boolean; error?: string } | null; failed_at?: number; error?: string } | null
+  files: BackupFile[]
+  keep: number
+}

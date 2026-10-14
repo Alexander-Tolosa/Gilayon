@@ -28,12 +28,30 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
 | Audit log | Written in the same transaction as every change; the database refuses deletes. |
+| Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
 
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
-Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), real nightly USB/off-site backup jobs, and a multi-process event bus (the server is a single process, as on the clinic PC).
+Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), and a multi-process event bus (the server is a single process, as on the clinic PC).
+
+## Backups
+
+The server makes a backup every night (default 02:00, or at the next start if the PC was off), and the doctor can press **Settings → Back up now**.
+
+- **What is in it:** every record and every scanned page, in one `himsog-YYYYMMDD-HHMMSS.hbk` file, encrypted with AES-256-GCM using `BACKUP_PASSPHRASE`. A backup is read back and every checksum is checked before it counts; a failed one never replaces a good one.
+- **Where it goes:** `BACKUP_DIR` (the USB drive, for example `E:\HimsogBackups`; if the drive is missing the backup fails and Settings says so) and, when reachable, `BACKUP_OFFSITE_DIR` (a synced or network folder). The newest `BACKUP_KEEP` (default 14) are kept in each. The "changes wait for the off-site backup" counter on every screen drops to 0 only after a real, verified copy.
+- **Keep the passphrase safe and separate.** Without it a backup cannot be opened, and nothing can recover it. Settings shows a warning if backups are not configured, failed, or are over a day old.
+
+```bash
+npm run backup                              # back up now (stop the server first if using the embedded database)
+npm run backup:list                         # backups in BACKUP_DIR
+npm run backup:verify -- E:\HimsogBackups\himsog-20261014-020000.hbk
+npm run backup:restore -- <file> --yes      # replaces ALL records; stop the server first
+```
+
+To rebuild a server after a disk failure: install the app, set `DATABASE_URL`, `UPLOADS_DIR` and `BACKUP_PASSPHRASE` (add `HIMSOG_AUTO_SEED=0` for an embedded database so it is not filled with demo data), then run `backup:restore`. Everyone signs in again afterwards. Do a trial restore on a spare folder once a month: a backup that has never been restored is a hope, not a backup.
 
 ## Demo accounts
 

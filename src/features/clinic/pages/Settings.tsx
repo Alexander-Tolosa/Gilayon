@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Field, Input, Modal, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, Signature } from '../components/ClinicComponents'
+import { BackupCard } from '../components/BackupCard'
 import { ChangePasswordForm, StaffManager } from '../components/StaffAdmin'
 import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
@@ -81,6 +82,8 @@ export default function Settings() {
         </Card>
 
         <StaffManager />
+
+        <BackupCard />
 
         <Card className="p-6">
           <p className="text-lg font-semibold">Demo data</p>

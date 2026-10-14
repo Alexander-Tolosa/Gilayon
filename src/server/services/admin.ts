@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import { and, eq, ne } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import { endSessions, hashSecret, passwordProblem, verifyPin } from '../auth'
-import { audit, HttpError, nowMs, uuid, type Actor } from '../core'
+import { audit, HttpError, uuid, type Actor } from '../core'
 import type { Q } from '../db'
 
 export async function updateCategoryRank(q: Q, actor: Actor, category: string, rank: number) {
@@ -31,12 +31,6 @@ export async function changePin(q: Q, actor: Actor, current: string, next: strin
   await q.update(t.staff).set({ pin_hash: await hashSecret(next) }).where(eq(t.staff.staff_id, actor.staff_id))
   await audit(q, actor.staff_id, { action: 'edit', table: 'staff', record: actor.staff_id, summary: 'Changed signing PIN' })
   return true
-}
-
-/** The front desk's backup indicator: everything logged before this moment has reached the off-site copy. */
-export async function markBackedUp(q: Q) {
-  const value = nowMs()
-  await q.insert(t.meta).values({ key: 'last_backup_at', value }).onConflictDoUpdate({ target: t.meta.key, set: { value } })
 }
 
 /* ------------------------------ Staff accounts ----------------------------- */
