@@ -11,7 +11,6 @@ import {
   UsersThree,
   X,
   Queue as QueueIcon,
-  AddressBook,
 } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
@@ -46,7 +45,6 @@ function useNav(role: StaffRole): Item[] {
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
       { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
-      { to: '/clinic/import', label: 'Employee list', icon: AddressBook },
     ]
   return [
     { to: '/clinic/doctor', label: 'My queue', icon: Stethoscope, badge: waiting || undefined },

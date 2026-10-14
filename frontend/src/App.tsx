@@ -1,16 +1,8 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import { AppShell } from './components/AppShell'
 import { Button } from './components/ui'
 import Landing from './pages/Landing'
 const AuthPage = lazy(() => import('./pages/auth/AuthPage'))
-// Patient portal: kept as an extra. The concept's demo has no patient login.
-const PatientHome = lazy(() => import('./pages/patient/PatientHome'))
-const PatientRecords = lazy(() => import('./pages/patient/PatientRecords'))
-const PatientAppointments = lazy(() => import('./pages/patient/PatientAppointments'))
-const PatientMessages = lazy(() => import('./pages/patient/PatientMessages'))
-const PatientProfile = lazy(() => import('./pages/patient/PatientProfile'))
-const TelehealthRoom = lazy(() => import('./pages/patient/TelehealthRoom'))
 // Himsog clinic: front desk, doctor, waiting screen and print views.
 const ClinicShell = lazy(() => import('./clinic/ClinicShell').then((m) => ({ default: m.ClinicShell })))
 const ClinicHome = lazy(() => import('./clinic/ClinicShell').then((m) => ({ default: m.ClinicHome })))
@@ -20,7 +12,6 @@ const CheckIn = lazy(() => import('./clinic/pages/CheckIn'))
 const QueueBoard = lazy(() => import('./clinic/pages/QueueBoard'))
 const Patients = lazy(() => import('./clinic/pages/Patients'))
 const PatientRecord = lazy(() => import('./clinic/pages/PatientRecord'))
-const EmployeeImport = lazy(() => import('./clinic/pages/EmployeeImport'))
 const DoctorQueue = lazy(() => import('./clinic/pages/DoctorQueue'))
 const Consult = lazy(() => import('./clinic/pages/Consult'))
 const Documents = lazy(() => import('./clinic/pages/Documents'))
@@ -80,7 +71,6 @@ export default function App() {
           <Route path="queue" element={<QueueBoard />} />
           <Route path="patients" element={<Patients />} />
           <Route path="patients/:id" element={<PatientRecord />} />
-          <Route path="import" element={<EmployeeImport />} />
           <Route path="doctor" element={doctor(<DoctorQueue />)} />
           <Route path="consult/:patientId" element={doctor(<Consult />)} />
           <Route path="documents" element={doctor(<Documents />)} />
@@ -90,14 +80,6 @@ export default function App() {
         </Route>
         <Route path="/waiting" element={<WaitingScreen />} />
         <Route path="/print/:kind/:id" element={<PrintPage />} />
-        <Route path="/patient" element={<AppShell role="patient" />}>
-          <Route index element={<PatientHome />} />
-          <Route path="records" element={<PatientRecords />} />
-          <Route path="appointments" element={<PatientAppointments />} />
-          <Route path="messages" element={<PatientMessages />} />
-          <Route path="profile" element={<PatientProfile />} />
-          <Route path="visit/:id" element={<TelehealthRoom />} />
-        </Route>
         {/* Old front desk and doctor portals were replaced by the clinic workflow. */}
         <Route path="/staff/*" element={<Navigate to="/clinic" replace />} />
         <Route path="/doctor/*" element={<Navigate to="/clinic" replace />} />

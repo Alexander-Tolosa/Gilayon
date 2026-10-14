@@ -1,6 +1,8 @@
-# Recora · Digital Health Records (frontend)
+# Himsog · HMO-Clinic Digital Records (frontend)
 
-Clickable prototype for the "Digitalization of Health Records" hackathon. It includes a landing page, sign-in with role selection, a patient portal, a front desk (secretary) workspace, and a doctor consultation workspace. All three portals read and write the same patient record.
+Clickable mockup screens for **Himsog**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
+
+The concept's Next.js and PostgreSQL backend is separate work. This app simulates it in the browser (see [What is simulated](#what-is-simulated)).
 
 ## Run it
 
@@ -9,58 +11,89 @@ cd frontend
 npm install
 npm run dev        # http://localhost:5173
 npm run build      # type-check + production build into dist/
+npm run lint
 ```
-
-There is no backend yet. Data is seeded in `src/data/seed.ts` and persisted in the browser's `localStorage`, so changes made in one portal show up in the others. To start fresh, open **Switch portal → Reset demo data**.
 
 ## Demo accounts
 
-Every sign-in form is pre-filled. Use **Switch portal** in the top bar to jump between roles during a demo.
+Passwords are pre-filled on `/clinic/login`. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
 
-| Portal | Who | Start at |
+| Role | Who | Can do |
 | --- | --- | --- |
-| Patient | Andrea Villanueva (`andrea.v@mail.com` or `RC-10482`) | `/auth?role=patient` |
-| Front desk | Joanna Reyes | `/auth?role=secretary` |
-| Doctor | Dr. Miguel Santos (or any of 5 doctors) | `/auth?role=doctor` |
+| Front desk | Cristina Bañas, Joel Parreño | Check in, queue board, patient registry. Can't sign or edit consultation notes. |
+| Doctor | Dr. Ramon Sollesta (Room 1), Dr. Liza Magbanua, Dr. Analyn Hechanova (Dental) | Call patients, consult, sign, void and reissue documents, daily report, audit trail, settings |
+| Patient | No login | Waiting screen (`/waiting`) and printouts |
 
-## Five-minute demo script
+**Signing PIN for every doctor: `1234`** (it can be changed in Settings).
 
-1. **Landing (`/`)**: explain the problem (paper charts) and the single shared record.
-2. **New patient**: choose *Get started*, then *I'm a patient*, then *No, I'm new*. Fill in name, age, why you're consulting, history of disease and current medicines. A record is created with a Patient ID, and a consultation request goes to the front desk.
-3. **Front desk**: on *Overview*, approve the new request and check in Andrea. Open *Patient inventory*, then a patient, to see labs, schedule and doctor in one place. The *Clinical notes* tab is locked by role-based access, and every attempt is logged.
-4. **Doctor**: *Start consultation* on Andrea. Try to prescribe **Amoxicillin**: the penicillin allergy blocks it. Prescribe **Azithromycin** instead, accept the ophthalmology referral from the alerts, use *Draft from note*, then *Sign & complete*.
-5. **Patient**: switch back to Andrea. The visit summary, the new prescription, the referral and the message from the doctor are all in her record. *Health record → Trends* shows 3 years of blood pressure, A1C and LDL.
-6. **Reports**: in the front desk's *Population health*, filter "diabetic, no eye exam in 12 months" and send a reminder in one click.
+Demo anchors in the seed:
+- **Maria Lourdes Villanueva** (IPG-2004-0318): returning patient with a Penicillin allergy, an old paper folder (F-2004-0181) with scanned pages, and her husband and daughter linked as dependents.
+- **Jose Dela Cruz / Jose De la Cruz**: shows the duplicate-patient warning.
+- **Carlo Sorongon** (IPG-2026-0071): a new hire with no record yet.
 
-## Feature map
+The data reseeds each day, so today's queue is always live. To start over, go to **Settings → Reset demo data**.
 
-| Area | Where |
+## Five-minute demo script (concept §11)
+
+1. **Check in** (front desk, `/clinic/checkin`): search `maria lurdes` (typos are fine). Verify name, birthdate and employee ID against the HR list, then try a wrong birthdate to see the check-in blocked. Mark her **Urgent**, then print the slip.
+2. **Waiting screen** (`/waiting`, open it in a second window): the number shows up in the Urgent lane, ahead of Pregnant/PWD/Senior and Regular.
+3. **Consult and sign** (doctor, *My queue*): *Call next patient*, apply a template, add **Amoxicillin**, and see the Penicillin allergy warning. Switch to another drug, add a medical certificate, then *Save and sign* with PIN `1234`. Print the prescription and certificate on letterhead.
+4. **Void and reissue** (*Documents*): void the prescription with a reason, then reissue it. The new draft shows which document number it replaces.
+5. **Offline**: click the status badge (top right) and choose **Offline**. Save a consultation; it is kept on this computer with a pending count. Switch back to **Online**, and it syncs.
+6. **Report and audit**: *Daily report* (print it), then *Audit trail*, which lists every create, edit, sign and void.
+
+## Routes
+
+| Route | Screen |
 | --- | --- |
-| Centralized patient profiles | Patient inventory and patient chart (`/staff/patients`) |
-| SOAP / DAP / follow-up templates | Doctor consultation |
-| E-prescribing with allergy and interaction checks | Doctor consultation, `src/data/clinical.ts` |
-| Lab and imaging orders and results | Consultation orders; *Labs & imaging* in the patient record |
-| Longitudinal trends | Patient record → *Trends* |
-| Preventive care alerts, protocols, risk warnings | Consultation side panel; patient *Health reminders* |
-| Referrals and care coordination | Consultation → *Referral*; record timeline |
-| Patient portal, self-scheduling, reminders | `/patient`, booking modal |
-| Telehealth (uses the real camera for self-view) | `/patient/visit/:id`; doctor consultation for video visits |
-| Secure messaging | Patient *Messages*; *Messages* tab in the staff chart |
-| Billing, eligibility, coding assistance | `/staff/billing` |
-| Task routing | `/staff/tasks` |
-| Population health, operational dashboards, custom reports (CSV) | `/staff/reports` |
-| RBAC, audit trail, compliance status | `/staff/security`; *Access log* tab in the chart |
+| `/` | Landing page |
+| `/clinic/login` | Staff sign-in (front desk or doctor) |
+| `/clinic/checkin` | Verified check-in and new/returning patient (front desk) |
+| `/clinic/queue` | Queue board by lane |
+| `/clinic/patients`, `/clinic/patients/:id` | Registry with typo-tolerant search; patient record (family, old paper records, labs, history of changes) |
+| `/clinic/doctor` | Doctor's queue (doctor only) |
+| `/clinic/consult/:patientId` | One-screen consultation, Rx, labs, certificate, AI recap (doctor only) |
+| `/clinic/documents` | Not yet signed / signed / voided (doctor only) |
+| `/clinic/report` | Printable daily report (doctor only) |
+| `/clinic/audit` | Audit trail with CSV export (doctor only) |
+| `/clinic/settings` | Lane ranks, signature, PIN, staff (doctor only) |
+| `/waiting` | Public waiting screen for the TV |
+| `/print/:kind/:id` | Print views: `rx`, `mc`, `summary`, `ticket`, `report` |
 
-## Stack
+## Concept checklist
 
-React 19, TypeScript, Vite, Tailwind CSS v4, Motion, React Router, Recharts, Phosphor Icons, Geist font. App routes are lazy-loaded, so the landing page doesn't download chart code.
+| Concept item | Where |
+| --- | --- |
+| Verified check-in (name, birthdate, employee ID) | `/clinic/checkin` |
+| Priority lanes: Urgent 1; Pregnant, PWD, Senior (60+, computed) 2; Regular 3; first come, first served within a lane | `src/clinic/lib.ts` (`rankTickets`), Settings |
+| Live waiting list and waiting screen | `/clinic/queue`, `/waiting` |
+| Registry, one-box search, linked relatives (MDR), family history | `/clinic/patients` |
+| Append-only consultations, required fields, templates, duplicate warning | `/clinic/consult`, patient record |
+| E-signed Rx (several drugs) and medical certificate, PIN + one tap, license and PTR, document number | Consult, `/print/rx`, `/print/mc` |
+| Void with a reason, then reissue | `/clinic/documents` |
+| Daily report, audit trail | `/clinic/report`, `/clinic/audit` |
+| Scans of old paper records | Check-in and patient record → *Old paper records* |
+| Offline badge on every screen (Online / Clinic network only / Offline) | Top bar of the clinic screens |
+| English and Filipino labels | EN/FIL switch (clinic screens) |
+| Patient summary printout | Patient record → *Print patient summary* |
+| If time allows: allergy warning, lab requests and results, AI recap | Consult; patient record → *Labs* |
+
+## What is simulated
+
+- **Backend**: shared clinic data lives in `localStorage` (`himsog-clinic-v1`) and syncs across tabs. Sign-in, network mode and the pending queue are per tab (`sessionStorage`).
+- **Offline**: the status badge switches modes for the demo. Consultations saved offline are kept with pre-made ids, so syncing twice can't create duplicates. Signing and issuing queue numbers need the network.
+- **AI recap**: a rule-based draft built from the patient's synthetic record, with links to its sources. No data leaves the browser.
+- **PDFs**: print views use the browser's print dialog ("Save as PDF").
+- **Install**: a PWA (`public/manifest.webmanifest`, `public/sw.js`). The service worker is registered only in production builds.
+
+## Stack and libraries (hackathon disclosure)
+
+React 19, TypeScript, Vite 8, Tailwind CSS v4, Motion (`motion/react`), React Router 7, Recharts, Phosphor Icons, Geist and Geist Mono fonts, Allura font (signature script), oxlint. App routes are lazy-loaded.
 
 ```
 src/
-  data/        types, seed data, clinical rules (formulary, interactions, alerts)
-  store/       shared state and actions, persisted to localStorage
-  components/  UI kit, app shell, booking, chat, video call, charts
-  pages/       Landing, auth, patient/, staff/, doctor/
+  clinic/      Himsog clinic module: types, seed, store, i18n, components, pages/
+  components/  UI kit, app shell, landing sections
+  pages/       Landing, auth
+  lib/         utils, PWA service worker
 ```
-
-All names, records and numbers are sample data. Don't enter real patient information.

@@ -11,7 +11,6 @@ import {
   List,
   LockKey,
   Pill,
-  Plus,
   Stethoscope,
   Syringe,
   Wheelchair,
@@ -20,9 +19,7 @@ import {
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { LandingLoader } from '../components/LandingLoader'
 import { Logo } from '../components/Logo'
-import { MobileAppShowcase } from '../components/MobileAppShowcase'
 import { Reveal } from '../components/Reveal'
 import { Drift, ParallaxImage, PopIn, RevealText, ScrollAway, ScrollProgress } from '../components/ScrollFx'
 import { Avatar, Badge, Button } from '../components/ui'
@@ -35,7 +32,6 @@ import { cn, img, PHOTOS } from '../lib/utils'
 const NAV = [
   { href: '#services', label: 'Services' },
   { href: '#security', label: 'Security' },
-  { href: '#app', label: 'Mobile app' },
 ]
 
 function Nav() {
@@ -105,30 +101,6 @@ const ORBIT: { icon: ReactNode; className: string; delay: number }[] = [
   { icon: <Syringe size={30} />, className: 'right-[15%] top-[76%]', delay: 2 },
 ]
 
-function EcgPill() {
-  return (
-    <div className="relative mx-auto h-12 w-[280px] overflow-hidden rounded-full bg-brand-950 shadow-[inset_0_1px_0_rgb(255_255_255/0.12)] sm:w-[340px]">
-      <div className="absolute inset-0 opacity-40 [background-image:linear-gradient(rgb(93_136_250/0.35)_1px,transparent_1px),linear-gradient(90deg,rgb(93_136_250/0.35)_1px,transparent_1px)] [background-size:10px_10px]" />
-      <svg viewBox="0 0 340 48" className="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden>
-        <path d="M0 26 H40 l6 -4 l6 4 H70 l5 10 l7 -30 l7 34 l5 -14 H130 l6 -4 l6 4 H160 l5 10 l7 -30 l7 34 l5 -14 H220 l6 -4 l6 4 H250 l5 10 l7 -30 l7 34 l5 -14 H340" fill="none" stroke="#5d88fa" strokeOpacity="0.35" strokeWidth="1.5" strokeLinejoin="round" />
-        <path
-          d="M0 26 H40 l6 -4 l6 4 H70 l5 10 l7 -30 l7 34 l5 -14 H130 l6 -4 l6 4 H160 l5 10 l7 -30 l7 34 l5 -14 H220 l6 -4 l6 4 H250 l5 10 l7 -30 l7 34 l5 -14 H340"
-          pathLength={460}
-          fill="none"
-          stroke="#bdd0ff"
-          strokeWidth="2.25"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          strokeDasharray="90 370"
-          className="animate-ecg"
-        />
-      </svg>
-      <div className="absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-brand-950 to-transparent" />
-      <div className="absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-brand-950 to-transparent" />
-    </div>
-  )
-}
-
 const HERO_PEOPLE = [
   { name: 'Dr. Ramon Sollesta', photo: DOCTORS[0].photo },
   { name: 'Dr. Liza Magbanua', photo: DOCTORS[1].photo },
@@ -163,10 +135,6 @@ function Hero() {
         ))}
 
         <ScrollAway className="w-full">
-        <motion.div {...rise(0)}>
-          <EcgPill />
-        </motion.div>
-
         <motion.h1 {...rise(0.08)} className="mt-10 text-[44px] leading-[1.02] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[84px]">
           <span className="block font-light">Every health record,</span>
           <span className="block font-semibold">
@@ -234,26 +202,6 @@ function Problem() {
   )
 }
 
-/* --------------------------------- Marquee --------------------------------- */
-
-function Marquee() {
-  const words = ['Verified check-in', 'Priority queue', 'Waiting screen', 'One-box search', 'Linked families', 'Signed prescriptions', 'Medical certificates', 'Daily report', 'Audit trail', 'Works offline', 'Old folder scans', 'English and Filipino']
-  return (
-    <div className="px-4 pt-24 sm:px-6 lg:px-8 lg:pt-32">
-      <div className="mask-fade-x mx-auto flex max-w-7xl overflow-hidden rounded-full bg-brand-950 py-4">
-        <div className="flex shrink-0 animate-marquee items-center gap-8 pr-8">
-          {[...words, ...words].map((w, i) => (
-            <span key={i} className="flex items-center gap-8 whitespace-nowrap text-[17px] font-medium text-brand-300">
-              {w}
-              <Plus size={12} weight="bold" className="text-brand-500" />
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
 /* --------------------------------- Services -------------------------------- */
 
 interface ServiceItem {
@@ -301,7 +249,7 @@ function Services() {
         },
       ],
       actionLabel: 'Schedule doctor visit',
-      actionUrl: '/auth?role=patient',
+      actionUrl: '/auth',
     },
     {
       id: 'prescription',
@@ -328,7 +276,7 @@ function Services() {
         },
       ],
       actionLabel: 'View prescription care',
-      actionUrl: '/auth?role=patient',
+      actionUrl: '/auth',
     },
     {
       id: 'laboratory',
@@ -355,7 +303,7 @@ function Services() {
         },
       ],
       actionLabel: 'View laboratory tests',
-      actionUrl: '/auth?role=patient',
+      actionUrl: '/auth',
     },
   ]
 
@@ -461,7 +409,7 @@ function Services() {
             </div>
           </div>
           <div className="shrink-0">
-            <Button to="/auth?role=patient" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
+            <Button to="/auth" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
               Start assisted visit
             </Button>
           </div>
@@ -553,8 +501,8 @@ function Footer() {
           </div>
         </div>
         {[
-          { h: 'Product', l: [['Services', '#services'], ['Security', '#security'], ['Mobile app', '#app']] },
-          { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting'], ['Patient portal (extra)', '/auth?role=patient']] },
+          { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
+          { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
           { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
         ].map((c) => (
           <div key={c.h}>
@@ -581,22 +529,8 @@ function Footer() {
   )
 }
 
-const PRELOAD = DOCTORS.slice(0, 4).map((d) => d.photo)
-
 export default function Landing() {
-  const [ready, setReady] = useState(false)
-  return (
-    // No "wait" mode: the page fades in underneath while the ECG loader fades out on top (a true crossfade).
-    <AnimatePresence>
-      {!ready ? (
-        <LandingLoader key="loader" images={PRELOAD} onDone={() => setReady(true)} />
-      ) : (
-        <motion.div key="page" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.9, ease: [0.65, 0, 0.35, 1] }}>
-          <LandingPage />
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
+  return <LandingPage />
 }
 
 function LandingPage() {
@@ -607,11 +541,9 @@ function LandingPage() {
       <main>
         <Hero />
         <Problem />
-        <Marquee />
         <Services />
         <Security />
         <Personas />
-        <MobileAppShowcase />
       </main>
       <Footer />
     </div>
