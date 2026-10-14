@@ -8,7 +8,7 @@ import { useT } from '../lib/i18n'
 import { fmtStampOf } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import type { DocStatus } from '../types'
-import { DocStatusBadge } from './history'
+import { DocStatusBadge } from '../components/History'
 
 type Row = { kind: 'rx' | 'doc'; id: string; patientId: string; status: DocStatus; no?: string; title: string; detail: string; when: number; doctorId: string; voidReason?: string; replaces?: string }
 

@@ -10,7 +10,7 @@ import { useT } from '../lib/i18n'
 import { ageOf, fmtDay, rankOf, rankTickets, todayKey } from '../lib/helpers'
 import { useClinic, type SearchHit } from '../store/store'
 import type { CategoryKey, CivilStatus, QueueTicket, ServiceType } from '../types'
-import { DependentForm, ScanUploader } from './shared'
+import { DependentForm, ScanUploader } from '../components/ClinicForms'
 
 type Step = 'search' | 'verify' | 'record' | 'priority' | 'done' | 'notlisted'
 

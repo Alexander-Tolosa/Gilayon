@@ -8,8 +8,8 @@ import { useT } from '../lib/i18n'
 import { ageOf, fmtDay, fmtStampOf, matchScore } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import type { CivilStatus, Sex } from '../types'
-import { VisitHistory } from './history'
-import { DependentForm, ScanUploader } from './shared'
+import { VisitHistory } from '../components/History'
+import { DependentForm, ScanUploader } from '../components/ClinicForms'
 
 type Tab = 'overview' | 'visits' | 'family' | 'scans' | 'labs' | 'changes'
 

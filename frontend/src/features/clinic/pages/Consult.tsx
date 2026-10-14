@@ -10,7 +10,7 @@ import { ageOf, fmtDay, uuid } from '../lib/helpers'
 import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, ICD10, LAB_TESTS, TEMPLATES } from '../data/reference'
 import { useClinic, type ConsultInput } from '../store/store'
 import type { ServiceType } from '../types'
-import { VisitHistory } from './history'
+import { VisitHistory } from '../components/History'
 
 type RxRow = { drug_name: string; dose: string; frequency: string; quantity: number; ack?: boolean }
 
