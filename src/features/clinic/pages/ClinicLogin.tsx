@@ -26,10 +26,11 @@ export default function ClinicLogin() {
 
   if (me) return <Navigate to="/clinic" replace />
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault()
     if (!password) return setError('Enter your password.')
-    signIn(staffId)
+    const failure = await signIn(staffId, password)
+    if (failure) return setError(failure)
     navigate(role === 'doctor' ? '/clinic/doctor' : '/clinic/checkin')
   }
 

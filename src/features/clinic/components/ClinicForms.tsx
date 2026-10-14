@@ -22,7 +22,7 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
     for (const f of Array.from(files)) {
       try {
         const data = await compressImage(f)
-        if (uploadScan(patientId, data, kind, date || todayKey())) n++
+        if (await uploadScan(patientId, data, kind, date || todayKey())) n++
       } catch {
         toast({ tone: 'warn', title: `${f.name} is not an image`, body: 'Scan pages as JPG or PNG.' })
       }
@@ -68,14 +68,14 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
   const [ackDup, setAckDup] = useState(false)
   const dups = f.full_name.trim().length > 4 && f.birthdate ? findDuplicates(f.full_name, f.birthdate) : []
 
-  const submit = () => {
+  const submit = async () => {
     const e: Record<string, string> = {}
     if (f.full_name.trim().split(' ').length < 2) e.full_name = t('Required field')
     if (!f.birthdate) e.birthdate = t('Required field')
     else if (f.birthdate > todayKey()) e.birthdate = 'Birthdate cannot be in the future'
     setErrors(e)
     if (Object.keys(e).length || (dups.length && !ackDup)) return
-    const pt = createDependent(principalPatientId, f, f.type, f.mdr)
+    const pt = await createDependent(principalPatientId, f, f.type, f.mdr)
     if (!pt) return toast({ tone: 'warn', title: 'Needs the clinic server', body: 'New records can only be created when this computer is connected.' })
     toast({ tone: 'ok', title: 'Dependent added', body: `${f.full_name} is linked to ${principal?.full_name}.` })
     onDone(pt.patient_id)

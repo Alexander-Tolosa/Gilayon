@@ -2,16 +2,35 @@
 
 Clickable mockup screens for **Himsog**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
 
-The backend has not been built yet (the concept calls for Next.js and PostgreSQL). Until then this app simulates it in the browser (see [What is simulated](#what-is-simulated)).
+Himsog is a Next.js app with a PostgreSQL backend. The browser UI is a React Router app mounted inside Next.js; the API lives in `app/api/*`.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173
-npm run build      # type-check + production build into dist/
+npm run dev        # http://localhost:3000, API at /api/*
+npm run build      # type-check + production build
+npm start          # serve the production build
 npm run lint
+npm test           # backend integration tests (embedded PostgreSQL, nothing to install)
 ```
+
+With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.data/` and fills it with the synthetic demo clinic on first start. For a real clinic server, copy `.env.example` to `.env` and set `DATABASE_URL` to a PostgreSQL database; migrations run automatically. `npm run db:seed` loads the demo data into an empty database (stop the dev server first when using the embedded one).
+
+## Backend
+
+| Concern | How it works |
+| --- | --- |
+| Source of truth | PostgreSQL schema in `db/schema.ts`, migrations in `db/migrations/`. Services in `src/server/services/`, one route file per endpoint in `app/api/`. |
+| Sign-in | `POST /api/auth/login` returns a bearer token (kept per browser tab). Passwords and signing PINs are bcrypt hashes. Five wrong passwords lock the account for a minute. |
+| Roles | Doctor, nurse, receptionist. Calling patients, consulting, signing, voiding, reports, audit and settings are doctor-only and enforced on the server. |
+| Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
+| Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
+| Audit log | Written in the same transaction as every change; the database refuses deletes. |
+| Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
+| Offline | A tab that is offline queues consultations in the browser; `POST /api/sync` applies them once, even if the batch is sent twice. |
+
+Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), scanned pages in object storage (they are stored in the database), and a multi-process event bus (the server is a single process, as on the clinic PC).
 
 ## Demo accounts
 
@@ -30,7 +49,7 @@ Demo anchors in the seed:
 - **Jose Dela Cruz / Jose De la Cruz**: shows the duplicate-patient warning.
 - **Carlo Sorongon** (IPG-2026-0071): a new hire with no record yet.
 
-The data reseeds each day, so today's queue is always live. To start over, go to **Settings → Reset demo data**.
+The seed is relative to the day it was created. To start over, go to **Settings → Reset demo data** (disabled on production builds unless `HIMSOG_ALLOW_RESET=1`).
 
 ## Five-minute demo script (concept §11)
 
@@ -79,7 +98,7 @@ The data reseeds each day, so today's queue is always live. To start over, go to
 
 ## What is simulated
 
-- **Backend**: shared clinic data lives in `localStorage` (`himsog-clinic-v1`) and syncs across tabs. Sign-in, network mode and the pending queue are per tab (`sessionStorage`).
+- **Network mode**: the status badge simulates losing the connection for the demo. Sign-in token, network mode and the pending queue are per tab (`sessionStorage`); the records themselves are on the server.
 - **Offline**: the status badge switches modes for the demo. Consultations saved offline are kept with pre-made ids, so syncing twice can't create duplicates. Signing and issuing queue numbers need the network.
 - **AI recap**: a rule-based draft built from the patient's synthetic record, with links to its sources. No data leaves the browser.
 - **PDFs**: print views use the browser's print dialog ("Save as PDF").
@@ -87,7 +106,7 @@ The data reseeds each day, so today's queue is always live. To start over, go to
 
 ## Stack and libraries (hackathon disclosure)
 
-React 19, TypeScript, Vite 8, Tailwind CSS v4, Motion (`motion/react`), React Router 7, Recharts, Phosphor Icons, Geist and Geist Mono fonts, Allura font (signature script), oxlint. App routes are lazy-loaded.
+React 19, TypeScript, Next.js 16, PostgreSQL (Drizzle ORM, PGlite for dev), Tailwind CSS v4, Motion (`motion/react`), React Router 7, Recharts, Phosphor Icons, Geist and Geist Mono fonts, Allura font (signature script), oxlint. App routes are lazy-loaded.
 
 ```
 src/
@@ -111,4 +130,4 @@ src/
 
 ## Repository layout
 
-The app lives at the repo root (`src/`, `public/`, `package.json`). `.agents/`, `.claude/` and `skills-lock.json` are design-skill tooling for AI coding agents and are not part of the app. There is no backend yet; it will get its own folder when added.
+`app/` Next.js routes and API, `src/` UI and server code, `db/` schema, migrations and seed, `tests/` backend tests, `public/` PWA assets. `.agents/`, `.claude/` and `skills-lock.json` are design-skill tooling for AI coding agents and are not part of the app.

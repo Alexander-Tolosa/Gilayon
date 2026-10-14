@@ -155,8 +155,8 @@ export default function Documents() {
         open={!!signing}
         onClose={() => setSigning(null)}
         title={`${t('Sign')}: ${signing?.title ?? ''}`}
-        onSubmit={(pin) => {
-          const r = signDocuments([{ kind: signing!.kind, id: signing!.id }], pin)
+        onSubmit={async (pin) => {
+          const r = await signDocuments([{ kind: signing!.kind, id: signing!.id }], pin)
           if (r === 'ok') {
             toast({ tone: 'ok', title: 'Signed', body: 'A document number was issued. Print it from the Signed tab.' })
             setTab('signed')

@@ -78,8 +78,8 @@ export default function DoctorQueue() {
               className="h-16 px-8 text-xl"
               disabled={!online}
               icon={<Megaphone size={24} weight="fill" />}
-              onClick={() => {
-                if (callTicket(next.ticket_id)) toast({ tone: 'ok', title: `Called ${ticketLabel(next)}`, body: 'The number is now on the waiting screen.' })
+              onClick={async () => {
+                if (await callTicket(next.ticket_id)) toast({ tone: 'ok', title: `Called ${ticketLabel(next)}`, body: 'The number is now on the waiting screen.' })
               }}
             >
               {t('Call next patient')}
