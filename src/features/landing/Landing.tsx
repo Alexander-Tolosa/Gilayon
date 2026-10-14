@@ -477,39 +477,46 @@ function Personas() {
 
 function Footer() {
   return (
-    <footer className="mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 gap-10 border-b border-line pb-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div>
-          <Logo />
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
-          <div className="mt-5 flex items-center gap-2 text-[13px] text-muted">
-            <Drop size={16} weight="fill" className="text-brand-500" /> Runs on the clinic's own computers
+    <footer className="bg-brand-950 text-white">
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 border-b border-white/10 pb-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <Logo light />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-100">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
+            <div className="mt-5 flex items-center gap-2 text-[13px] text-brand-200">
+              <Drop size={16} weight="fill" className="text-brand-300" /> Runs on the clinic's own computers
+            </div>
+          </div>
+          {[
+            { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
+            { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
+            { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
+          ].map((c) => (
+            <div key={c.h}>
+              <p className="text-sm font-semibold text-white">{c.h}</p>
+              <ul className="mt-4 space-y-2.5">
+                {c.l.map(([label, href]) => (
+                  <li key={label}>
+                    {href.startsWith('#') ? (
+                      <a href={href} className="text-sm text-brand-100 transition hover:text-white">{label}</a>
+                    ) : (
+                      <Link to={href} className="text-sm text-brand-100 transition hover:text-white">{label}</Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-3 pt-6 text-[13px] text-brand-200">
+          <p className="max-w-3xl leading-relaxed">
+            This is a hackathon prototype built on synthetic demo data only — never real patient records. A production clinic deployment would handle personal health information under the Data Privacy Act of 2012 (RA 10173): records stay on clinic-owned hardware, access is role-based and logged, and patients may request a copy or correction of their data.
+          </p>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row">
+            <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
+            <p>Prototype with synthetic data only. Not for real patient data.</p>
           </div>
         </div>
-        {[
-          { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
-          { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
-          { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
-        ].map((c) => (
-          <div key={c.h}>
-            <p className="text-sm font-semibold text-ink">{c.h}</p>
-            <ul className="mt-4 space-y-2.5">
-              {c.l.map(([label, href]) => (
-                <li key={label}>
-                  {href.startsWith('#') ? (
-                    <a href={href} className="text-sm text-muted transition hover:text-brand-700">{label}</a>
-                  ) : (
-                    <Link to={href} className="text-sm text-muted transition hover:text-brand-700">{label}</Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
-        <p>Prototype with synthetic data only. Not for real patient data.</p>
       </div>
     </footer>
   )
