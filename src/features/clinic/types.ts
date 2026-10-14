@@ -1,5 +1,5 @@
 /*
-  Himsog clinic data model, following the concept document (section 7).
+  Gilayon clinic data model, following the concept document (section 7).
   Ids are uuids. Age is never stored; it is calculated from the birthdate when shown.
 */
 

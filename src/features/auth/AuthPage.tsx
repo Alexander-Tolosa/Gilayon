@@ -16,7 +16,7 @@ export default function AuthPage() {
   const navigate = useNavigate()
   const reduce = useReducedMotion()
   const initialRole = params.get('role')
-  // Clinic staff sign in to the Himsog clinic app.
+  // Clinic staff sign in to the Gilayon clinic app.
   if (initialRole === 'secretary' || initialRole === 'desk' || initialRole === 'receptionist' || initialRole === 'doctor' || initialRole === 'nurse') {
     const target = initialRole === 'doctor' ? 'doctor' : initialRole === 'nurse' ? 'nurse' : 'desk'
     return <Navigate to={`/clinic/login?role=${target}`} replace />
@@ -35,7 +35,7 @@ export default function AuthPage() {
         <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-10">
           <motion.div initial={reduce ? { opacity: 0 } : { opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
             <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.035em] sm:text-[40px]">
-              {params.get('mode') === 'signin' ? 'Welcome back.' : 'Welcome to Himsog.'}
+              {params.get('mode') === 'signin' ? 'Welcome back.' : 'Welcome to Gilayon.'}
               <br />
               <span className="font-light text-muted">Which one are you?</span>
             </h1>

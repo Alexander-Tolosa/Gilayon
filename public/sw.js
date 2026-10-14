@@ -1,5 +1,5 @@
 /*
-  Himsog service worker: keeps the app shell cached so the app opens even when the
+  Gilayon service worker: keeps the app shell cached so the app opens even when the
   network or the clinic server is down. Records themselves live on the clinic server;
   this only caches the screens. Network first for pages, cache first for built assets. /api/ is never cached.
 */

@@ -3,7 +3,7 @@
 @import "@fontsource-variable/geist-mono";
 
 /*
-  Himsog design tokens
+  Gilayon design tokens
   Palette: shades of white + cobalt blue. One accent (brand), semantic colors only for state.
   Shape rule: cards 20px (rounded-3xl), inner tiles 14px (rounded-2xl), inputs 12px (rounded-xl),
   every button and chip is a full pill.
@@ -75,7 +75,7 @@
 }
 
 @layer base {
-  /* Clinic screens: larger text for senior doctors and staff (Himsog concept). */
+  /* Clinic screens: larger text for senior doctors and staff (Gilayon concept). */
   html[data-ui='clinic'] {
     font-size: 112.5%;
   }

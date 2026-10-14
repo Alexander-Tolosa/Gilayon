@@ -1,5 +1,5 @@
 /*
-  Himsog PostgreSQL schema. Column names match src/features/clinic/types.ts so a row maps straight
+  Gilayon PostgreSQL schema. Column names match src/features/clinic/types.ts so a row maps straight
   to the frontend type. Ids are text (uuids for new rows; the demo staff keep readable ids).
   Timestamps are epoch milliseconds (bigint) because the frontend model and every screen already use them.
   Age is never stored; it is derived from birthdate.

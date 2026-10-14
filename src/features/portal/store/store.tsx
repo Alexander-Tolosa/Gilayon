@@ -141,7 +141,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           return {
             ...s,
             session: { role, userId },
-            audit: [{ id: uid('au'), at: Date.now(), actor: name ?? 'User', role, action: 'Signed in', target: 'Himsog web' }, ...s.audit],
+            audit: [{ id: uid('au'), at: Date.now(), actor: name ?? 'User', role, action: 'Signed in', target: 'Gilayon web' }, ...s.audit],
           }
         }),
 
@@ -207,8 +207,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               from: 'care-team',
               author: 'Joanna Reyes · Front desk',
               text: byStaff
-                ? `Welcome to Himsog, ${input.name.split(' ')[0]}! Your record is ready and your visit is confirmed. You can see everything in the patient portal.`
-                : `Welcome to Himsog, ${input.name.split(' ')[0]}! We received your consultation request and will confirm your schedule shortly.`,
+                ? `Welcome to Gilayon, ${input.name.split(' ')[0]}! Your record is ready and your visit is confirmed. You can see everything in the patient portal.`
+                : `Welcome to Gilayon, ${input.name.split(' ')[0]}! We received your consultation request and will confirm your schedule shortly.`,
               at: Date.now(),
             },
             ...s.messages,

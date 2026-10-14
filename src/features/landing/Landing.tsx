@@ -145,7 +145,7 @@ function Hero() {
         </motion.h1>
 
         <motion.p {...rise(0.16)} className="mx-auto mt-6 max-w-[560px] text-[17px] leading-relaxed text-muted sm:text-lg">
-          Himsog turns the HMO-Clinic's paper folders into one record for IPG employees and their dependents, with a fair queue, signed documents and a daily report.
+          Gilayon turns the HMO-Clinic's paper folders into one record for IPG employees and their dependents, with a fair queue, signed documents and a daily report.
         </motion.p>
 
         <motion.div {...rise(0.24)} className="mt-8 flex items-center gap-3">
@@ -188,7 +188,7 @@ function Problem() {
               <RevealText text="Paper folders get lost." /> <RevealText text="Your health story shouldn't." className="text-brand-600" delay={0.25} />
             </h2>
             <p className="mt-5 max-w-[62ch] text-[17px] leading-relaxed text-ink-2">
-              Today every visit means writing by hand, filing folders on shelves and searching for them while the line grows. Himsog keeps one standard record per patient, opened in seconds and ready before the consult.
+              Today every visit means writing by hand, filing folders on shelves and searching for them while the line grows. Gilayon keeps one standard record per patient, opened in seconds and ready before the consult.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
@@ -524,7 +524,7 @@ function Footer() {
         ))}
       </div>
       <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {YEAR} Himsog · Team KasCoders, Hack Iloilo 2026.</p>
+        <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
         <p>Prototype with synthetic data only. Not for real patient data.</p>
       </div>
     </footer>

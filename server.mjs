@@ -1,5 +1,5 @@
 /*
-  Himsog production server with HTTPS.
+  Gilayon production server with HTTPS.
 
     npm run build
     npm run https:setup        (once: creates the clinic CA and the server certificate)
@@ -60,7 +60,7 @@ const httpServer = createHttp((req, res) => {
   res.end()
 })
 
-httpsServer.listen(httpsPort, host, () => console.log(`Himsog is running at https://localhost:${httpsPort} (HTTP ${httpPort} redirects here)`))
+httpsServer.listen(httpsPort, host, () => console.log(`Gilayon is running at https://localhost:${httpsPort} (HTTP ${httpPort} redirects here)`))
 httpServer.listen(httpPort, host)
 
 const stop = () => {

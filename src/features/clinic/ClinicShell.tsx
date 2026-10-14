@@ -80,7 +80,7 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
       <div className="flex h-20 items-center gap-3 px-5">
         <LogoMark className="size-10 rounded-xl" />
         <div className="leading-tight">
-          <p className="text-xl font-semibold tracking-[-0.02em]">himsog</p>
+          <p className="text-xl font-semibold tracking-[-0.02em]">gilayon</p>
           <p className="text-[13px] text-muted">HMO-Clinic records</p>
         </div>
       </div>

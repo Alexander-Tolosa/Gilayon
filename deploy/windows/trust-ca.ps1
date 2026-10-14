@@ -1,5 +1,5 @@
 <#
-  Makes THIS PC trust the clinic's certificate authority, so the Himsog address opens with a
+  Makes THIS PC trust the clinic's certificate authority, so the Gilayon address opens with a
   padlock and no warning. Run once per clinic PC, in an ADMINISTRATOR PowerShell:
 
     .\trust-ca.ps1 -Server 192.168.1.10          downloads http://192.168.1.10:3000/ca.crt

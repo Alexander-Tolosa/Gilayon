@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
-/** Himsog mark: a cobalt tile with a rounded medical cross. */
+/** Gilayon mark: a cobalt tile with a rounded medical cross. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     <span className={cn('relative inline-grid size-8 place-items-center rounded-[10px] bg-brand-600 shadow-brand', className)} aria-hidden>
@@ -13,10 +13,10 @@ export function LogoMark({ className }: { className?: string }) {
 
 export function Logo({ to = '/', className, light }: { to?: string; className?: string; light?: boolean }) {
   return (
-    <Link to={to} className={cn('inline-flex items-center gap-2.5', className)} aria-label="Himsog home">
+    <Link to={to} className={cn('inline-flex items-center gap-2.5', className)} aria-label="Gilayon home">
       <LogoMark />
       <span className={cn('text-[19px] font-semibold tracking-[-0.03em]', light ? 'text-white' : 'text-ink')}>
-        himsog
+        gilayon
       </span>
     </Link>
   )
