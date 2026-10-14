@@ -1,23 +1,61 @@
 import { Link } from 'react-router-dom'
 import { cn } from '../lib/utils'
 
-/** Gilayon mark: a cobalt tile with a rounded medical cross. */
-export function LogoMark({ className }: { className?: string }) {
+/**
+ * Gilayon mark:
+ * Official cobalt tile emblem with stylized 'G', health cross, and flow chevrons.
+ */
+export function LogoMark({ className, alt = 'Gilayon' }: { className?: string; alt?: string }) {
   return (
-    <span className={cn('relative inline-grid size-8 place-items-center rounded-[10px] bg-brand-600 shadow-brand', className)} aria-hidden>
-      <span className="absolute h-[52%] w-[16%] rounded-full bg-white" />
-      <span className="absolute h-[16%] w-[52%] rounded-full bg-white" />
-    </span>
+    <img
+      src="/logo.png"
+      alt={alt}
+      width={64}
+      height={64}
+      decoding="async"
+      loading="eager"
+      className={cn('inline-block size-8 shrink-0 select-none object-contain', className)}
+    />
   )
 }
 
-export function Logo({ to = '/', className, light }: { to?: string; className?: string; light?: boolean }) {
+/**
+ * Gilayon primary brand logo:
+ * Emblem paired with the "Gilayon" wordmark.
+ */
+export function Logo({
+  to = '/',
+  className,
+  markClassName,
+  textClassName,
+  light = false,
+  showText = true,
+}: {
+  to?: string
+  className?: string
+  markClassName?: string
+  textClassName?: string
+  light?: boolean
+  showText?: boolean
+}) {
   return (
-    <Link to={to} className={cn('inline-flex items-center gap-2.5', className)} aria-label="Gilayon home">
-      <LogoMark />
-      <span className={cn('text-[19px] font-semibold tracking-[-0.03em]', light ? 'text-white' : 'text-ink')}>
-        gilayon
-      </span>
+    <Link
+      to={to}
+      className={cn('group inline-flex items-center gap-2.5 transition active:scale-[0.98]', className)}
+      aria-label="Gilayon home"
+    >
+      <LogoMark className={cn('size-8 transition group-hover:scale-105', markClassName)} />
+      {showText && (
+        <span
+          className={cn(
+            'text-[20px] font-bold tracking-[-0.02em] transition',
+            light ? 'text-white' : 'text-ink',
+            textClassName
+          )}
+        >
+          Gilayon
+        </span>
+      )}
     </Link>
   )
 }

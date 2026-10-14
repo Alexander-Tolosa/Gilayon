@@ -50,7 +50,7 @@ export default function ClinicLogin() {
           <div className="flex items-center gap-3">
             <LogoMark className="size-12 rounded-2xl" />
             <div>
-              <p className="text-2xl font-semibold tracking-[-0.02em]">gilayon</p>
+              <p className="text-2xl font-semibold tracking-[-0.02em]">Gilayon</p>
               <p className="text-[15px] text-muted">HMO-Clinic digital records</p>
             </div>
           </div>
