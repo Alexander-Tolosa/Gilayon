@@ -1,10 +1,11 @@
-import { DownloadSimple } from '@phosphor-icons/react'
+import { DownloadSimple, Checks } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Chip, Input } from '../../../shared/components/ui'
 import { cn, downloadCSV } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
 import { useT } from '../lib/i18n'
+import { unreadActivity } from '../lib/activity'
 import { fmtStampOf } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import type { AuditAction } from '../types'
@@ -18,13 +19,15 @@ const GROUPS: { key: string; label: string; actions: AuditAction[] }[] = [
   { key: 'queue', label: 'Check-in and queue', actions: ['verify', 'check-in', 'call'] },
   { key: 'flag', label: 'Flags', actions: ['flag'] },
   { key: 'sync', label: 'Offline sync', actions: ['sync'] },
+  { key: 'backup', label: 'Backups', actions: ['backup'] },
 ]
 
 const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok', void: 'bg-danger-soft text-danger', flag: 'bg-warn-soft text-warn', edit: 'bg-brand-50 text-brand-800', sync: 'bg-mist text-ink-2' }
 
 export default function AuditTrail() {
   const t = useT()
-  const { data, staffById } = useClinic()
+  const { data, staffById, me, markAuditSeen } = useClinic()
+  const unread = useMemo(() => new Set(unreadActivity(data, me?.staff_id ?? '').map((a) => a.log_id)), [data, me])
   const [group, setGroup] = useState('all')
   const [staff, setStaff] = useState('all')
   const [q, setQ] = useState('')
@@ -44,6 +47,10 @@ export default function AuditTrail() {
         title={t('Audit trail')}
         sub="Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge."
         actions={
+          <>
+            <Button variant="secondary" size="lg" icon={<Checks size={20} />} disabled={unread.size === 0} onClick={() => void markAuditSeen(Math.max(...data.audit.map((a) => a.logged_at)))}>
+              {unread.size ? `Mark ${unread.size} as seen` : 'All seen'}
+            </Button>
           <Button
             variant="secondary"
             size="lg"
@@ -52,6 +59,7 @@ export default function AuditTrail() {
           >
             Export CSV
           </Button>
+          </>
         }
       />
       <div className="scrollbar-none mb-3 flex gap-2 overflow-x-auto">
@@ -76,10 +84,13 @@ export default function AuditTrail() {
       <Card className="overflow-hidden">
         <ul className="divide-y divide-line">
           {rows.slice(0, limit).map((a) => (
-            <li key={a.log_id} className="grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4">
+            <li key={a.log_id} className={cn('grid grid-cols-1 gap-1 px-5 py-4 sm:grid-cols-[10rem_1fr_auto] sm:items-center sm:gap-4', unread.has(a.log_id) && 'border-l-4 border-brand-500 bg-brand-50/40')}>
               <span className="text-[15px] text-muted tabular">{fmtStampOf(a.logged_at)}</span>
               <div className="min-w-0">
-                <p className="text-base font-medium">{a.summary}</p>
+                <p className="text-base font-medium">
+                  {unread.has(a.log_id) && <span className="mr-2 rounded-full bg-brand-600 px-2 py-0.5 text-xs font-bold uppercase text-white">New</span>}
+                  {a.summary}
+                </p>
                 {a.detail && <p className="mt-0.5 font-mono text-sm text-ink-2">{a.detail}</p>}
                 <p className="text-sm text-muted">
                   {staffById(a.staff_id)?.name ?? 'System'} · {a.table_name}

@@ -1,5 +1,5 @@
 import { ArrowLeft, Printer } from '@phosphor-icons/react'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useParams } from 'react-router-dom'
 import { Button } from '../../../shared/components/ui'
 import { Letterhead, SignatureBlock } from '../components/ClinicComponents'
@@ -175,16 +175,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /** Patient summary printout, so patients do not need an app. */
 function SummaryPrint({ id }: { id: string }) {
   const { data, patient, personOfPatient, staffById } = useClinic()
+  // Read once, so a printout does not change its timestamp on every re-render.
+  const [printedAt] = useState(() => Date.now())
   const pt = patient(id)
   const p = personOfPatient(id)
   if (!pt || !p) return <Missing />
   const consults = data.consultations.filter((c) => c.patient_id === id).sort((a, b) => b.created_at - a.created_at).slice(0, 5)
-  const recentRx = data.prescriptions.filter((r) => r.patient_id === id && r.status === 'signed' && (r.issued_at ?? 0) > Date.now() - 90 * 86_400_000)
+  const recentRx = data.prescriptions.filter((r) => r.patient_id === id && r.status === 'signed' && (r.issued_at ?? 0) > printedAt - 90 * 86_400_000)
   const allergies = data.allergies.filter((a) => a.patient_id === id)
   const fh = data.familyHistory.filter((h) => h.patient_id === id)
   const labs = data.labs.filter((l) => l.patient_id === id && l.status === 'resulted').slice(-4)
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(Date.now())}. Bring this sheet to your next visit.</span><span>Himsog · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(printedAt)}. Bring this sheet to your next visit.</span><span>Himsog · synthetic demo data</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Patient summary · {fil('Buod')}</p>
       <PatientLine patientId={id} date={todayKey()} />
       <Section title="Allergies">{allergies.length ? allergies.map((a) => `${a.substance} (${a.reaction}, ${a.severity.toLowerCase()})`).join('; ') : 'None known.'}</Section>
@@ -262,8 +264,9 @@ function TicketPrint({ id }: { id: string }) {
 
 function ReportPrint({ day }: { day: string }) {
   const r = useDailyReport(day)
+  const [generatedAt] = useState(() => Date.now())
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(Date.now())} from the clinic records.</span><span>Himsog · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(generatedAt)} from the clinic records.</span><span>Himsog · synthetic demo data</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Daily report · {fmtDay(day)}</p>
       <table className="mt-5 w-full border-collapse text-[10.5pt]">
         <tbody>
@@ -277,6 +280,7 @@ function ReportPrint({ day }: { day: string }) {
             ['Prescriptions issued', r.rxIssued],
             ['Medical certificates issued', r.mcIssued],
             ['Documents voided', r.voided],
+            ...r.census.map((c) => [`Census, ${c.period === 'Day' ? 'this day' : c.period === 'Week' ? 'this week so far' : c.period === 'Month' ? 'this month so far' : 'this year so far'} (patients / visits)`, `${c.patients} / ${c.visits}`] as [string, string]),
           ].map(([k, v]) => (
             <tr key={String(k)} className="border-b border-black/15">
               <td className="py-1.5">{k}</td>

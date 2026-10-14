@@ -1,10 +1,11 @@
-import { Megaphone, Play, Warning } from '@phosphor-icons/react'
-import { useNavigate } from 'react-router-dom'
+import { Bell, Megaphone, Play, Warning } from '@phosphor-icons/react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, TicketNo } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
-import { ageOf, fmtMinutes, minutesBetween, ticketLabel } from '../lib/helpers'
+import { unreadActivity } from '../lib/activity'
+import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import { TicketRow, useNow, useToday } from './QueueBoard'
 
@@ -13,7 +14,7 @@ export default function DoctorQueue() {
   const now = useNow()
   const navigate = useNavigate()
   const toast = useToast()
-  const { me, data, personOfPatient, callTicket, startConsult, online } = useClinic()
+  const { me, data, personOfPatient, callTicket, startConsult, online, staffById, markAuditSeen } = useClinic()
   const q = useToday()
   const services = me?.services ?? []
   const mine = q.waiting.filter((x) => services.includes(x.service_type))
@@ -22,6 +23,7 @@ export default function DoctorQueue() {
   const nextPerson = next && personOfPatient(next.patient_id)
   const allergies = next ? data.allergies.filter((a) => a.patient_id === next.patient_id) : []
   const seenToday = q.done.filter((x) => x.doctor_id === me?.staff_id).length
+  const news = unreadActivity(data, me?.staff_id ?? '')
 
   const open = (ticketId: string, patientId: string) => {
     startConsult(ticketId)
@@ -31,6 +33,35 @@ export default function DoctorQueue() {
   return (
     <div>
       <PageTitle title={t('My queue')} sub={`${me?.name} · ${me?.room} · ${services.map((s) => t(s)).join(', ')} · ${seenToday} ${t('seen today')}`} />
+
+      {news.length > 0 && (
+        <Card className="mb-5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-lg font-semibold">
+              <Bell size={22} weight="fill" className="text-brand-600" /> {news.length} new {news.length === 1 ? 'change' : 'changes'} since you last looked
+            </p>
+            <div className="flex items-center gap-2">
+              <Link to="/clinic/audit" className="text-[15px] font-semibold text-brand-700 hover:underline">
+                Open audit trail
+              </Link>
+              <Button variant="secondary" onClick={() => void markAuditSeen(Math.max(...news.map((a) => a.logged_at)))}>
+                Mark all as seen
+              </Button>
+            </div>
+          </div>
+          <ul className="mt-3 flex flex-col gap-1.5">
+            {news.slice(0, 5).map((a) => (
+              <li key={a.log_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-canvas px-4 py-2 text-[15px]">
+                <span className="min-w-0">
+                  {a.summary} <span className="text-muted">· {staffById(a.staff_id)?.name ?? 'System'}</span>
+                </span>
+                <span className="text-sm text-muted tabular">{fmtStampOf(a.logged_at)}</span>
+              </li>
+            ))}
+          </ul>
+          {news.length > 5 && <p className="mt-2 text-sm text-muted">and {news.length - 5} more in the audit trail.</p>}
+        </Card>
+      )}
 
       {current.length > 0 && (
         <div className="mb-5 flex flex-col gap-3">

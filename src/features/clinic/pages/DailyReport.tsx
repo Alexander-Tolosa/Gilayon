@@ -3,6 +3,7 @@ import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Button, Card, Input } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
+import { censusFor } from '../lib/census'
 import { useT } from '../lib/i18n'
 import { dayKeyOffset, fmtDay, fmtMinutes, minutesBetween, todayKey } from '../lib/helpers'
 import { useClinic } from '../store/store'
@@ -25,6 +26,7 @@ export function useDailyReport(day: string) {
     const mcIssued = data.documents.filter((d) => d.status !== 'draft' && inDay(d.issued_at)).length
     const voided = data.audit.filter((a) => a.action === 'void' && todayKeyOf(a.logged_at) === day).length
     const byService = (['Medical', 'Dental', 'Laboratory'] as const).map((s) => ({ service: s, count: tickets.filter((t) => t.service_type === s).length }))
+    const census = censusFor(data.tickets, day)
     const byDoctor = data.staff.filter((s) => s.role === 'doctor').map((d) => ({ name: d.name, count: seen.filter((t) => t.doctor_id === d.staff_id).length }))
     return {
       visits: tickets.length,
@@ -35,6 +37,7 @@ export function useDailyReport(day: string) {
       stillWaiting: tickets.filter((t) => t.status === 'waiting').length,
       avgWait: waits.length ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : 0,
       maxWait: waits.length ? Math.max(...waits) : 0,
+      census,
       byLane,
       byService,
       byDoctor,
@@ -94,6 +97,21 @@ export default function DailyReport() {
           </Card>
         ))}
       </div>
+      <Card className="mt-5 p-6">
+        <p className="text-lg font-semibold">Census</p>
+        <p className="text-[15px] text-muted">A visit is one check-in. Patients counts each person once per period, however often they came.</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {r.census.map((c) => (
+            <div key={c.period} className="rounded-2xl bg-canvas p-4">
+              <p className="text-sm text-muted">
+                {c.period === 'Day' ? 'This day' : c.period === 'Week' ? 'This week so far' : c.period === 'Month' ? 'This month so far' : 'This year so far'}
+              </p>
+              <p className="text-3xl font-semibold tabular">{c.patients}</p>
+              <p className="text-sm text-ink-2">patients · {c.visits} visits</p>
+            </div>
+          ))}
+        </div>
+      </Card>
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card className="p-6">
           <p className="text-lg font-semibold">Visits by priority lane</p>

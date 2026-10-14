@@ -111,6 +111,15 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     .filter((p) => gone.has(p.patient_id))
     .map((p) => ({ patient_id: p.patient_id, into: merged[p.patient_id], full_name: personName.get(p.person_id) ?? '', patient_no: p.patient_no, merged_at: p.merged_at ?? undefined, merged_by: p.merged_by ?? undefined }))
   const [nd] = await q.select().from(t.meta).where(eq(t.meta.key, 'not_duplicates'))
+  // Each doctor has their own "seen up to" mark. The first time one is needed it starts at now, so a
+  // new doctor is not greeted by the whole history as "unread".
+  let auditSeenAt = 0
+  if (doctor) {
+    const key = `audit_seen:${actor.staff_id}`
+    const [row] = await q.select().from(t.meta).where(eq(t.meta.key, key))
+    auditSeenAt = (row?.value as number | undefined) ?? Date.now()
+    if (!row) await q.insert(t.meta).values({ key, value: auditSeenAt }).onConflictDoNothing()
+  }
   const offsitePending = doctor ? audit.filter((a) => a.logged_at > backupAt && a.action !== 'backup').length : 0
   return {
     persons: (persons as Person[]).filter((p) => !gonePersons.has(p.person_id)),
@@ -138,6 +147,7 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     audit: audit.map((r) => strip<AuditLog>(r)),
     offsite: { pending: offsitePending, lastAt: backupAt },
     merged,
+    auditSeenAt,
     mergedRecords,
     notDuplicates: (nd?.value as string[] | undefined) ?? [],
     lastImport: (imp[0]?.value as Snapshot['lastImport'] | undefined) ?? { at: 0, count: 0, source: '' },

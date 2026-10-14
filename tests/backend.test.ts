@@ -350,3 +350,28 @@ describe('offline sync of notes, drafts and photos', () => {
     expect(res.body.rejected[0].op_id).toBe('l-1')
   })
 })
+
+describe('audit activity the doctor has seen', () => {
+  it('starts at "now" for a doctor, so history is not greeted as unread, and only moves forward', async () => {
+    const { markAuditSeen } = await import('../src/server/services/admin')
+    const first = await loadSnapshot(db, { staff_id: 'st-d2', name: 'Dr. Liza Magbanua', role: 'doctor' })
+    expect(first.auditSeenAt).toBeGreaterThan(Date.now() - 60_000)
+    const again = await loadSnapshot(db, { staff_id: 'st-d2', name: 'Dr. Liza Magbanua', role: 'doctor' })
+    expect(again.auditSeenAt).toBe(first.auditSeenAt) // stable, not reset on every load
+
+    const d2: Actor = { staff_id: 'st-d2', name: 'Dr. Liza Magbanua', role: 'doctor' }
+    await db.transaction((tx) => markAuditSeen(tx, d2, first.auditSeenAt + 5000))
+    const moved = await loadSnapshot(db, d2)
+    expect(moved.auditSeenAt).toBeGreaterThanOrEqual(first.auditSeenAt)
+    await db.transaction((tx) => markAuditSeen(tx, d2, 1)) // cannot go back
+    expect((await loadSnapshot(db, d2)).auditSeenAt).toBe(moved.auditSeenAt)
+    // Each doctor has their own mark: another doctor is unaffected.
+    expect((await loadSnapshot(db, doctor)).auditSeenAt).not.toBe(0)
+  })
+
+  it('non-doctors get no mark and no audit log', async () => {
+    const s = await loadSnapshot(db, desk)
+    expect(s.auditSeenAt).toBe(0)
+    expect(s.audit).toHaveLength(0)
+  })
+})

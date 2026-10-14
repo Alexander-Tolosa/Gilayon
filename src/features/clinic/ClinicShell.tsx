@@ -22,6 +22,7 @@ import { Avatar, Modal } from '../../shared/components/ui'
 import { cn } from '../../shared/lib/utils'
 import { LanguageSwitch, StatusBadge } from './components/ClinicComponents'
 import { useT } from './lib/i18n'
+import { unreadActivity } from './lib/activity'
 import { todayKey } from './lib/helpers'
 import { ChangePasswordForm, ForcePasswordChange } from './components/StaffAdmin'
 import { useClinic } from './store/store'
@@ -40,8 +41,9 @@ export function useClinicScale() {
 }
 
 function useNav(role: StaffRole): Item[] {
-  const { data } = useClinic()
+  const { data, me } = useClinic()
   const waiting = data.tickets.filter((t) => t.status === 'waiting' && t.day === todayKey()).length
+  const unread = role === 'doctor' && me ? unreadActivity(data, me.staff_id).length : 0
   if (role === 'desk')
     return [
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
@@ -59,7 +61,7 @@ function useNav(role: StaffRole): Item[] {
     { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     { to: '/clinic/documents', label: 'Documents', icon: FileText },
     { to: '/clinic/report', label: 'Daily report', icon: ChartBar },
-    { to: '/clinic/audit', label: 'Audit trail', icon: ClipboardText },
+    { to: '/clinic/audit', label: 'Audit trail', icon: ClipboardText, badge: unread || undefined },
     { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon },
     { to: '/clinic/settings', label: 'Settings', icon: Gear },
   ]

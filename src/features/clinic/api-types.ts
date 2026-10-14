@@ -5,6 +5,8 @@ export type Snapshot = Omit<ClinicData, 'counters'> & {
   offsite: { pending: number; lastAt: number }
   /** A record that was merged into another: old patient id -> the patient it now lives under. */
   merged: Record<string, string>
+  /** Activity up to this time has been seen by the signed-in doctor (0 for other roles). */
+  auditSeenAt: number
   /** The merged-away records, so the surviving record can say what it absorbed and a doctor can undo it. */
   mergedRecords: MergedRecord[]
   /** Pairs staff said are NOT the same person ("idA|idB", ids sorted), so they stop being suggested. */
