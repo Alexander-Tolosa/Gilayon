@@ -75,6 +75,8 @@ npm run backup:restore -- <file> --yes      # replaces ALL records; stop the ser
 
 To rebuild a server after a disk failure: install the app, set `DATABASE_URL`, `UPLOADS_DIR` and `BACKUP_PASSPHRASE` (add `HIMSOG_AUTO_SEED=0` for an embedded database so it is not filled with demo data), then run `backup:restore`. Everyone signs in again afterwards. Do a trial restore on a spare folder once a month: a backup that has never been restored is a hope, not a backup.
 
+> **Project status and open items:** see [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md).
+
 ## Demo accounts
 
 With `NEXT_PUBLIC_DEMO=1` (see `.env.example`) the demo password is pre-filled on `/clinic/login`; without it the field starts empty. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
