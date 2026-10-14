@@ -98,6 +98,8 @@ export const session = pgTable('session', {
   staff_id: text().notNull().references(() => staff.staff_id),
   created_at: ms('created_at').notNull(),
   expires_at: ms('expires_at').notNull(),
+  // Last time the person was active at the screen (a heartbeat). Null means "since sign-in".
+  last_seen_at: ms('last_seen_at'),
 })
 
 export const queueTicket = pgTable(
