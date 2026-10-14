@@ -1,0 +1,169 @@
+@import "tailwindcss";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+
+/*
+  Himsog design tokens
+  Palette: shades of white + cobalt blue. One accent (brand), semantic colors only for state.
+  Shape rule: cards 20px (rounded-3xl), inner tiles 14px (rounded-2xl), inputs 12px (rounded-xl),
+  every button and chip is a full pill.
+*/
+@theme {
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, monospace;
+
+  --color-canvas: #f5f8fe;
+  --color-surface: #ffffff;
+  --color-mist: #eef3fc;
+  --color-line: #e3eaf6;
+  --color-line-strong: #cfdbef;
+
+  --color-ink: #0b1a38;
+  --color-ink-2: #34445f;
+  --color-muted: #5f6f8a;
+  --color-faint: #8a98b1;
+
+  --color-brand-50: #eef4ff;
+  --color-brand-100: #dce7ff;
+  --color-brand-200: #bdd0ff;
+  --color-brand-300: #8fb0ff;
+  --color-brand-400: #5d88fa;
+  --color-brand-500: #3567f0;
+  --color-brand-600: #2350d6;
+  --color-brand-700: #1d40ab;
+  --color-brand-800: #1b3687;
+  --color-brand-900: #152a63;
+  --color-brand-950: #0c1840;
+
+  --color-sky-soft: #8cc8fb;
+
+  --color-ok: #0f9d68;
+  --color-ok-soft: #e4f7ee;
+  --color-warn: #b7700b;
+  --color-warn-soft: #fff3dc;
+  --color-danger: #d43c43;
+  --color-danger-soft: #fdeaea;
+
+  --radius-3xl: 1.25rem;
+  --radius-4xl: 1.75rem;
+
+  --shadow-soft: 0 1px 2px rgb(21 42 99 / 0.04), 0 8px 24px -12px rgb(21 42 99 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(21 42 99 / 0.04), 0 24px 48px -20px rgb(21 42 99 / 0.22);
+  --shadow-brand: 0 10px 30px -10px rgb(35 80 214 / 0.55);
+
+  --animate-marquee: marquee 38s linear infinite;
+  --animate-ecg: ecg 2.6s linear infinite;
+  --animate-orbit: orbit-float 6s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2.2s ease-out infinite;
+
+  @keyframes marquee {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes ecg {
+    from { stroke-dashoffset: 0; }
+    to { stroke-dashoffset: -460; }
+  }
+  @keyframes orbit-float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+}
+
+@layer base {
+  /* Clinic screens: larger text for senior doctors and staff (Himsog concept). */
+  html[data-ui='clinic'] {
+    font-size: 112.5%;
+  }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans;
+    font-feature-settings: "ss01", "cv11";
+  }
+  ::selection {
+    @apply bg-brand-200 text-brand-950;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brand-500);
+    outline-offset: 2px;
+    border-radius: 10px;
+  }
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+  .scroll-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-line-strong) transparent;
+  }
+  .mask-fade-x {
+    mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  }
+  .bg-dots {
+    background-image: radial-gradient(var(--color-brand-200) 1px, transparent 1px);
+    background-size: 18px 18px;
+  }
+  .glass {
+    background: rgb(255 255 255 / 0.72);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background: rgb(255 255 255 / 0.98);
+      backdrop-filter: none;
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Print: only the document. */
+@media print {
+  @page {
+    size: A4;
+    margin: 0;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-page {
+    box-shadow: none !important;
+    max-width: none !important;
+    break-after: page;
+  }
+}
