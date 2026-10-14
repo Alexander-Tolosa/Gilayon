@@ -1,10 +1,8 @@
 import {
   ArrowRight,
-  ChartBar,
   CheckCircle,
   ClipboardText,
   CloudCheck,
-  CloudSlash,
   Drop,
   FileText,
   Fingerprint,
@@ -14,16 +12,9 @@ import {
   LockKey,
   Pill,
   Plus,
-  Printer,
-  ShieldCheck,
-  Signature,
   Stethoscope,
   Syringe,
-  UserCirclePlus,
-  UsersThree,
-  Warning,
-  WifiHigh,
-  WifiSlash,
+  Wheelchair,
   X,
 } from '@phosphor-icons/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -42,7 +33,7 @@ import { cn, img, PHOTOS } from '../lib/utils'
 /* ----------------------------------- Nav ----------------------------------- */
 
 const NAV = [
-  { href: '#features', label: 'Features' },
+  { href: '#services', label: 'Services' },
   { href: '#security', label: 'Security' },
   { href: '#app', label: 'Mobile app' },
 ]
@@ -204,8 +195,8 @@ function Hero() {
           <Button to="/auth" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
             Get started
           </Button>
-          <Button size="lg" variant="secondary" onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}>
-            See how it works
+          <Button size="lg" variant="secondary" onClick={() => (document.getElementById('services') || document.getElementById('features'))?.scrollIntoView({ behavior: 'smooth' })}>
+            View our services
           </Button>
         </motion.div>
         </ScrollAway>
@@ -263,215 +254,219 @@ function Marquee() {
   )
 }
 
-/* --------------------------------- Features -------------------------------- */
+/* --------------------------------- Services -------------------------------- */
 
-function Tile({ title, body, icon, className, children }: { title: string; body: string; icon: ReactNode; className?: string; children: ReactNode }) {
+interface ServiceItem {
+  id: string
+  title: string
+  subtitle: string
+  badgeText: string
+  badgeTone: 'brand' | 'ok' | 'solid'
+  icon: ReactNode
+  iconBg: string
+  iconColor: string
+  cardBorder: string
+  benefits: Array<{
+    title: string
+    description: string
+  }>
+  actionLabel: string
+  actionUrl: string
+}
+
+function Services() {
+  const services: ServiceItem[] = [
+    {
+      id: 'medical',
+      title: 'Medical consultations',
+      subtitle: 'Doctor check-ups, ongoing senior care, and attentive visits without feeling rushed.',
+      badgeText: 'Senior Priority',
+      badgeTone: 'brand',
+      icon: <Stethoscope size={30} weight="duotone" />,
+      iconBg: 'bg-brand-50',
+      iconColor: 'text-brand-600',
+      cardBorder: 'border-brand-200/70',
+      benefits: [
+        {
+          title: 'Priority check-in at Counter 1',
+          description: 'Seniors aged 60 and above go directly to our priority lane with comfortable seating.',
+        },
+        {
+          title: 'Unhurried time with your physician',
+          description: 'Discuss blood pressure, joint pain, maintenance medicines, and any health concerns.',
+        },
+        {
+          title: 'Companions and family always welcome',
+          description: 'Your family member or caregiver is encouraged to join inside the consultation room.',
+        },
+      ],
+      actionLabel: 'Schedule doctor visit',
+      actionUrl: '/auth?role=patient',
+    },
+    {
+      id: 'prescription',
+      title: 'Prescriptions and medicines',
+      subtitle: 'Clear dosage schedules, allergy safeguards, and worry-free maintenance refills.',
+      badgeText: 'Safe Dosage',
+      badgeTone: 'ok',
+      icon: <Pill size={30} weight="duotone" />,
+      iconBg: 'bg-ok-soft',
+      iconColor: 'text-ok',
+      cardBorder: 'border-emerald-200/70',
+      benefits: [
+        {
+          title: 'Large-print dosage instructions',
+          description: 'Easy-to-read directions detailing morning, afternoon, and bedtime medicines with meals.',
+        },
+        {
+          title: 'Automatic allergy protection',
+          description: 'Our system double-checks every medicine against your health record to prevent reactions.',
+        },
+        {
+          title: 'Sent directly to the clinic dispensary',
+          description: 'No paper slips to misplace. Your prescription is waiting at the pharmacy counter.',
+        },
+      ],
+      actionLabel: 'View prescription care',
+      actionUrl: '/auth?role=patient',
+    },
+    {
+      id: 'laboratory',
+      title: 'Laboratory and diagnostics',
+      subtitle: 'Gentle blood collection, vital monitoring, and test results explained in plain words.',
+      badgeText: 'Fast Results',
+      badgeTone: 'brand',
+      icon: <Flask size={30} weight="duotone" />,
+      iconBg: 'bg-blue-50',
+      iconColor: 'text-blue-700',
+      cardBorder: 'border-blue-200/70',
+      benefits: [
+        {
+          title: 'Gentle, experienced sample collection',
+          description: 'Trained medical technologists ensure comfortable, patient, and painless blood extraction.',
+        },
+        {
+          title: 'Routine senior health screenings',
+          description: 'Fasting blood sugar, cholesterol, uric acid, and urinalysis tests completed on-site.',
+        },
+        {
+          title: 'Results explained in simple words',
+          description: 'Results go straight to your doctor so you do not need return trips or confusing paperwork.',
+        },
+      ],
+      actionLabel: 'View laboratory tests',
+      actionUrl: '/auth?role=patient',
+    },
+  ]
+
   return (
-    <div className={cn('flex flex-col overflow-hidden rounded-3xl border border-line bg-surface', className)}>
-      <div className="flex-1 p-4 sm:p-5">{children}</div>
-      <div className="flex items-start gap-3 border-t border-line px-5 py-4">
-        <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-600">{icon}</span>
-        <div>
-          <h3 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h3>
-          <p className="mt-0.5 text-[13px] leading-relaxed text-muted">{body}</p>
+    <section id="services" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
+      {/* Compatibility anchor for bookmarks */}
+      <span id="features" className="sr-only" aria-hidden="true">Features and services</span>
+
+      {/* Header with clear senior readability */}
+      <Reveal className="max-w-3xl">
+        <div className="inline-flex items-center gap-2 rounded-full border border-brand-200/80 bg-brand-50 px-4 py-1.5 text-[13px] font-semibold text-brand-700">
+          <Heartbeat size={16} weight="fill" className="text-brand-600" />
+          <span>Clinic Services</span>
         </div>
-      </div>
-    </div>
-  )
-}
-
-const LANE_CHIP: Record<string, string> = { U: 'bg-danger text-white', P: 'bg-brand-700 text-white', R: 'bg-mist text-ink ring-1 ring-inset ring-line-strong' }
-
-function CheckInPreview() {
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1.1fr]">
-      <div className="rounded-2xl bg-canvas p-4">
-        <p className="text-sm font-semibold">Verify identity</p>
-        <ul className="mt-3 space-y-2">
-          {[
-            ['Full name', 'Maria Lourdes Villanueva'],
-            ['Birthdate', 'Mar 18, 1968'],
-            ['Employee ID', 'IPG-2004-0318'],
-          ].map(([k, v]) => (
-            <li key={k} className="flex items-center justify-between gap-2 rounded-xl bg-ok-soft px-3 py-2">
-              <span>
-                <span className="block text-[11px] text-muted">{k}</span>
-                <span className="block text-[13px] font-semibold">{v}</span>
-              </span>
-              <CheckCircle size={18} weight="fill" className="text-ok" />
-            </li>
-          ))}
-        </ul>
-        <p className="mt-3 flex items-center gap-1.5 text-[12px] font-medium text-ok">
-          <ShieldCheck size={14} weight="fill" /> Matches the HR list
-        </p>
-      </div>
-      <div className="flex flex-col gap-2">
-        <p className="text-sm font-semibold">Waiting list</p>
-        {[
-          ['U-016', 'Urgent', 'Flagged by staff'],
-          ['P-011', 'Senior', 'Age 63, from the birthdate'],
-          ['P-012', 'Pregnant', 'Marked at check-in'],
-          ['R-010', 'Regular', 'First come, first served'],
-        ].map(([no, lane, note], i) => (
-          <div key={no} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-2.5">
-            <span className="w-4 text-center text-[12px] font-semibold text-faint">{i + 1}</span>
-            <span className={cn('grid h-9 min-w-[4.25rem] place-items-center rounded-xl text-[14px] font-semibold tabular', LANE_CHIP[no[0]])}>{no}</span>
-            <span className="min-w-0">
-              <span className="block text-[13px] font-semibold">{lane}</span>
-              <span className="block truncate text-[12px] text-muted">{note}</span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function Features() {
-  return (
-    <section id="features" className="mx-auto max-w-7xl scroll-mt-24 px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
-      <Reveal className="mx-auto max-w-2xl text-center">
-        <h2 className="text-4xl font-normal leading-[1.05] tracking-[-0.035em] sm:text-5xl">
-          <RevealText text="A clinic flow, not just a records system" />
+        <h2 className="mt-4 text-3xl font-normal leading-[1.12] tracking-[-0.035em] text-ink sm:text-4xl lg:text-5xl">
+          <RevealText text="Care made simple for every senior and family" />
         </h2>
-        <p className="mx-auto mt-5 max-w-[58ch] text-[17px] leading-relaxed text-ink-2">Verified check-in, a priority queue, one record per person, signed documents and a daily report, on the clinic's own computers.</p>
+        <p className="mt-4 text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
+          We have simplified the clinic experience. Enjoy priority lanes, large-print instructions, and dedicated staff ready to assist you in person.
+        </p>
       </Reveal>
 
-      <div className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Reveal className="md:col-span-2">
-          <Tile title="Verified check-in, then a fair queue" body="Nobody gets a number until their name, birthdate and employee ID match the HR list. Urgent, pregnant, PWD and senior patients go first." icon={<UserCirclePlus size={18} />} className="h-full">
-            <CheckInPreview />
-          </Tile>
-        </Reveal>
-
-        <Reveal delay={0.06}>
-          <Tile title="Signed with a PIN and one tap" body="Every prescription and certificate carries the doctor's signature, license and PTR numbers, and a document number." icon={<Signature size={18} />} className="h-full">
-            <div className="flex h-full min-h-[230px] flex-col justify-between rounded-2xl bg-canvas p-4">
-              <div className="flex justify-center gap-2.5">
-                {[0, 1, 2, 3].map((i) => (
-                  <span key={i} className="size-4 rounded-full bg-brand-600" />
-                ))}
-              </div>
-              <div className="text-center">
-                <p className="text-[2rem] leading-none text-brand-900" style={{ fontFamily: 'Allura, cursive' }}>
-                  Ramon Sollesta
-                </p>
-                <p className="mt-1 border-t border-ink/30 pt-1 text-[12px] font-semibold uppercase">Dr. Ramon Sollesta</p>
-                <p className="text-[11px] text-muted">PRC 0098214 · PTR 7731542</p>
-              </div>
-              <p className="text-center font-mono text-[13px] font-semibold text-danger">RX-2026-000501</p>
-            </div>
-          </Tile>
-        </Reveal>
-
-        <Reveal>
-          <Tile title="One record per person, families linked" body="Dependents sit under the employee, marked if they are on the PhilHealth MDR. Ages are calculated from the birthdate, never typed." icon={<UsersThree size={18} />} className="h-full">
-            <ul className="space-y-2">
-              {[
-                ['Maria Lourdes Villanueva', 'Employee · 58', ''],
-                ['Edgardo Villanueva', 'Spouse · 61 · Senior', 'MDR'],
-                ['Kristine Villanueva', 'Child · 19', 'MDR'],
-              ].map(([n, d, b], i) => (
-                <li key={n} className={cn('flex items-center justify-between gap-2 rounded-2xl px-3.5 py-2.5', i === 0 ? 'bg-brand-600 text-white' : 'bg-canvas')}>
-                  <span>
-                    <span className="block text-[13px] font-semibold">{n}</span>
-                    <span className={cn('block text-[12px]', i === 0 ? 'text-brand-100' : 'text-muted')}>{d}</span>
+      {/* 3 Core Services Grid */}
+      <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {services.map((svc, idx) => (
+          <Reveal key={svc.id} delay={idx * 0.08} className="h-full">
+            <div
+              className={cn(
+                'group flex h-full flex-col justify-between rounded-3xl border bg-surface p-7 shadow-soft transition duration-300 hover:-translate-y-1 hover:shadow-lift sm:p-8',
+                svc.cardBorder
+              )}
+            >
+              <div>
+                {/* Header: Icon & Badge */}
+                <div className="flex items-center justify-between gap-3">
+                  <span className={cn('grid size-14 place-items-center rounded-2xl shadow-xs', svc.iconBg, svc.iconColor)}>
+                    {svc.icon}
                   </span>
-                  {b && <Badge tone="brand">{b}</Badge>}
-                </li>
-              ))}
-            </ul>
-          </Tile>
-        </Reveal>
+                  <Badge tone={svc.badgeTone} className="px-3 py-1 text-[12px] font-semibold">
+                    {svc.badgeText}
+                  </Badge>
+                </div>
 
-        <Reveal delay={0.06}>
-          <Tile title="Safer prescriptions" body="Drugs are chosen from a list, and the doctor is warned before prescribing something the patient is allergic to." icon={<Pill size={18} />} className="h-full">
-            <div className="space-y-2.5">
-              <div className="rounded-2xl border border-line p-3.5">
-                <p className="text-[11px] text-muted">New prescription</p>
-                <p className="text-[15px] font-semibold">Amoxicillin 500 mg</p>
-              </div>
-              <div className="rounded-2xl bg-danger-soft p-3.5">
-                <p className="flex items-center gap-1.5 text-[13px] font-semibold text-danger">
-                  <Warning size={15} weight="fill" /> Allergy warning
+                {/* Title and Subtitle */}
+                <h3 className="mt-6 text-2xl font-bold tracking-tight text-ink">
+                  {svc.title}
+                </h3>
+                <p className="mt-2.5 text-[15px] leading-relaxed text-ink-2">
+                  {svc.subtitle}
                 </p>
-                <p className="mt-1 text-[12px] leading-relaxed text-ink-2">Patient is allergic to Penicillin (hives and swelling).</p>
+
+                {/* Clear Expectations Checklist */}
+                <div className="mt-6 border-t border-line/80 pt-6">
+                  <p className="text-[12px] font-semibold uppercase tracking-wider text-muted">
+                    What to expect
+                  </p>
+                  <ul className="mt-4 space-y-4">
+                    {svc.benefits.map((b) => (
+                      <li key={b.title} className="flex items-start gap-3">
+                        <CheckCircle size={20} weight="fill" className="mt-0.5 shrink-0 text-ok" />
+                        <div>
+                          <p className="text-[15px] font-semibold leading-snug text-ink">{b.title}</p>
+                          <p className="mt-1 text-[13px] leading-relaxed text-muted">{b.description}</p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div className="flex items-center gap-2 rounded-2xl bg-ok-soft p-3.5 text-[13px] font-medium text-ok">
-                <CheckCircle size={16} weight="fill" /> Carbocisteine signed, RX-2026-000501
+
+              {/* Action Button */}
+              <div className="mt-8 border-t border-line/60 pt-5">
+                <Button
+                  to={svc.actionUrl}
+                  variant="secondary"
+                  size="md"
+                  className="w-full justify-center transition-colors group-hover:border-brand-400 group-hover:bg-brand-50 group-hover:text-brand-700"
+                  iconRight={<ArrowRight size={15} weight="bold" />}
+                >
+                  {svc.actionLabel}
+                </Button>
               </div>
             </div>
-          </Tile>
-        </Reveal>
-
-        <Reveal delay={0.12}>
-          <Tile title="Keeps working with the internet off" body="It runs on the clinic's computers. If one is cut off, notes are saved on it and sync when it reconnects." icon={<WifiHigh size={18} />} className="h-full">
-            <div className="flex h-full flex-col justify-center gap-2.5 rounded-2xl bg-canvas p-3.5">
-              <span className="flex items-center gap-2 rounded-full bg-ok-soft px-3.5 py-2 text-[13px] font-semibold text-ok">
-                <WifiHigh size={16} weight="bold" /> Online
-              </span>
-              <span className="flex items-center gap-2 rounded-full bg-warn-soft px-3.5 py-2 text-[13px] font-semibold text-warn">
-                <CloudSlash size={16} weight="bold" /> Clinic network only
-              </span>
-              <span className="flex items-center gap-2 rounded-full bg-danger-soft px-3.5 py-2 text-[13px] font-semibold text-danger">
-                <WifiSlash size={16} weight="bold" /> Offline, saved on this computer
-                <span className="ml-auto rounded-full bg-danger px-2 text-white">1</span>
-              </span>
-            </div>
-          </Tile>
-        </Reveal>
-
-        <Reveal>
-          <Tile title="A daily report without tallying" body="Visits by lane, new and returning patients, average wait, common complaints and documents issued, printable for the Hospital Management Officer." icon={<ChartBar size={18} />} className="h-full">
-            <div className="rounded-2xl bg-canvas p-4">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[12px] text-muted">Visits today</span>
-                <span className="text-2xl font-semibold tabular">16</span>
-              </div>
-              <ul className="mt-3 space-y-2">
-                {[
-                  ['Urgent', 1],
-                  ['Pregnant, PWD, Senior', 4],
-                  ['Regular', 11],
-                ].map(([l, n]) => (
-                  <li key={l} className="grid grid-cols-[1fr_auto] items-center gap-3 text-[12px]">
-                    <span>
-                      {l}
-                      <span className="mt-1 block h-2 rounded-full bg-brand-600" style={{ width: `${(Number(n) / 11) * 100}%` }} />
-                    </span>
-                    <b className="tabular">{n}</b>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-3 text-[12px] text-muted">Average wait 20 min</p>
-            </div>
-          </Tile>
-        </Reveal>
-
-        <Reveal delay={0.06} className="md:col-span-2">
-          <Tile title="One visit, from check-in to report" body="Every step is written to the audit trail: who created, edited, signed or voided each record, and when." icon={<ClipboardText size={18} />} className="h-full">
-            <ol className="relative grid h-full grid-cols-1 content-center gap-3 sm:grid-cols-5">
-              <span className="absolute left-4 right-4 top-1/2 -mt-[22px] hidden h-px bg-brand-100 sm:block" aria-hidden />
-              {[
-                { i: <ShieldCheck size={18} />, t: 'Check in', d: 'Identity verified' },
-                { i: <FileText size={18} />, t: 'Record opens', d: 'History ready' },
-                { i: <Stethoscope size={18} />, t: 'Doctor signs', d: 'PIN and one tap' },
-                { i: <Printer size={18} />, t: 'Documents issued', d: 'On the letterhead' },
-                { i: <ChartBar size={18} />, t: 'Report ready', d: 'No hand tallying' },
-              ].map((s, idx) => (
-                <li key={s.t} className="relative flex items-center gap-3 sm:flex-col sm:items-start">
-                  <span className={cn('relative grid size-11 place-items-center rounded-full ring-4 ring-surface', idx < 3 ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-600')}>{s.i}</span>
-                  <div>
-                    <p className="text-[13px] font-semibold">{s.t}</p>
-                    <p className="text-[12px] text-muted">{s.d}</p>
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </Tile>
-        </Reveal>
+          </Reveal>
+        ))}
       </div>
+
+      {/* Senior and Companion Assistance Banner */}
+      <Reveal delay={0.25} className="mt-8">
+        <div className="flex flex-col gap-6 rounded-4xl border border-brand-200/80 bg-brand-50/70 p-6 sm:p-8 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-start gap-4 sm:gap-5">
+            <span className="grid size-13 shrink-0 place-items-center rounded-2xl bg-brand-600 text-white shadow-soft">
+              <Wheelchair size={26} weight="bold" />
+            </span>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h4 className="text-lg font-bold text-ink">Need assistance or a wheelchair during your visit?</h4>
+                <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-800">Free Staff Help</span>
+              </div>
+              <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink-2">
+                Our front desk assistants are stationed at Counter 1 to guide you to consultation rooms, print large-print medical summaries, and explain doctor notes at a comfortable pace.
+              </p>
+            </div>
+          </div>
+          <div className="shrink-0">
+            <Button to="/auth?role=patient" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
+              Start assisted visit
+            </Button>
+          </div>
+        </div>
+      </Reveal>
     </section>
   )
 }
@@ -558,7 +553,7 @@ function Footer() {
           </div>
         </div>
         {[
-          { h: 'Product', l: [['Features', '#features'], ['Security', '#security'], ['Mobile app', '#app']] },
+          { h: 'Product', l: [['Services', '#services'], ['Security', '#security'], ['Mobile app', '#app']] },
           { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting'], ['Patient portal (extra)', '/auth?role=patient']] },
           { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
         ].map((c) => (
@@ -613,7 +608,7 @@ function LandingPage() {
         <Hero />
         <Problem />
         <Marquee />
-        <Features />
+        <Services />
         <Security />
         <Personas />
         <MobileAppShowcase />
