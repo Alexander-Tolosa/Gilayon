@@ -2,7 +2,7 @@
 
 Clickable mockup screens for **Himsog**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
 
-The concept's Next.js and PostgreSQL backend is separate work. This app simulates it in the browser (see [What is simulated](#what-is-simulated)).
+The backend has not been built yet (the concept calls for Next.js and PostgreSQL). Until then this app simulates it in the browser (see [What is simulated](#what-is-simulated)).
 
 ## Run it
 
