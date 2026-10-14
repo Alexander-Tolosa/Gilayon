@@ -1,4 +1,4 @@
-import { eq, inArray, sql } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import type { CivilStatus, RelationshipType, ScanKind, Sex } from '../../features/clinic/types'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
@@ -148,41 +148,6 @@ export async function uploadScan(q: Q, actor: Actor, patientIdIn: string, file: 
     throw e
   }
   return page_id
-}
-
-type HrRow = { employee_no: string; full_name: string; birthdate: string; sex: Sex; office: string; position: string; contact?: string }
-
-/** Importing the HR list creates employee and patient records; re-importing updates, never duplicates. */
-export async function importEmployees(q: Q, actor: Actor, rows: HrRow[], source: string) {
-  let created = 0
-  let updated = 0
-  let unchanged = 0
-  const existing = await q.select().from(t.employee).where(inArray(t.employee.employee_no, rows.map((r) => r.employee_no)))
-  const byNo = new Map(existing.map((e) => [e.employee_no, e]))
-  const [{ max }] = await q.select({ max: sql<number>`coalesce(max(substring(${t.patient.patient_no} from 5)::int), 0)` }).from(t.patient)
-  let counter = max
-  for (const r of rows) {
-    const emp = byNo.get(r.employee_no)
-    if (emp) {
-      const [per] = await q.select().from(t.person).where(eq(t.person.person_id, emp.person_id))
-      if (emp.office !== r.office || emp.position !== r.position || per.full_name !== r.full_name) {
-        updated++
-        await q.update(t.employee).set({ office: r.office, position: r.position }).where(eq(t.employee.employee_id, emp.employee_id))
-        await q.update(t.person).set({ full_name: r.full_name }).where(eq(t.person.person_id, emp.person_id))
-      } else unchanged++
-    } else {
-      created++
-      const person_id = uuid()
-      await q.insert(t.person).values({ person_id, full_name: r.full_name, birthdate: r.birthdate, sex: r.sex, contact: r.contact ?? '' })
-      await q.insert(t.employee).values({ employee_id: uuid(), person_id, employee_no: r.employee_no, office: r.office, position: r.position })
-      counter++
-      await q.insert(t.patient).values({ patient_id: uuid(), person_id, patient_no: `HMO-${String(counter).padStart(5, '0')}`, civil_status: 'Single', created_at: nowMs(), created_by: 'import' })
-    }
-  }
-  if (counter > max) await q.insert(t.counter).values({ key: 'patient', value: counter }).onConflictDoUpdate({ target: t.counter.key, set: { value: sql`GREATEST(${t.counter.value}, ${counter})` } })
-  await q.insert(t.meta).values({ key: 'last_import', value: { at: nowMs(), count: rows.length, source } }).onConflictDoUpdate({ target: t.meta.key, set: { value: { at: nowMs(), count: rows.length, source } } })
-  await audit(q, actor.staff_id, { action: 'import', table: 'employee', record: 'hr-list', summary: `Imported HR employee list (${source}): ${created} new, ${updated} updated, ${unchanged} unchanged` })
-  return { created, updated, unchanged }
 }
 
 export const isReturning = async (q: Q, patientId: string) => {

@@ -25,7 +25,7 @@ What is left falls into three groups: things that can only be checked on the cli
 
 ## 2. Before real patient data goes in
 
-- [ ] **HR employee list import screen.** The server can import employees (`importEmployees`, `POST /api/employees/import`), but no screen calls it. Without one, real employees can only arrive through the seed. Build a CSV upload in Settings with a preview and a created/updated/unchanged summary.
+- [x] **HR employee list import screen.** Done: Settings > Import HR list (CSV, column matching, preview, validation, conflicts, duplicates hand-off). Still to do with real data: try it on the clinic's actual export, and add `.xlsx` support only if CSV export proves awkward for HR.
 - [ ] **Remove demo scaffolding for production.**
   - The "Try the demo" chips and "Demo: fill from ID" button in `CheckIn.tsx`.
   - "synthetic demo data" in printed letterhead footers (`PrintPage.tsx`) and the landing page disclaimer.
