@@ -35,6 +35,14 @@ export const patient = pgTable('patient', {
   created_at: ms('created_at').notNull(),
   created_by: text().notNull(),
   hr_flag: text(),
+  /**
+   * Set when this record was found to be the same person as another and merged into it. Nothing is
+   * moved or deleted (signed documents and consultations are immutable): screens simply show the
+   * records together under the surviving patient, and a doctor can undo the merge.
+   */
+  merged_into: text(),
+  merged_at: ms('merged_at'),
+  merged_by: text(),
 })
 
 export const patientRelationship = pgTable('patient_relationship', {

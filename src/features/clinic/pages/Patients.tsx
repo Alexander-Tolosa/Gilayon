@@ -1,9 +1,10 @@
-import { CaretRight, MagnifyingGlass } from '@phosphor-icons/react'
+import { ArrowsMerge, CaretRight, MagnifyingGlass } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button, Card, Chip } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { useT } from '../lib/i18n'
+import { findDuplicatePairs } from '../lib/duplicates'
 import { ageOf, fmtDay, matchScore } from '../lib/helpers'
 import { useClinic } from '../store/store'
 
@@ -36,6 +37,8 @@ export default function Patients() {
       .sort((a, b) => (q ? b.score - a.score : a.per.full_name.localeCompare(b.per.full_name)))
   }, [data, q, filter, online, recent])
 
+  const dupCount = useMemo(() => findDuplicatePairs(data).filter((p) => !p.blocked).length, [data])
+
   const open = (id: string) => {
     touch(id)
     navigate(`/clinic/patients/${id}`)
@@ -44,6 +47,16 @@ export default function Patients() {
   return (
     <div>
       <PageTitle title={t('Patient registry')} sub={`${data.patients.length} patient records · ${data.employees.length} employees on the HR list`} />
+      {dupCount > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warn-soft px-5 py-3">
+          <p className="text-base text-warn">
+            <b>{dupCount}</b> {dupCount === 1 ? 'pair of records looks' : 'pairs of records look'} like the same person.
+          </p>
+          <Button variant="secondary" icon={<ArrowsMerge size={18} />} to="/clinic/patients/duplicates">
+            Review possible duplicates
+          </Button>
+        </div>
+      )}
       <div className="relative mb-4">
         <MagnifyingGlass size={26} className="pointer-events-none absolute left-6 top-1/2 -translate-y-1/2 text-ink-2" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search by name or employee ID')} aria-label={t('Search patients')} className="h-16 w-full rounded-full border-2 border-line-strong bg-surface pl-16 pr-6 text-xl placeholder:text-faint focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-100" />

@@ -4,12 +4,14 @@ import { ageOf, todayKey, topCategory } from '../../features/clinic/lib/helpers'
 import type { CategoryKey, PriorityCategory, ServiceType, TicketStatus } from '../../features/clinic/types'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
 import type { Q } from '../db'
+import { canonicalPatientId } from './merge'
 import { isReturning, patientName } from './records'
 
 /** Only the server issues queue numbers, inside one transaction, so two computers never hand out the same one. */
-export async function issueTicket(q: Q, actor: Actor, patientId: string, categories: CategoryKey[], service: ServiceType, reason: string, ticketId: string = uuid()) {
+export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categories: CategoryKey[], service: ServiceType, reason: string, ticketId: string = uuid()) {
   const [existing] = await q.select().from(t.queueTicket).where(eq(t.queueTicket.ticket_id, ticketId))
   if (existing) return existing.ticket_id // retried request
+  const patientId = await canonicalPatientId(q, patientIdIn)
   const [row] = await q
     .select({ birthdate: t.person.birthdate, name: t.person.full_name })
     .from(t.patient)

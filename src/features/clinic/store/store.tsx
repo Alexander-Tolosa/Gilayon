@@ -54,6 +54,9 @@ const EMPTY: Snapshot = {
   staff: [],
   audit: [],
   offsite: { pending: 0, lastAt: 0 },
+  merged: {},
+  mergedRecords: [],
+  notDuplicates: [],
   lastImport: { at: 0, count: 0, source: '' },
 }
 
@@ -193,6 +196,9 @@ type Api = {
   updateStaffDetails: (staffId: string, patch: Partial<Pick<Staff, 'name' | 'title' | 'license_no' | 'ptr_no' | 'room' | 'role' | 'services'>>) => Promise<string | null>
   setStaffActive: (staffId: string, active: boolean) => Promise<string | null>
   resetStaffPassword: (staffId: string, temporary: string) => Promise<string | null>
+  mergePatients: (keepPatientId: string, duplicatePatientId: string, reason: string) => Promise<string | null>
+  unmergePatient: (patientId: string, reason: string) => Promise<string | null>
+  markNotDuplicate: (a: string, b: string) => Promise<string | null>
   fetchBackups: () => Promise<BackupStatus | null>
   fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
@@ -378,7 +384,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
   const api_ = useMemo<Api>(() => {
     const person = (id?: string) => data.persons.find((p) => p.person_id === id)
-    const patient = (id?: string) => data.patients.find((p) => p.patient_id === id)
+    // A link or slip that still names a merged record lands on the patient it now lives under.
+    const patient = (id?: string) => data.patients.find((p) => p.patient_id === (id ? (data.merged[id] ?? id) : id))
     const personOfPatient = (id?: string) => person(patient(id)?.person_id)
     const employeeOfPerson = (id?: string) => data.employees.find((e) => e.person_id === id)
     const patientOfPerson = (id?: string) => data.patients.find((p) => p.person_id === id)
@@ -626,6 +633,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           return null
         }
       },
+      mergePatients: (keep, duplicate, reason) => call('/api/patients/merge', { keep_patient_id: keep, duplicate_patient_id: duplicate, reason }),
+      unmergePatient: (patientId, reason) => call(`/api/patients/${patientId}/unmerge`, { reason }),
+      markNotDuplicate: (a, b) => call('/api/patients/not-duplicate', { a, b }),
       fetchSecurity: async () => {
         try {
           return await api<SecurityStatus>('/api/security', { token: tokenRef.current })

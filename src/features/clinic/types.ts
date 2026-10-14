@@ -34,6 +34,7 @@ export type Patient = {
   created_at: number
   created_by: string
   hr_flag?: string // set when the front desk flags a mismatch for HR
+  merged_into?: string // never present in what screens receive: merged records are folded into their survivor
 }
 
 export type RelationshipType = 'Spouse' | 'Child' | 'Parent' | 'Sibling'

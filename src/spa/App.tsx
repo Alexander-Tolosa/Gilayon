@@ -11,6 +11,7 @@ const ClinicLogin = lazy(() => import('../features/clinic/pages/ClinicLogin'))
 const CheckIn = lazy(() => import('../features/clinic/pages/CheckIn'))
 const QueueBoard = lazy(() => import('../features/clinic/pages/QueueBoard'))
 const Patients = lazy(() => import('../features/clinic/pages/Patients'))
+const Duplicates = lazy(() => import('../features/clinic/pages/Duplicates'))
 const PatientRecord = lazy(() => import('../features/clinic/pages/PatientRecord'))
 const DoctorQueue = lazy(() => import('../features/clinic/pages/DoctorQueue'))
 const Consult = lazy(() => import('../features/clinic/pages/Consult'))
@@ -66,6 +67,7 @@ function usePreloadClinicScreens() {
       void import('../features/clinic/pages/CheckIn')
       void import('../features/clinic/pages/QueueBoard')
       void import('../features/clinic/pages/Patients')
+      void import('../features/clinic/pages/Duplicates')
       void import('../features/clinic/pages/PatientRecord')
       void import('../features/clinic/pages/DoctorQueue')
       void import('../features/clinic/pages/Consult')
@@ -97,6 +99,7 @@ export default function App() {
           <Route path="checkin" element={<CheckIn />} />
           <Route path="queue" element={<QueueBoard />} />
           <Route path="patients" element={<Patients />} />
+          <Route path="patients/duplicates" element={<Duplicates />} />
           <Route path="patients/:id" element={<PatientRecord />} />
           <Route path="doctor" element={doctor(<DoctorQueue />)} />
           <Route path="consult/:patientId" element={doctor(<Consult />)} />

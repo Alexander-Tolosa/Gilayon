@@ -16,7 +16,11 @@ type Tab = 'overview' | 'visits' | 'family' | 'scans' | 'labs' | 'changes'
 export default function PatientRecord() {
   const { id = '' } = useParams()
   const t = useT()
-  const { data, me, patient, personOfPatient, employeeOfPerson, principalOf, staffById, touch, isReturning } = useClinic()
+  const { data, me, patient, personOfPatient, employeeOfPerson, principalOf, staffById, touch, isReturning, unmergePatient } = useClinic()
+  const toastMsg = useToast()
+  const [undo, setUndo] = useState<{ patient_id: string; full_name: string } | null>(null)
+  const [undoReason, setUndoReason] = useState('')
+  const [undoError, setUndoError] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
   const [edit, setEdit] = useState(false)
   const navigate = useNavigate()
@@ -49,6 +53,36 @@ export default function PatientRecord() {
 
   return (
     <div>
+      <Modal
+        open={!!undo}
+        onClose={() => setUndo(null)}
+        title={`Undo the merge of ${undo?.full_name ?? ''}?`}
+        subtitle="The record comes back as its own patient with its own history. Nothing was moved, so nothing is lost."
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setUndo(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              disabled={undoReason.trim().length < 3}
+              onClick={async () => {
+                if (!undo) return
+                const problem = await unmergePatient(undo.patient_id, undoReason)
+                if (problem) return setUndoError(problem)
+                toastMsg({ tone: 'ok', title: 'Merge undone' })
+                setUndo(null)
+              }}
+            >
+              Undo merge
+            </Button>
+          </>
+        }
+      >
+        <Field label="Why is the merge being undone?" error={undoError}>
+          <Input value={undoReason} onChange={(e) => setUndoReason(e.target.value)} className="h-12 text-base" invalid={!!undoError} />
+        </Field>
+      </Modal>
       <Link to="/clinic/patients" className="mb-4 inline-flex items-center gap-2 text-base font-medium text-ink-2 hover:text-ink">
         <ArrowLeft size={18} /> {t('Patient registry')}
       </Link>
@@ -91,9 +125,35 @@ export default function PatientRecord() {
             <Flag size={18} weight="fill" /> HR flag: {pt.hr_flag}
           </p>
         )}
+        {data.mergedRecords.filter((m) => m.into === pt.patient_id).length > 0 && (
+          <div className="mt-4 rounded-2xl bg-canvas px-4 py-3">
+            <p className="text-[15px] font-semibold">Includes records merged into this one</p>
+            <ul className="mt-1 flex flex-col gap-1">
+              {data.mergedRecords
+                .filter((m) => m.into === pt.patient_id)
+                .map((m) => (
+                  <li key={m.patient_id} className="flex flex-wrap items-center justify-between gap-2 text-[15px] text-ink-2">
+                    <span>
+                      {m.full_name} · {m.patient_no}
+                      {m.merged_at ? ` · merged ${fmtDay(new Date(m.merged_at).toISOString().slice(0, 10))}` : ''}
+                      {m.merged_by ? ` by ${staffById(m.merged_by)?.name ?? m.merged_by}` : ''}
+                    </span>
+                    {doctor && (
+                      <Button variant="ghost" onClick={() => { setUndoError(''); setUndoReason(''); setUndo({ patient_id: m.patient_id, full_name: m.full_name }) }}>
+                        Undo merge
+                      </Button>
+                    )}
+                  </li>
+                ))}
+            </ul>
+          </div>
+        )}
         {dups.length > 0 && (
           <p className="mt-4 flex items-center gap-2 rounded-2xl bg-warn-soft px-4 py-3 text-base text-warn">
             <Warning size={18} weight="fill" /> {t('Possible duplicate')}: {dups.map((d) => d.full_name).join(', ')} has the same birthdate and a similar name.
+            <Link to={`/clinic/patients/duplicates?with=${id}`} className="ml-auto shrink-0 font-semibold underline">
+              Review and merge
+            </Link>
           </p>
         )}
       </Card>
