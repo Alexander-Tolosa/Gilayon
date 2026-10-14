@@ -1,6 +1,6 @@
 # Gilayon · HMO-Clinic Digital Records
 
-Clickable mockup screens for **Gilayon**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
+**Gilayon** is Team KasCoders' entry to Hack Iloilo 2026: a working records system for an HMO clinic. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
 
 Gilayon is a Next.js app with a PostgreSQL backend. The browser UI is a React Router app mounted inside Next.js; the API lives in `app/api/*`.
 
@@ -11,8 +11,10 @@ npm install
 npm run dev        # http://localhost:3000, API at /api/*
 npm run build      # type-check + production build
 npm start          # serve the production build
+npm run typecheck
 npm run lint
 npm test           # backend integration tests (embedded PostgreSQL, nothing to install)
+npx vitest run tests/idle.test.ts   # one test file
 ```
 
 With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.data/` and fills it with the synthetic demo clinic on first start. For a real clinic server, copy `.env.example` to `.env` and set `DATABASE_URL` to a PostgreSQL database; migrations run automatically. `npm run db:seed` loads the demo data into an empty database (stop the dev server first when using the embedded one).
@@ -23,6 +25,7 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | --- | --- |
 | Source of truth | PostgreSQL schema in `db/schema.ts`, migrations in `db/migrations/`. Services in `src/server/services/`, one route file per endpoint in `app/api/`. |
 | Sign-in | `POST /api/auth/login` returns a bearer token (kept per browser tab). Passwords and signing PINs are bcrypt hashes. Five wrong passwords lock the account for a minute. |
+| Idle sign-out | A screen signs itself out after `IDLE_MINUTES` (default 15, `0` turns it off) with no touch, key or scroll. The browser sends a heartbeat (`POST /api/auth/ping`) only while the person is active, and the server rejects a session whose heartbeat stopped, so a token left on a closed tab does not stay usable. Notes waiting in the offline queue are kept and sent after the same person signs in again. |
 | Staff accounts | Doctors add staff, edit details, deactivate or reactivate (never delete), and set temporary passwords. A new or reset account must choose its own password at first sign-in. Everyone can change their own password. Deactivating or resetting signs the person out everywhere. The last active doctor can't be deactivated. |
 | Roles | Doctor, nurse, receptionist. Calling patients, consulting, signing, voiding, reports, audit and settings are doctor-only and enforced on the server. |
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
@@ -34,7 +37,6 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
-
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
 Not built yet: a multi-process event bus (the server is a single process, as on the clinic PC).
@@ -144,7 +146,6 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 
 ## What is simulated
 
-- **Idle sign-out**: a screen signs itself out after `IDLE_MINUTES` (default 15, `0` turns it off) with no touch, key or scroll. The browser sends a heartbeat only while the person is active, and the server rejects a session whose heartbeat stopped, so a token left on a closed tab does not stay usable. Notes waiting in the offline queue are kept and sent after the same person signs in again.
 - **Network mode**: the status badge simulates losing the connection for the demo. Sign-in token, network mode and the pending queue are per tab (`sessionStorage`); the records themselves are on the server.
 - **Offline**: the status badge switches modes for the demo. Consultations saved offline are kept with pre-made ids, so syncing twice can't create duplicates. Signing and issuing queue numbers need the network.
 - **AI recap**: a rule-based draft built from the patient's synthetic record, with links to its sources. No data leaves the browser.
@@ -156,25 +157,19 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 React 19, TypeScript, Next.js 16, PostgreSQL (Drizzle ORM, PGlite for dev), Tailwind CSS v4, Motion (`motion/react`), React Router 7, Recharts, Phosphor Icons, Geist and Geist Mono fonts, Allura font (signature script), oxlint. App routes are lazy-loaded.
 
 ```
+app/                   Next.js: catch-all that mounts the SPA, app/api/* route files
 src/
-  main.tsx, index.css
-  app/                 App shell and routes
-  shared/
-    components/        UI kit, logo, charts, scroll effects
-    lib/               utils, PWA service worker registration
+  spa/                 React Router app (Root.tsx mounts App.tsx)
+  server/              auth, http route() wrapper, services/, backup/, tls/, state snapshot
+  shared/              UI kit, logo, charts, utils, service worker registration
   features/
-    landing/           Landing page
-    auth/              Sign-in page
-    portal/            Patient/doctor portal: components, data, store
-    clinic/            Gilayon clinic module
-      pages/           Route pages
-      components/      Clinic-specific components
-      data/            Seed data and reference tables
-      lib/             Helpers and i18n
-      store/           Clinic state
-      types.ts
+    landing/ auth/     Landing page, sign-in redirect
+    portal/            Patient portal prototype (localStorage only, no backend)
+    clinic/            Clinic module: pages/, components/, store/, lib/, data/, types.ts
+db/                    schema.ts, migrations/, seed, backup/https CLIs
+tests/                 Vitest integration tests (PGlite)
 ```
 
 ## Repository layout
 
-`app/` Next.js routes and API, `src/` UI and server code, `db/` schema, migrations and seed, `tests/` backend tests, `public/` PWA assets. `.agents/`, `.claude/` and `skills-lock.json` are design-skill tooling for AI coding agents and are not part of the app.
+`app/` Next.js routes and API, `src/` UI and server code, `db/` schema, migrations and seed, `tests/` backend tests, `public/` PWA assets, `CLAUDE.md` guidance for AI coding agents. `.agents/`, `.claude/` and `skills-lock.json` are design-skill tooling for AI coding agents and are not part of the app.
