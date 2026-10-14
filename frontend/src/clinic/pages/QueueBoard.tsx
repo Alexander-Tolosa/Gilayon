@@ -91,7 +91,7 @@ export default function QueueBoard() {
             <Button variant="secondary" size="lg" icon={<Monitor size={20} />} onClick={() => window.open('/waiting', '_blank')}>
               {t('Waiting screen')}
             </Button>
-            {me?.role === 'desk' && (
+            {me?.role !== 'doctor' && (
               <Button size="lg" to="/clinic/checkin">
                 {t('Check in')}
               </Button>

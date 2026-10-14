@@ -46,6 +46,12 @@ function useNav(role: StaffRole): Item[] {
       { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     ]
+  if (role === 'nurse')
+    return [
+      { to: '/clinic/checkin', label: 'Check in & Triage', icon: UserCirclePlus },
+      { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
+      { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
+    ]
   return [
     { to: '/clinic/doctor', label: 'My queue', icon: Stethoscope, badge: waiting || undefined },
     { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
@@ -70,7 +76,9 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
           <p className="text-[13px] text-muted">HMO-Clinic records</p>
         </div>
       </div>
-      <p className="px-6 pb-2 text-sm font-semibold text-faint">{role === 'desk' ? t('Front desk') : t('Doctor')}</p>
+      <p className="px-6 pb-2 text-sm font-semibold text-faint">
+        {role === 'doctor' ? t('Doctor') : role === 'nurse' ? t('Nurse') : t('Receptionist')}
+      </p>
       <nav className="flex flex-col gap-1.5 px-3">
         {nav.map((item) => (
           <NavLink
@@ -162,7 +170,7 @@ export function ClinicShell() {
 export function ClinicHome() {
   const { me } = useClinic()
   if (!me) return <Navigate to="/clinic/login" replace />
-  return <Navigate to={me.role === 'desk' ? '/clinic/checkin' : '/clinic/doctor'} replace />
+  return <Navigate to={me.role === 'doctor' ? '/clinic/doctor' : '/clinic/checkin'} replace />
 }
 
 /** Doctor-only screens: front desk cannot see consultation notes, documents, reports or the audit trail. */

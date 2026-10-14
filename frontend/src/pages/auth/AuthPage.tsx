@@ -5,9 +5,10 @@ import { Logo } from '../../components/Logo'
 import { Avatar } from '../../components/ui'
 import { img, PHOTOS } from '../../lib/utils'
 
-const ROLE_CARDS: { role: 'desk' | 'doctor'; title: string; body: string; photo: string }[] = [
-  { role: 'desk', title: "I'm front desk staff", body: 'Check-in, verification, queue and patient records', photo: img.portrait('women', 44) },
-  { role: 'doctor', title: "I'm a doctor", body: 'Consultations, signed prescriptions and certificates, reports', photo: img.unsplash(PHOTOS.drMale, 200, 200) },
+const ROLE_CARDS: { role: 'doctor' | 'desk' | 'nurse'; title: string; body: string; photo: string }[] = [
+  { role: 'doctor', title: "I'm a doctor", body: 'Consultations, signed prescriptions, diagnostic orders and reports', photo: img.unsplash(PHOTOS.drMale, 200, 200) },
+  { role: 'desk', title: "I'm a receptionist", body: 'Patient check-in, identity verification, priority queue and records', photo: img.portrait('women', 44) },
+  { role: 'nurse', title: "I'm a nurse", body: 'Vital signs, patient triage, queue monitoring and care coordination', photo: img.unsplash(PHOTOS.nurse, 200, 200) },
 ]
 
 export default function AuthPage() {
@@ -16,7 +17,10 @@ export default function AuthPage() {
   const reduce = useReducedMotion()
   const initialRole = params.get('role')
   // Clinic staff sign in to the Himsog clinic app.
-  if (initialRole === 'secretary' || initialRole === 'desk' || initialRole === 'doctor') return <Navigate to={`/clinic/login?role=${initialRole === 'doctor' ? 'doctor' : 'desk'}`} replace />
+  if (initialRole === 'secretary' || initialRole === 'desk' || initialRole === 'receptionist' || initialRole === 'doctor' || initialRole === 'nurse') {
+    const target = initialRole === 'doctor' ? 'doctor' : initialRole === 'nurse' ? 'nurse' : 'desk'
+    return <Navigate to={`/clinic/login?role=${target}`} replace />
+  }
 
   return (
     <div className="grid grid-cols-1 min-h-[100dvh] bg-surface lg:grid-cols-[1.05fr_0.95fr]">

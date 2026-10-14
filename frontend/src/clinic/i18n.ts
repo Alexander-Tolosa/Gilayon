@@ -150,6 +150,8 @@ const FIL: Record<string, string> = {
   'Signed documents': 'Mga napirmahang dokumento',
   'New dependent': 'Bagong dependent',
   'Edit details': 'I-edit ang detalye',
+  Receptionist: 'Resepsyonista',
+  Nurse: 'Nars',
 }
 
 let current: Lang = (() => {

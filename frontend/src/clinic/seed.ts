@@ -53,8 +53,10 @@ export const STAFF: Staff[] = [
   { staff_id: 'st-d1', name: 'Dr. Ramon Sollesta', role: 'doctor', title: 'Physician, doctor in charge', license_no: '0098214', ptr_no: '7731542 · Jan 6, 2026 · Iloilo', services: ['Medical', 'Laboratory'], room: 'Room 1', pin: '1234' },
   { staff_id: 'st-d2', name: 'Dr. Liza Magbanua', role: 'doctor', title: 'Physician', license_no: '0121587', ptr_no: '7731589 · Jan 6, 2026 · Iloilo', services: ['Medical', 'Laboratory'], room: 'Room 2', pin: '1234' },
   { staff_id: 'st-d3', name: 'Dr. Analyn Hechanova', role: 'doctor', title: 'Dentist', license_no: '0047391', ptr_no: '7731604 · Jan 7, 2026 · Iloilo', services: ['Dental'], room: 'Dental room', pin: '1234' },
-  { staff_id: 'st-f1', name: 'Cristina Bañas', role: 'desk', title: 'Front desk' },
-  { staff_id: 'st-f2', name: 'Joel Parreño', role: 'desk', title: 'Clinic staff' },
+  { staff_id: 'st-f1', name: 'Cristina Bañas', role: 'desk', title: 'Receptionist & Front desk' },
+  { staff_id: 'st-f2', name: 'Joel Parreño', role: 'desk', title: 'Receptionist' },
+  { staff_id: 'st-n1', name: 'Nurse Maricris Alinsug, RN', role: 'nurse', title: 'Triage & vital signs nurse', room: 'Triage station' },
+  { staff_id: 'st-n2', name: 'Nurse Joy Sorongon, RN', role: 'nurse', title: 'Clinic staff nurse', room: 'Treatment room' },
 ]
 
 const FEMALE = ['Maria Lourdes', 'Ana Marie', 'Rowena', 'Jocelyn', 'Marites', 'Lorna', 'Teresita', 'Grace', 'Rosario', 'Kristine', 'Jessa', 'Rhea', 'Melody', 'Charmaine', 'Hazel', 'Shiela', 'Gina', 'Liza', 'Ma. Cristina', 'Analyn', 'Joy', 'Mary Ann', 'Lea', 'Cherry', 'Glenda', 'Nenita', 'Evelyn', 'Ruby']

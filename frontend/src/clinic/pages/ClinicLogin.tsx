@@ -15,7 +15,9 @@ export default function ClinicLogin() {
   const t = useT()
   const { data, me, signIn } = useClinic()
   const [params] = useSearchParams()
-  const [role, setRole] = useState<StaffRole>(params.get('role') === 'doctor' ? 'doctor' : 'desk')
+  const roleParam = params.get('role')
+  const initialRole: StaffRole = roleParam === 'doctor' ? 'doctor' : roleParam === 'nurse' ? 'nurse' : 'desk'
+  const [role, setRole] = useState<StaffRole>(initialRole)
   const accounts = data.staff.filter((s) => s.role === role)
   const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
   const [password, setPassword] = useState('demo-password')
@@ -28,7 +30,7 @@ export default function ClinicLogin() {
     e.preventDefault()
     if (!password) return setError('Enter your password.')
     signIn(staffId)
-    navigate(role === 'desk' ? '/clinic/checkin' : '/clinic/doctor')
+    navigate(role === 'doctor' ? '/clinic/doctor' : '/clinic/checkin')
   }
 
   return (
@@ -52,8 +54,8 @@ export default function ClinicLogin() {
             </div>
           </div>
           <h1 className="mt-10 text-[2.1rem] font-semibold leading-tight tracking-[-0.03em]">Sign in to the clinic</h1>
-          <div className="mt-6 grid grid-cols-2 gap-2 rounded-full border border-line bg-surface p-1.5" role="tablist">
-            {(['desk', 'doctor'] as const).map((r) => (
+          <div className="mt-6 grid grid-cols-3 gap-1.5 rounded-full border border-line bg-surface p-1.5" role="tablist">
+            {(['doctor', 'desk', 'nurse'] as const).map((r) => (
               <button
                 key={r}
                 type="button"
@@ -63,9 +65,9 @@ export default function ClinicLogin() {
                   setRole(r)
                   setStaffId(data.staff.find((s) => s.role === r)?.staff_id ?? '')
                 }}
-                className={cn('h-12 rounded-full text-[17px] font-semibold transition', role === r ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}
+                className={cn('h-12 rounded-full text-[15px] font-semibold transition sm:text-[16px]', role === r ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}
               >
-                {t(r === 'desk' ? 'Front desk' : 'Doctor')}
+                {t(r === 'doctor' ? 'Doctor' : r === 'nurse' ? 'Nurse' : 'Receptionist')}
               </button>
             ))}
           </div>

@@ -181,7 +181,7 @@ export type ScannedPage = {
 
 export type Allergy = { allergy_id: string; patient_id: string; substance: string; reaction: string; severity: 'Mild' | 'Moderate' | 'Severe' }
 
-export type StaffRole = 'doctor' | 'desk'
+export type StaffRole = 'doctor' | 'desk' | 'nurse'
 
 export type Staff = {
   staff_id: string

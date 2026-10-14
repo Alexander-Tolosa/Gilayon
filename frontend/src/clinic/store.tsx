@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { buildSeed, type ClinicData } from './seed'
+import { buildSeed, STAFF, type ClinicData } from './seed'
 import { ageOf, matchScore, todayKey, topCategory, uuid } from './lib'
 import type {
   AuditAction,
@@ -49,7 +49,19 @@ function loadShared(): Shared {
     if (raw) {
       const parsed = JSON.parse(raw) as Shared
       // Seed data is relative to today; reseed if the stored copy is from an earlier day.
-      if (parsed.seededOn === todayKey()) return parsed
+      if (parsed.seededOn === todayKey()) {
+        const existingStaffIds = new Set(parsed.staff.map((s) => s.staff_id))
+        const missing = STAFF.filter((s) => !existingStaffIds.has(s.staff_id))
+        if (missing.length > 0) {
+          parsed.staff = [...parsed.staff, ...missing]
+          try {
+            localStorage.setItem(KEY, JSON.stringify(parsed))
+          } catch {
+            /* ignore quota */
+          }
+        }
+        return parsed
+      }
     }
   } catch {
     /* fall through */
