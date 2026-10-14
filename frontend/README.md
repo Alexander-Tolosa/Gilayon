@@ -65,7 +65,7 @@ The data reseeds each day, so today's queue is always live. To start over, go to
 | Concept item | Where |
 | --- | --- |
 | Verified check-in (name, birthdate, employee ID) | `/clinic/checkin` |
-| Priority lanes: Urgent 1; Pregnant, PWD, Senior (60+, computed) 2; Regular 3; first come, first served within a lane | `src/clinic/lib.ts` (`rankTickets`), Settings |
+| Priority lanes: Urgent 1; Pregnant, PWD, Senior (60+, computed) 2; Regular 3; first come, first served within a lane | `src/features/clinic/lib/helpers.ts` (`rankTickets`), Settings |
 | Live waiting list and waiting screen | `/clinic/queue`, `/waiting` |
 | Registry, one-box search, linked relatives (MDR), family history | `/clinic/patients` |
 | Append-only consultations, required fields, templates, duplicate warning | `/clinic/consult`, patient record |
@@ -92,8 +92,20 @@ React 19, TypeScript, Vite 8, Tailwind CSS v4, Motion (`motion/react`), React Ro
 
 ```
 src/
-  clinic/      Himsog clinic module: types, seed, store, i18n, components, pages/
-  components/  UI kit, app shell, landing sections
-  pages/       Landing, auth
-  lib/         utils, PWA service worker
+  main.tsx, index.css
+  app/                 App shell and routes
+  shared/
+    components/        UI kit, logo, charts, scroll effects
+    lib/               utils, PWA service worker registration
+  features/
+    landing/           Landing page
+    auth/              Sign-in page
+    portal/            Patient/doctor portal: components, data, store
+    clinic/            Himsog clinic module
+      pages/           Route pages
+      components/      Clinic-specific components
+      data/            Seed data and reference tables
+      lib/             Helpers and i18n
+      store/           Clinic state
+      types.ts
 ```
