@@ -4,6 +4,7 @@ import { Button, Card, Field, Input, Modal, useToast } from '../../../shared/com
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, Signature } from '../components/ClinicComponents'
 import { BackupCard } from '../components/BackupCard'
+import { HrImportCard } from '../components/HrImport'
 import { SecurityCard } from '../components/SecurityCard'
 import { ChangePasswordForm, StaffManager } from '../components/StaffAdmin'
 import { useT } from '../lib/i18n'
@@ -83,6 +84,8 @@ export default function Settings() {
         </Card>
 
         <StaffManager />
+
+        <HrImportCard />
 
         <SecurityCard />
 

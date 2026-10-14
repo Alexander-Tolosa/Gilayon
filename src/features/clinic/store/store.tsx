@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { BackupStatus, ConsultInput, SecurityStatus, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
+import type { HrImportResult, RawHrRow } from '../lib/hrlist'
 import { dropOps, loadOutbox, putOp, type OutboxOp } from '../lib/outbox'
 import type {
   CategoryKey,
@@ -178,7 +179,7 @@ type Api = {
   addFamilyHistory: (patientId: string, relative: string, condition: string, notes?: string) => void
   addAllergy: (patientId: string, substance: string, reaction: string, severity: 'Mild' | 'Moderate' | 'Severe') => void
   linkRelative: (principalPatientId: string, relatedPatientId: string, type: RelationshipType, mdr: boolean) => void
-  importEmployees: (rows: { employee_no: string; full_name: string; birthdate: string; sex: Sex; office: string; position: string; contact?: string }[], source: string) => Promise<{ created: number; updated: number; unchanged: number }>
+  hrImport: (rows: RawHrRow[], source: string, dryRun: boolean) => Promise<{ result?: HrImportResult; error?: string }>
   // doctor
   callTicket: (ticketId: string) => Promise<boolean>
   startConsult: (ticketId: string) => void
@@ -556,7 +557,15 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       addAllergy: (patientId, substance, reaction, severity) => void send(`/api/patients/${patientId}/allergies`, { substance, reaction, severity }),
       linkRelative: (principalPatientId, relatedPatientId, type, mdr) => void send(`/api/patients/${principalPatientId}/relatives`, { related_patient_id: relatedPatientId, type, mdr }),
 
-      importEmployees: async (rows, source) => (await send<{ created: number; updated: number; unchanged: number }>('/api/employees/import', { rows, source })) ?? { created: 0, updated: 0, unchanged: 0 },
+      hrImport: async (rows, source, dryRun) => {
+        try {
+          const result = await api<HrImportResult>('/api/employees/import', { token: tokenRef.current, body: { rows, source, dry_run: dryRun } })
+          if (!dryRun) await refresh()
+          return { result }
+        } catch (e) {
+          return { error: e instanceof ApiError ? e.message : 'The import failed.' }
+        }
+      },
 
       callTicket: async (ticketId) => {
         if (!online) return false
