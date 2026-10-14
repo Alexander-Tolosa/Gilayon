@@ -24,7 +24,6 @@ import { Reveal } from '../../shared/components/Reveal'
 import { Drift, ParallaxImage, PopIn, RevealText, ScrollAway, ScrollProgress } from '../../shared/components/ScrollFx'
 import { Avatar, Badge, Button } from '../../shared/components/ui'
 import { DOCTORS } from '../portal/data/seed'
-import '@fontsource/allura'
 import { cn, img, PHOTOS } from '../../shared/lib/utils'
 
 const YEAR = new Date().getFullYear()
@@ -121,7 +120,7 @@ function Hero() {
         ))}
 
         <ScrollAway className="w-full">
-        <motion.h1 {...rise(0.08)} className="mt-10 text-[44px] leading-[1.02] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[84px]">
+        <motion.h1 {...rise(0.08)} className="mt-10 text-[44px] leading-[1.03] tracking-[-0.03em] text-ink sm:text-6xl lg:text-[84px]">
           <span className="block font-light">Every health record,</span>
           <span className="block font-semibold">
             in one <span className="text-brand-600">secure</span> place.
@@ -162,7 +161,12 @@ function Hero() {
 /* -------------------------------- Problem ---------------------------------- */
 
 function Problem() {
-  const photos = [PHOTOS.doctorPhone, PHOTOS.labTubes, PHOTOS.consult, PHOTOS.nurse]
+  const photos = [
+    { src: PHOTOS.doctorPhone, caption: 'Checking a past note before the visit' },
+    { src: PHOTOS.labTubes, caption: 'Blood work, logged by hand' },
+    { src: PHOTOS.consult, caption: 'A consultation, written on paper' },
+    { src: PHOTOS.nurse, caption: 'A folder, found on the shelf' },
+  ]
   return (
     <section className="px-4 sm:px-6 lg:px-8">
       <Reveal>
@@ -177,8 +181,15 @@ function Problem() {
           </div>
           <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
             {photos.map((p, i) => (
-              <Reveal key={p} delay={i * 0.08} y={48} className={cn(i > 1 && 'hidden md:block')}>
-                <ParallaxImage src={img.unsplash(p, 700, 875)} className="aspect-[4/5]" />
+              <Reveal key={p.src} delay={i * 0.08} y={48} className={cn(i > 1 && 'hidden md:block')}>
+                <div className="group relative">
+                  <ParallaxImage
+                    src={img.unsplash(p.src, 700, 875)}
+                    className="aspect-[4/5] grayscale-[55%] saturate-[0.8] transition duration-700 group-hover:grayscale-0 group-hover:saturate-100"
+                  />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-brand-950/70 via-transparent to-transparent" />
+                  <p className="absolute inset-x-0 bottom-0 p-3 text-[12.5px] font-medium leading-snug text-white sm:p-4 sm:text-[13px]">{p.caption}</p>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -477,39 +488,46 @@ function Personas() {
 
 function Footer() {
   return (
-    <footer className="mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 gap-10 border-b border-line pb-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div>
-          <Logo />
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
-          <div className="mt-5 flex items-center gap-2 text-[13px] text-muted">
-            <Drop size={16} weight="fill" className="text-brand-500" /> Runs on the clinic's own computers
+    <footer className="bg-brand-950 text-white">
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 border-b border-white/10 pb-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <Logo light />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-100">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
+            <div className="mt-5 flex items-center gap-2 text-[13px] text-brand-200">
+              <Drop size={16} weight="fill" className="text-brand-300" /> Runs on the clinic's own computers
+            </div>
+          </div>
+          {[
+            { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
+            { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
+            { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
+          ].map((c) => (
+            <div key={c.h}>
+              <p className="text-sm font-semibold text-white">{c.h}</p>
+              <ul className="mt-4 space-y-2.5">
+                {c.l.map(([label, href]) => (
+                  <li key={label}>
+                    {href.startsWith('#') ? (
+                      <a href={href} className="text-sm text-brand-100 transition hover:text-white">{label}</a>
+                    ) : (
+                      <Link to={href} className="text-sm text-brand-100 transition hover:text-white">{label}</Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-col gap-3 pt-6 text-[13px] text-brand-200">
+          <p className="max-w-3xl leading-relaxed">
+            This is a hackathon prototype built on synthetic demo data only — never real patient records. A production clinic deployment would handle personal health information under the Data Privacy Act of 2012 (RA 10173): records stay on clinic-owned hardware, access is role-based and logged, and patients may request a copy or correction of their data.
+          </p>
+          <div className="flex flex-col justify-between gap-3 sm:flex-row">
+            <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
+            <p>Prototype with synthetic data only. Not for real patient data.</p>
           </div>
         </div>
-        {[
-          { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
-          { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
-          { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
-        ].map((c) => (
-          <div key={c.h}>
-            <p className="text-sm font-semibold text-ink">{c.h}</p>
-            <ul className="mt-4 space-y-2.5">
-              {c.l.map(([label, href]) => (
-                <li key={label}>
-                  {href.startsWith('#') ? (
-                    <a href={href} className="text-sm text-muted transition hover:text-brand-700">{label}</a>
-                  ) : (
-                    <Link to={href} className="text-sm text-muted transition hover:text-brand-700">{label}</Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
-        <p>Prototype with synthetic data only. Not for real patient data.</p>
       </div>
     </footer>
   )
