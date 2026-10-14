@@ -76,7 +76,7 @@ export const STAFF: Staff[] = [
     name: 'Joanna Reyes',
     title: 'Front Desk Lead',
     photo: img.portrait('women', 44),
-    email: 'joanna.reyes@himsog.health',
+    email: 'joanna.reyes@gilayon.health',
   },
 ]
 

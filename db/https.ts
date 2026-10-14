@@ -1,7 +1,7 @@
 /*
   HTTPS for the clinic network.
 
-    npm run https:setup -- [--host himsog.clinic] [--host 192.168.1.10]   create the CA (first time) and a server certificate
+    npm run https:setup -- [--host gilayon.clinic] [--host 192.168.1.10]   create the CA (first time) and a server certificate
     npm run https:renew                                                  new server certificate, same CA, same names
     npm run https:status                                                 what is installed and how long it lasts
 

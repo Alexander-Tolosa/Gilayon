@@ -1,5 +1,5 @@
-<# Removes the Himsog background task and its firewall rules. Run in an administrator PowerShell. #>
-param([string]$Name = 'Himsog Server')
+<# Removes the Gilayon background task and its firewall rules. Run in an administrator PowerShell. #>
+param([string]$Name = 'Gilayon Server')
 $ErrorActionPreference = 'Stop'
 if (Get-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue) {
   Stop-ScheduledTask -TaskName $Name -ErrorAction SilentlyContinue

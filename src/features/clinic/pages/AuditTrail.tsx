@@ -55,7 +55,7 @@ export default function AuditTrail() {
             variant="secondary"
             size="lg"
             icon={<DownloadSimple size={20} />}
-            onClick={() => downloadCSV('himsog-audit-trail.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
+            onClick={() => downloadCSV('gilayon-audit-trail.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
           >
             Export CSV
           </Button>

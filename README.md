@@ -1,8 +1,8 @@
-# Himsog · HMO-Clinic Digital Records
+# Gilayon · HMO-Clinic Digital Records
 
-Clickable mockup screens for **Himsog**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
+Clickable mockup screens for **Gilayon**, Team KasCoders' entry to Hack Iloilo 2026. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
 
-Himsog is a Next.js app with a PostgreSQL backend. The browser UI is a React Router app mounted inside Next.js; the API lives in `app/api/*`.
+Gilayon is a Next.js app with a PostgreSQL backend. The browser UI is a React Router app mounted inside Next.js; the API lives in `app/api/*`.
 
 ## Run it
 
@@ -41,11 +41,11 @@ Not built yet: a multi-process event bus (the server is a single process, as on 
 
 ## HTTPS and running as a service
 
-Offline mode and the installable app need a secure page, and passwords and patient records should never cross the clinic network in plain text. Himsog runs its own small certificate authority (CA): each clinic PC trusts it once, and the server presents a certificate it signed.
+Offline mode and the installable app need a secure page, and passwords and patient records should never cross the clinic network in plain text. Gilayon runs its own small certificate authority (CA): each clinic PC trusts it once, and the server presents a certificate it signed.
 
 ```bash
 npm run build
-npm run https:setup -- --host himsog.clinic --host 192.168.1.10   # names/addresses PCs will type; omit to use this PC's own
+npm run https:setup -- --host gilayon.clinic --host 192.168.1.10   # names/addresses PCs will type; omit to use this PC's own
 npm run start:https                                               # https://<server>:3443, plain http on :3000 only redirects
 npm run https:status                                              # names, days left, CA fingerprint
 npm run https:renew                                               # new server certificate, same CA, every 825 days or less
@@ -57,20 +57,20 @@ npm run https:renew                                               # new server c
 - **Settings > Secure connection** warns on any screen opened over plain `http://` from another PC.
 - The server also sends `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` headers.
 
-To start with Windows and restart if it stops, run `deploy\windows\install-service.ps1` in an administrator PowerShell on the server PC (it registers a startup task running `node server.mjs` as SYSTEM and opens the two ports on private networks); `uninstall-service.ps1` removes it. **These Windows scripts have not been run on a real Windows machine yet:** try them on the clinic PC and check `Get-ScheduledTaskInfo -TaskName "Himsog Server"`.
+To start with Windows and restart if it stops, run `deploy\windows\install-service.ps1` in an administrator PowerShell on the server PC (it registers a startup task running `node server.mjs` as SYSTEM and opens the two ports on private networks); `uninstall-service.ps1` removes it. **These Windows scripts have not been run on a real Windows machine yet:** try them on the clinic PC and check `Get-ScheduledTaskInfo -TaskName "Gilayon Server"`.
 
 ## Backups
 
 The server makes a backup every night (default 02:00, or at the next start if the PC was off), and the doctor can press **Settings → Back up now**.
 
 - **What is in it:** every record and every scanned page, in one `himsog-YYYYMMDD-HHMMSS.hbk` file, encrypted with AES-256-GCM using `BACKUP_PASSPHRASE`. A backup is read back and every checksum is checked before it counts; a failed one never replaces a good one.
-- **Where it goes:** `BACKUP_DIR` (the USB drive, for example `E:\HimsogBackups`; if the drive is missing the backup fails and Settings says so) and, when reachable, `BACKUP_OFFSITE_DIR` (a synced or network folder). The newest `BACKUP_KEEP` (default 14) are kept in each. The "changes wait for the off-site backup" counter on every screen drops to 0 only after a real, verified copy.
+- **Where it goes:** `BACKUP_DIR` (the USB drive, for example `E:\GilayonBackups`; if the drive is missing the backup fails and Settings says so) and, when reachable, `BACKUP_OFFSITE_DIR` (a synced or network folder). The newest `BACKUP_KEEP` (default 14) are kept in each. The "changes wait for the off-site backup" counter on every screen drops to 0 only after a real, verified copy.
 - **Keep the passphrase safe and separate.** Without it a backup cannot be opened, and nothing can recover it. Settings shows a warning if backups are not configured, failed, or are over a day old.
 
 ```bash
 npm run backup                              # back up now (stop the server first if using the embedded database)
 npm run backup:list                         # backups in BACKUP_DIR
-npm run backup:verify -- E:\HimsogBackups\himsog-20261014-020000.hbk
+npm run backup:verify -- E:\GilayonBackups\himsog-20261014-020000.hbk
 npm run backup:restore -- <file> --yes      # replaces ALL records; stop the server first
 ```
 
@@ -165,7 +165,7 @@ src/
     landing/           Landing page
     auth/              Sign-in page
     portal/            Patient/doctor portal: components, data, store
-    clinic/            Himsog clinic module
+    clinic/            Gilayon clinic module
       pages/           Route pages
       components/      Clinic-specific components
       data/            Seed data and reference tables

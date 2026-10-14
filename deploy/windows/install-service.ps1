@@ -1,17 +1,17 @@
 <#
-  Installs Himsog as a background task that starts with Windows and restarts if it stops.
+  Installs Gilayon as a background task that starts with Windows and restarts if it stops.
   Run in an ADMINISTRATOR PowerShell on the clinic server PC, from anywhere:
 
     .\deploy\windows\install-service.ps1
-    .\deploy\windows\install-service.ps1 -AppPath D:\himsog -Name "Himsog Server"
+    .\deploy\windows\install-service.ps1 -AppPath D:\gilayon -Name "Gilayon Server"
 
   Before this: npm install, npm run build, npm run https:setup, and a filled-in .env file.
   NOTE: written for Windows 10/11 and Windows Server; not exercised on a real Windows machine yet.
-  Try it on the clinic PC and run  Get-ScheduledTaskInfo -TaskName "Himsog Server"  to check.
+  Try it on the clinic PC and run  Get-ScheduledTaskInfo -TaskName "Gilayon Server"  to check.
 #>
 param(
   [string]$AppPath = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path,
-  [string]$Name = 'Himsog Server'
+  [string]$Name = 'Gilayon Server'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,7 +47,7 @@ $principal = New-ScheduledTaskPrincipal -UserId 'SYSTEM' -LogonType ServiceAccou
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
   -RestartCount 999 -RestartInterval (New-TimeSpan -Minutes 1) -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable
 Register-ScheduledTask -TaskName $Name -Action $action -Trigger $trigger -Principal $principal -Settings $settings `
-  -Description 'Himsog HMO-Clinic records server (HTTPS)' | Out-Null
+  -Description 'Gilayon HMO-Clinic records server (HTTPS)' | Out-Null
 
 # Let the other clinic PCs in (private network only).
 foreach ($rule in @(@{ N = "$Name HTTPS"; P = $httpsPort }, @{ N = "$Name HTTP redirect"; P = $httpPort })) {

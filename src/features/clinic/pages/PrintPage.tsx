@@ -70,7 +70,7 @@ function PatientLine({ patientId, date }: { patientId: string; date: string }) {
 const footer = (no?: string) => (
   <div className="flex justify-between">
     <span>{no ? `Document no. ${no}. Verify with the HMO-Clinic.` : 'Draft, not valid without a signature and document number.'}</span>
-    <span>Himsog · synthetic demo data</span>
+    <span>Gilayon · synthetic demo data</span>
   </div>
 )
 
@@ -186,7 +186,7 @@ function SummaryPrint({ id }: { id: string }) {
   const fh = data.familyHistory.filter((h) => h.patient_id === id)
   const labs = data.labs.filter((l) => l.patient_id === id && l.status === 'resulted').slice(-4)
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(printedAt)}. Bring this sheet to your next visit.</span><span>Himsog · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(printedAt)}. Bring this sheet to your next visit.</span><span>Gilayon · synthetic demo data</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Patient summary · {fil('Buod')}</p>
       <PatientLine patientId={id} date={todayKey()} />
       <Section title="Allergies">{allergies.length ? allergies.map((a) => `${a.substance} (${a.reaction}, ${a.severity.toLowerCase()})`).join('; ') : 'None known.'}</Section>
@@ -266,7 +266,7 @@ function ReportPrint({ day }: { day: string }) {
   const r = useDailyReport(day)
   const [generatedAt] = useState(() => Date.now())
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(generatedAt)} from the clinic records.</span><span>Himsog · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(generatedAt)} from the clinic records.</span><span>Gilayon · synthetic demo data</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Daily report · {fmtDay(day)}</p>
       <table className="mt-5 w-full border-collapse text-[10.5pt]">
         <tbody>

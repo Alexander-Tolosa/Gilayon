@@ -5,7 +5,7 @@ import { createGunzip, createGzip, type Gzip } from 'node:zlib'
 import type { CipherGCM } from 'node:crypto'
 
 /*
-  Himsog backup archive (.hbk): one file holding the database export and the scanned pages.
+  Gilayon backup archive (.hbk): one file holding the database export and the scanned pages.
 
     "HBK1" | flag (1 = encrypted) | [salt 16 | iv 12] | gzip( frames ) | [GCM tag 16]
 
@@ -176,7 +176,7 @@ export async function readArchive(path: string, passphrase: string | undefined, 
   try {
     const head = Buffer.alloc(33)
     await fh.read(head, 0, 33, 0)
-    if (!head.subarray(0, 4).equals(MAGIC)) throw new Error('This is not a Himsog backup file.')
+    if (!head.subarray(0, 4).equals(MAGIC)) throw new Error('This is not a Gilayon backup file.')
     flag = head[4]
     if (flag === 1) {
       salt = head.subarray(5, 21)

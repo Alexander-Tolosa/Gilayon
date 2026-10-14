@@ -1,5 +1,5 @@
 /*
-  Progressive Web App install support. The concept installs Himsog on clinic computers,
+  Progressive Web App install support. The concept installs Gilayon on clinic computers,
   tablets and phones from the browser, with no app store. Chrome and Edge fire
   beforeinstallprompt; Safari (iPhone/iPad) installs from Share > Add to Home Screen.
 */

@@ -49,7 +49,7 @@ async function createCa(now: Date) {
   const keys = (await webcrypto.subtle.generateKey(ALG, true, ['sign', 'verify'])) as CryptoKeyPair
   const cert = await x509.X509CertificateGenerator.createSelfSigned({
     serialNumber: serial(),
-    name: 'CN=Himsog Clinic Local CA, O=Himsog',
+    name: 'CN=Gilayon Clinic Local CA, O=Gilayon',
     notBefore: new Date(now.getTime() - DAY),
     notAfter: new Date(now.getTime() + CA_DAYS * DAY),
     signingAlgorithm: ALG,
@@ -69,7 +69,7 @@ async function issueLeaf(ca: { cert: x509.X509Certificate; privateKey: CryptoKey
   const primary = hosts.find((h) => h && !isIP(h)) ?? 'localhost'
   const cert = await x509.X509CertificateGenerator.create({
     serialNumber: serial(),
-    subject: `CN=${primary}, O=Himsog`,
+    subject: `CN=${primary}, O=Gilayon`,
     issuer: ca.cert.subject,
     notBefore: new Date(now.getTime() - DAY),
     notAfter: new Date(now.getTime() + LEAF_DAYS * DAY),

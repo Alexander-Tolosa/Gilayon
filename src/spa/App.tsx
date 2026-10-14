@@ -3,7 +3,7 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import { Button } from '../shared/components/ui'
 import Landing from '../features/landing/Landing'
 const AuthPage = lazy(() => import('../features/auth/AuthPage'))
-// Himsog clinic: front desk, doctor, waiting screen and print views.
+// Gilayon clinic: front desk, doctor, waiting screen and print views.
 const ClinicShell = lazy(() => import('../features/clinic/ClinicShell').then((m) => ({ default: m.ClinicShell })))
 const ClinicHome = lazy(() => import('../features/clinic/ClinicShell').then((m) => ({ default: m.ClinicHome })))
 const DoctorOnly = lazy(() => import('../features/clinic/ClinicShell').then((m) => ({ default: m.DoctorOnly })))
