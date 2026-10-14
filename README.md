@@ -28,13 +28,34 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
 | Audit log | Written in the same transaction as every change; the database refuses deletes. |
+| Transport | `npm run start:https` terminates TLS 1.2+ with a certificate from the clinic's own CA. See [HTTPS](#https-and-running-as-a-service). |
 | Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
 
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
-Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), and a multi-process event bus (the server is a single process, as on the clinic PC).
+Not built yet: a multi-process event bus (the server is a single process, as on the clinic PC).
+
+## HTTPS and running as a service
+
+Offline mode and the installable app need a secure page, and passwords and patient records should never cross the clinic network in plain text. Himsog runs its own small certificate authority (CA): each clinic PC trusts it once, and the server presents a certificate it signed.
+
+```bash
+npm run build
+npm run https:setup -- --host himsog.clinic --host 192.168.1.10   # names/addresses PCs will type; omit to use this PC's own
+npm run start:https                                               # https://<server>:3443, plain http on :3000 only redirects
+npm run https:status                                              # names, days left, CA fingerprint
+npm run https:renew                                               # new server certificate, same CA, every 825 days or less
+```
+
+- **Trust the CA once per PC.** Open `http://<server>:3000/ca.crt`, or use `deploy\windows\trust-ca.ps1` (it shows the fingerprint to compare with Settings > Secure connection before installing). Firefox, phones and tablets import the file by hand; `https:setup` prints the steps.
+- **Keep `certs/himsog-ca.key` on the server only.** Whoever holds it can impersonate the clinic server. `certs/` is git-ignored. If you lose it you can make a new CA, but every PC must trust the new one.
+- **Renew before it expires.** Server certificates last 825 days (the longest Apple devices accept). Settings shows the days left and warns 30 days ahead. Renewing keeps the same CA, so PCs need no change.
+- **Settings > Secure connection** warns on any screen opened over plain `http://` from another PC.
+- The server also sends `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` headers.
+
+To start with Windows and restart if it stops, run `deploy\windows\install-service.ps1` in an administrator PowerShell on the server PC (it registers a startup task running `node server.mjs` as SYSTEM and opens the two ports on private networks); `uninstall-service.ps1` removes it. **These Windows scripts have not been run on a real Windows machine yet:** try them on the clinic PC and check `Get-ScheduledTaskInfo -TaskName "Himsog Server"`.
 
 ## Backups
 

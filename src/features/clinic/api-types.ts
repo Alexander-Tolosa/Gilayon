@@ -36,3 +36,10 @@ export type BackupStatus = {
   files: BackupFile[]
   keep: number
 }
+
+/** GET /api/security */
+export type SecurityStatus = {
+  cert: { present: boolean; names?: string[]; notAfter?: number; daysLeft?: number; caDaysLeft?: number; trustedByCa?: boolean; problem?: string }
+  fingerprint: string | null
+  httpsPort: number
+}

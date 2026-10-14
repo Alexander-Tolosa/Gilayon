@@ -16,13 +16,18 @@
     "backup": "tsx db/backup.ts backup",
     "backup:list": "tsx db/backup.ts list",
     "backup:verify": "tsx db/backup.ts verify",
-    "backup:restore": "tsx db/backup.ts restore"
+    "backup:restore": "tsx db/backup.ts restore",
+    "start:https": "node server.mjs",
+    "https:setup": "tsx db/https.ts setup",
+    "https:renew": "tsx db/https.ts renew",
+    "https:status": "tsx db/https.ts status"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",
     "@fontsource-variable/geist": "^5.3.0",
     "@fontsource-variable/geist-mono": "^5.3.0",
     "@fontsource/allura": "^5.3.0",
+    "@peculiar/x509": "^2.1.0",
     "@phosphor-icons/react": "^2.1.10",
     "@tailwindcss/postcss": "^4.3.3",
     "bcryptjs": "^3.0.3",
@@ -34,6 +39,7 @@
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
     "recharts": "^3.10.1",
+    "reflect-metadata": "^0.2.2",
     "zod": "^4.6.7"
   },
   "devDependencies": {

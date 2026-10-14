@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { BackupStatus, ConsultInput, Snapshot } from '../api-types'
+import type { BackupStatus, ConsultInput, SecurityStatus, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import { dropOps, loadOutbox, putOp, type OutboxOp } from '../lib/outbox'
@@ -194,6 +194,7 @@ type Api = {
   setStaffActive: (staffId: string, active: boolean) => Promise<string | null>
   resetStaffPassword: (staffId: string, temporary: string) => Promise<string | null>
   fetchBackups: () => Promise<BackupStatus | null>
+  fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
   resetDemo: () => void
   online: boolean
@@ -621,6 +622,13 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       fetchBackups: async () => {
         try {
           return await api<BackupStatus>('/api/backups', { token: tokenRef.current })
+        } catch {
+          return null
+        }
+      },
+      fetchSecurity: async () => {
+        try {
+          return await api<SecurityStatus>('/api/security', { token: tokenRef.current })
         } catch {
           return null
         }

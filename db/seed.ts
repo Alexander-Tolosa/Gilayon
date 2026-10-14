@@ -9,6 +9,12 @@ import { hashSecret } from '../src/server/auth'
 import { getDb, type Db, type Q } from '../src/server/db'
 import * as t from './schema'
 
+try {
+  process.loadEnvFile('.env')
+} catch {
+  /* no .env file: environment variables only */
+}
+
 const TABLES = ['client_op', 'session', 'audit_log', 'prescription_item', 'prescription', 'document', 'lab_order', 'diagnosis', 'consultation', 'queue_ticket', 'scanned_page', 'allergy', 'family_history', 'patient_relationship', 'patient', 'employee', 'person', 'priority_category', 'staff', 'counter', 'meta']
 
 export const DEMO_PASSWORD = 'demo-password'
