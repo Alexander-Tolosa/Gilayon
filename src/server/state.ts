@@ -96,7 +96,7 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
 
 /** Public waiting screen: queue numbers and lanes only. No names, reasons or patient ids. */
 export async function loadPublicQueue(q: Q) {
-  const [tickets, categories, staff] = await Promise.all([q.select().from(t.queueTicket), q.select().from(t.priorityCategory), q.select().from(t.staff)])
+  const [tickets, categories, staff] = await Promise.all([q.select().from(t.queueTicket), q.select().from(t.priorityCategory), q.select().from(t.staff).where(eq(t.staff.active, true))])
   return {
     tickets: tickets.map((r) => ({
       ...strip<QueueTicket>(r),

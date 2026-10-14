@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Field, Input, Modal, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, Signature } from '../components/ClinicComponents'
+import { ChangePasswordForm, StaffManager } from '../components/StaffAdmin'
 import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
 
@@ -74,18 +75,12 @@ export default function Settings() {
         </Card>
 
         <Card className="p-6">
-          <p className="text-lg font-semibold">Clinic staff</p>
-          <ul className="mt-3 flex flex-col gap-2">
-            {data.staff.map((s) => (
-              <li key={s.staff_id} className="rounded-2xl bg-canvas px-4 py-3">
-                <p className="text-base font-semibold">
-                  {s.name} <span className="font-normal text-muted">· {s.title}</span>
-                </p>
-                <p className="text-sm text-muted">{s.role === 'doctor' ? `PRC ${s.license_no} · PTR ${s.ptr_no} · ${s.room}` : 'Front desk: check-in, verification, records and queue. Cannot sign or edit consultation notes.'}</p>
-              </li>
-            ))}
-          </ul>
+          <p className="text-lg font-semibold">My password</p>
+          <p className="mb-4 text-[15px] text-muted">Used to sign in. Your signing PIN above is separate.</p>
+          <ChangePasswordForm />
         </Card>
+
+        <StaffManager />
 
         <Card className="p-6">
           <p className="text-lg font-semibold">Demo data</p>

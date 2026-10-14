@@ -15,6 +15,13 @@
       "when": 1791988915214,
       "tag": "0001_immutability",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791990582539,
+      "tag": "0002_staff_accounts",
+      "breakpoints": true
     }
   ]
 }

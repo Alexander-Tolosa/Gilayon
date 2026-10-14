@@ -9,6 +9,7 @@ import { loadPublicQueue, loadSnapshot } from '../src/server/state'
 import { saveConsultation, signDocuments, voidDocument, reissueDocument, editDraft } from '../src/server/services/clinical'
 import { issueTicket, callTicket } from '../src/server/services/queue'
 import { verifyIdentity } from '../src/server/services/records'
+import { changeOwnPassword, changePin, createStaff, resetPassword, setStaffActive, updateStaffDetails } from '../src/server/services/admin'
 import type { ConsultInput } from '../src/features/clinic/api-types'
 
 process.env.PGLITE_DIR = 'memory://'
@@ -163,5 +164,68 @@ describe('HTTP layer', () => {
     expect((await send()).status).toBe(200)
     const s = await loadSnapshot(db, doctor)
     expect(s.consultations.filter((c) => c.consultation_id === 'c-sync1')).toHaveLength(1)
+  })
+})
+
+describe('staff accounts', () => {
+  let newId: string
+
+  it('creates an account that must change its temporary password', async () => {
+    newId = await db.transaction((tx) => createStaff(tx, doctor, { name: 'Nurse Test Account', role: 'nurse', title: 'Staff nurse', password: 'Temp-pass-1' }))
+    const { token, must_change_password } = await login(db, newId, 'Temp-pass-1')
+    expect(must_change_password).toBe(true)
+    expect((await actorFromToken(db, token))?.role).toBe('nurse')
+  })
+
+  it('rejects weak passwords and a doctor without a licence number', async () => {
+    await expect(db.transaction((tx) => createStaff(tx, doctor, { name: 'Weak Pass', role: 'desk', title: 'Desk', password: 'short' }))).rejects.toMatchObject({ status: 400 })
+    await expect(db.transaction((tx) => createStaff(tx, doctor, { name: 'No Licence', role: 'doctor', title: 'Physician', password: 'Long-enough-1' }))).rejects.toMatchObject({ status: 400 })
+  })
+
+  it('lets the person choose their own password, which clears the flag', async () => {
+    const me: Actor = { staff_id: newId, name: 'Nurse Test Account', role: 'nurse' }
+    await expect(db.transaction((tx) => changeOwnPassword(tx, me, 'wrong-password-1', 'Brand-new-pass-2'))).rejects.toMatchObject({ status: 403 })
+    await expect(db.transaction((tx) => changeOwnPassword(tx, me, 'Temp-pass-1', 'Temp-pass-1'))).rejects.toMatchObject({ status: 400 })
+    await db.transaction((tx) => changeOwnPassword(tx, me, 'Temp-pass-1', 'Brand-new-pass-2'))
+    const { must_change_password } = await login(db, newId, 'Brand-new-pass-2')
+    expect(must_change_password).toBe(false)
+    await expect(login(db, newId, 'Temp-pass-1')).rejects.toBeInstanceOf(HttpError)
+  })
+
+  it('deactivating signs the person out everywhere and blocks sign-in', async () => {
+    const { token } = await login(db, newId, 'Brand-new-pass-2')
+    await db.transaction((tx) => setStaffActive(tx, doctor, newId, false))
+    expect(await actorFromToken(db, token)).toBeNull()
+    await expect(login(db, newId, 'Brand-new-pass-2')).rejects.toBeInstanceOf(HttpError)
+    const pub = await loadPublicQueue(db)
+    expect(pub.staff.some((x) => x.staff_id === newId)).toBe(false)
+    await db.transaction((tx) => setStaffActive(tx, doctor, newId, true))
+    await expect(login(db, newId, 'Brand-new-pass-2')).resolves.toBeTruthy()
+  })
+
+  it('a password reset signs the person out and forces a new password', async () => {
+    const { token } = await login(db, newId, 'Brand-new-pass-2')
+    await db.transaction((tx) => resetPassword(tx, doctor, newId, 'Reset-temp-3'))
+    expect(await actorFromToken(db, token)).toBeNull()
+    expect((await login(db, newId, 'Reset-temp-3')).must_change_password).toBe(true)
+  })
+
+  it('protects the last doctor and your own account', async () => {
+    await expect(db.transaction((tx) => setStaffActive(tx, doctor, 'st-d1', false))).rejects.toMatchObject({ status: 409 })
+    // Deactivate the other two doctors one by one, then the last one must refuse.
+    await db.transaction((tx) => setStaffActive(tx, doctor, 'st-d2', false))
+    await db.transaction((tx) => setStaffActive(tx, doctor, 'st-d3', false))
+    const d2: Actor = { staff_id: 'st-d2', name: 'x', role: 'doctor' }
+    await expect(db.transaction((tx) => setStaffActive(tx, d2, 'st-d1', false))).rejects.toMatchObject({ status: 409 })
+    await expect(db.transaction((tx) => updateStaffDetails(tx, doctor, 'st-d1', { role: 'desk' }))).rejects.toMatchObject({ status: 409 })
+    await db.transaction((tx) => setStaffActive(tx, doctor, 'st-d2', true))
+    await db.transaction((tx) => setStaffActive(tx, doctor, 'st-d3', true))
+  })
+
+  it('lets a new doctor set a first PIN without a current one', async () => {
+    const id = await db.transaction((tx) => createStaff(tx, doctor, { name: 'Dr. New Doctor', role: 'doctor', title: 'Physician', license_no: '0123456', password: 'Doctor-pass-1' }))
+    const me: Actor = { staff_id: id, name: 'Dr. New Doctor', role: 'doctor' }
+    expect(await db.transaction((tx) => changePin(tx, me, '', '4321'))).toBe(true)
+    expect(await db.transaction((tx) => changePin(tx, me, '0000', '1111'))).toBe(false)
   })
 })

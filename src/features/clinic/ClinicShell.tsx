@@ -12,16 +12,18 @@ import {
   X,
   Queue as QueueIcon,
 } from '@phosphor-icons/react'
+import { Key } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../../shared/components/Logo'
-import { Avatar } from '../../shared/components/ui'
+import { Avatar, Modal } from '../../shared/components/ui'
 import { cn } from '../../shared/lib/utils'
 import { LanguageSwitch, StatusBadge } from './components/ClinicComponents'
 import { useT } from './lib/i18n'
 import { todayKey } from './lib/helpers'
+import { ChangePasswordForm, ForcePasswordChange } from './components/StaffAdmin'
 import { useClinic } from './store/store'
 import type { StaffRole } from './types'
 
@@ -67,8 +69,12 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
   const t = useT()
   const nav = useNav(role)
   const { me, signOut } = useClinic()
+  const [pw, setPw] = useState(false)
   return (
     <div className="flex h-full flex-col">
+      <Modal open={pw} onClose={() => setPw(false)} title="Change my password">
+        <ChangePasswordForm onDone={() => setPw(false)} />
+      </Modal>
       <div className="flex h-20 items-center gap-3 px-5">
         <LogoMark className="size-10 rounded-xl" />
         <div className="leading-tight">
@@ -108,6 +114,9 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
             <p className="truncate text-[15px] font-semibold">{me?.name}</p>
             <p className="truncate text-[13px] text-muted">{me?.title}</p>
           </div>
+          <button onClick={() => setPw(true)} aria-label="Change password" title="Change password" className="grid size-11 place-items-center rounded-full border border-line bg-surface text-ink-2 hover:text-brand-700">
+            <Key size={20} />
+          </button>
           <button onClick={signOut} aria-label={t('Sign out')} title={t('Sign out')} className="grid size-11 place-items-center rounded-full border border-line bg-surface text-ink-2 hover:text-danger">
             <SignOut size={20} />
           </button>
@@ -131,6 +140,7 @@ export function ClinicShell() {
 
   return (
     <div className="min-h-[100dvh] bg-canvas text-ink">
+      <ForcePasswordChange />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[272px] border-r border-line bg-surface lg:block">
         <Sidebar role={me.role} />
       </aside>

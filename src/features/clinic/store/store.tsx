@@ -82,6 +82,8 @@ export type { ConsultInput }
 
 export type PendingOp = { op_id: string; kind: 'consult'; input: ConsultInput; doctor_id: string; at: number }
 
+export type NewStaffInput = { name: string; role: 'doctor' | 'desk' | 'nurse'; title: string; license_no?: string; ptr_no?: string; services?: ServiceType[]; room?: string; password: string }
+
 export type NewPersonInput = { full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; philhealth_pin?: string; pwd_id?: string }
 
 /** What this computer shows for a consultation still waiting in its offline queue. */
@@ -172,6 +174,12 @@ type Api = {
   updateCategoryRank: (category: CategoryKey, rank: number) => void
   setSignatureImage: (image: string) => void
   changePin: (current: string, next: string) => Promise<boolean>
+  // accounts (each returns an error message, or null when it worked)
+  changePassword: (current: string, next: string) => Promise<string | null>
+  createStaff: (input: NewStaffInput) => Promise<string | null>
+  updateStaffDetails: (staffId: string, patch: Partial<Pick<Staff, 'name' | 'title' | 'license_no' | 'ptr_no' | 'room' | 'role' | 'services'>>) => Promise<string | null>
+  setStaffActive: (staffId: string, active: boolean) => Promise<string | null>
+  resetStaffPassword: (staffId: string, temporary: string) => Promise<string | null>
   resetDemo: () => void
   online: boolean
 }
@@ -321,6 +329,17 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         tell(e instanceof ApiError ? e.message : 'Something went wrong.')
         await refresh()
         return null
+      }
+    }
+
+    /** For forms that show the server's reason next to the field instead of a toast. */
+    const call = async (path: string, body: unknown, method?: string): Promise<string | null> => {
+      try {
+        await api(path, { token: tokenRef.current, body, method })
+        await refresh()
+        return null
+      } catch (e) {
+        return e instanceof ApiError ? e.message : 'Something went wrong.'
       }
     }
 
@@ -494,6 +513,12 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         const res = await send<{ ok: boolean }>('/api/settings/pin', { current, next })
         return !!res?.ok
       },
+
+      changePassword: (current, next) => call('/api/auth/password', { current, next }),
+      createStaff: (input) => call('/api/staff', input),
+      updateStaffDetails: (staffId, patch) => call(`/api/staff/${staffId}`, patch, 'PATCH'),
+      setStaffActive: (staffId, active) => call(`/api/staff/${staffId}/active`, { active }),
+      resetStaffPassword: (staffId, temporary) => call(`/api/staff/${staffId}/password`, { temporary }),
 
       resetDemo: () => {
         setPending([])

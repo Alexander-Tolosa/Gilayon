@@ -23,6 +23,7 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | --- | --- |
 | Source of truth | PostgreSQL schema in `db/schema.ts`, migrations in `db/migrations/`. Services in `src/server/services/`, one route file per endpoint in `app/api/`. |
 | Sign-in | `POST /api/auth/login` returns a bearer token (kept per browser tab). Passwords and signing PINs are bcrypt hashes. Five wrong passwords lock the account for a minute. |
+| Staff accounts | Doctors add staff, edit details, deactivate or reactivate (never delete), and set temporary passwords. A new or reset account must choose its own password at first sign-in. Everyone can change their own password. Deactivating or resetting signs the person out everywhere. The last active doctor can't be deactivated. |
 | Roles | Doctor, nurse, receptionist. Calling patients, consulting, signing, voiding, reports, audit and settings are doctor-only and enforced on the server. |
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
@@ -34,7 +35,7 @@ Not built yet: HTTPS certificate and Windows-service setup (deployment steps fro
 
 ## Demo accounts
 
-Passwords are pre-filled on `/clinic/login`. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
+With `NEXT_PUBLIC_DEMO=1` (see `.env.example`) the demo password is pre-filled on `/clinic/login`; without it the field starts empty. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
 
 | Role | Who | Can do |
 | --- | --- | --- |
