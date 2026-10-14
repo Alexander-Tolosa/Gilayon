@@ -3,6 +3,7 @@ import * as t from '../../../db/schema'
 import type { CivilStatus, RelationshipType, ScanKind, Sex } from '../../features/clinic/types'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
 import { newScanId, removeScan, storeScan } from '../files'
+import { canonicalPatientId } from './merge'
 import type { Q } from '../db'
 
 export const patientName = async (q: Q, patientId: string) => {
@@ -56,7 +57,8 @@ export async function flagForHR(q: Q, actor: Actor, personId: string, note: stri
 type Patch = Partial<{ full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; pwd_id: string; philhealth_pin: string; legacy_folder_no: string; hr_flag: string }>
 
 /** Edits keep both versions in the audit log; the later edit wins. */
-export async function completeRecord(q: Q, actor: Actor, patientId: string, patch: Patch, reason?: string) {
+export async function completeRecord(q: Q, actor: Actor, patientIdIn: string, patch: Patch, reason?: string) {
+  const patientId = await canonicalPatientId(q, patientIdIn)
   const [pt] = await q.select().from(t.patient).where(eq(t.patient.patient_id, patientId))
   if (!pt) throw new HttpError(404, 'Patient not found')
   const [per] = await q.select().from(t.person).where(eq(t.person.person_id, pt.person_id))
@@ -84,11 +86,12 @@ export async function completeRecord(q: Q, actor: Actor, patientId: string, patc
 export async function createDependent(
   q: Q,
   actor: Actor,
-  principalPatientId: string,
+  principalPatientIdIn: string,
   input: { full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; philhealth_pin?: string; pwd_id?: string },
   type: RelationshipType,
   mdr: boolean,
 ) {
+  const principalPatientId = await canonicalPatientId(q, principalPatientIdIn)
   const principalName = await patientName(q, principalPatientId)
   const [{ max }] = await q.select({ max: sql<number>`coalesce(max(substring(${t.patient.patient_no} from 5)::int), 0)` }).from(t.patient)
   const n = await nextCounter(q, 'patient', max)
@@ -110,24 +113,29 @@ export async function createDependent(
   return patient_id
 }
 
-export async function linkRelative(q: Q, actor: Actor, principalPatientId: string, relatedPatientId: string, type: RelationshipType, mdr: boolean) {
+export async function linkRelative(q: Q, actor: Actor, principalIn: string, relatedIn: string, type: RelationshipType, mdr: boolean) {
+  const [principalPatientId, relatedPatientId] = [await canonicalPatientId(q, principalIn), await canonicalPatientId(q, relatedIn)]
+  if (principalPatientId === relatedPatientId) throw new HttpError(400, 'A person cannot be their own relative.')
   const [a, b] = await Promise.all([patientName(q, principalPatientId), patientName(q, relatedPatientId)])
   await q.insert(t.patientRelationship).values({ relationship_id: uuid(), patient_id: principalPatientId, related_patient_id: relatedPatientId, relationship_type: type, listed_in_mdr: mdr })
   await audit(q, actor.staff_id, { action: 'link', table: 'patient_relationship', record: principalPatientId, summary: `Linked ${b} as ${type.toLowerCase()} of ${a}` })
 }
 
-export async function addFamilyHistory(q: Q, actor: Actor, patientId: string, relative: string, condition: string, notes?: string) {
+export async function addFamilyHistory(q: Q, actor: Actor, patientIdIn: string, relative: string, condition: string, notes?: string) {
+  const patientId = await canonicalPatientId(q, patientIdIn)
   await q.insert(t.familyHistory).values({ history_id: uuid(), patient_id: patientId, relative, condition, notes: notes ?? null })
   await audit(q, actor.staff_id, { action: 'create', table: 'family_history', record: patientId, summary: `Added family history (${relative}: ${condition}) for ${await patientName(q, patientId)}` })
 }
 
-export async function addAllergy(q: Q, actor: Actor, patientId: string, substance: string, reaction: string, severity: 'Mild' | 'Moderate' | 'Severe') {
+export async function addAllergy(q: Q, actor: Actor, patientIdIn: string, substance: string, reaction: string, severity: 'Mild' | 'Moderate' | 'Severe') {
+  const patientId = await canonicalPatientId(q, patientIdIn)
   await q.insert(t.allergy).values({ allergy_id: uuid(), patient_id: patientId, substance, reaction, severity })
   await audit(q, actor.staff_id, { action: 'create', table: 'allergy', record: patientId, summary: `Recorded allergy to ${substance} for ${await patientName(q, patientId)}` })
 }
 
 /** The scan is written to disk first; if anything after it fails, the file is removed again. */
-export async function uploadScan(q: Q, actor: Actor, patientId: string, file: string, kind: ScanKind, page_date: string, pageId?: string) {
+export async function uploadScan(q: Q, actor: Actor, patientIdIn: string, file: string, kind: ScanKind, page_date: string, pageId?: string) {
+  const patientId = await canonicalPatientId(q, patientIdIn)
   const page_id = pageId ?? newScanId()
   const [dup] = await q.select({ id: t.scannedPage.page_id }).from(t.scannedPage).where(eq(t.scannedPage.page_id, page_id))
   if (dup) return page_id // retried upload (offline sync)

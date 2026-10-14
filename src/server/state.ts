@@ -24,6 +24,22 @@ import { strip, type Actor } from './core'
 
 const AUDIT_LIMIT = 3000
 
+/** dup -> final survivor for every merged patient (follows chains, tolerates a loop). */
+export function mergeMap(patients: { patient_id: string; merged_into: string | null }[]) {
+  const direct = new Map(patients.filter((p) => p.merged_into).map((p) => [p.patient_id, p.merged_into!]))
+  const out: Record<string, string> = {}
+  for (const id of direct.keys()) {
+    let cur = id
+    const seen = new Set<string>()
+    while (direct.has(cur) && !seen.has(cur)) {
+      seen.add(cur)
+      cur = direct.get(cur)!
+    }
+    if (cur !== id) out[id] = cur
+  }
+  return out
+}
+
 /** Staff fields safe to show anyone, including the public waiting screen and the sign-in page. */
 export function publicStaff(s: typeof t.staff.$inferSelect): Staff {
   const { password_hash: _p, pin_hash: _h, signature_image: _s, license_no: _l, ptr_no: _r, ...rest } = s
@@ -72,26 +88,58 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     itemsByRx.set(i.prescription_id, list)
   }
   // The backup's own log entry is written just after the copy, so it must not count as unsaved work.
+  // Merged records are shown together under the surviving patient; the rows themselves are untouched.
+  const merged = mergeMap(patients)
+  const canon = (id: string) => merged[id] ?? id
+  const gone = new Set(Object.keys(merged))
+  const gonePersons = new Set(patients.filter((p) => gone.has(p.patient_id)).map((p) => p.person_id))
+  const seen = new Set<string>()
+  const relationshipsView = relationships
+    .map((r) => ({ ...r, patient_id: canon(r.patient_id), related_patient_id: canon(r.related_patient_id) }))
+    .filter((r) => {
+      const key = `${r.patient_id}|${r.related_patient_id}|${r.relationship_type}`
+      if (r.patient_id === r.related_patient_id || seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  const dedupe = <T,>(rows: T[], key: (r: T) => string) => {
+    const k = new Set<string>()
+    return rows.filter((r) => (k.has(key(r)) ? false : (k.add(key(r)), true)))
+  }
+  const personName = new Map((persons as Person[]).map((p) => [p.person_id, p.full_name]))
+  const mergedRecords = patients
+    .filter((p) => gone.has(p.patient_id))
+    .map((p) => ({ patient_id: p.patient_id, into: merged[p.patient_id], full_name: personName.get(p.person_id) ?? '', patient_no: p.patient_no, merged_at: p.merged_at ?? undefined, merged_by: p.merged_by ?? undefined }))
+  const [nd] = await q.select().from(t.meta).where(eq(t.meta.key, 'not_duplicates'))
   const offsitePending = doctor ? audit.filter((a) => a.logged_at > backupAt && a.action !== 'backup').length : 0
   return {
-    persons: persons as Person[],
-    employees: employees as Employee[],
-    patients: patients.map((r) => strip<Patient>(r)),
-    relationships: relationships as PatientRelationship[],
-    familyHistory: familyHistory.map((r) => strip<FamilyHistory>(r)),
-    allergies: allergies as Allergy[],
+    persons: (persons as Person[]).filter((p) => !gonePersons.has(p.person_id)),
+    employees: (employees as Employee[]).filter((e) => !gonePersons.has(e.person_id)),
+    patients: patients.filter((r) => !gone.has(r.patient_id)).map((r) => strip<Patient>(r)),
+    relationships: relationshipsView as PatientRelationship[],
+    familyHistory: dedupe(
+      familyHistory.map((r) => ({ ...strip<FamilyHistory>(r), patient_id: canon(r.patient_id) })),
+      (r) => `${r.patient_id}|${r.relative.toLowerCase()}|${r.condition.toLowerCase()}`,
+    ),
+    allergies: dedupe(
+      (allergies as Allergy[]).map((a) => ({ ...a, patient_id: canon(a.patient_id) })),
+      (a) => `${a.patient_id}|${a.substance.toLowerCase()}`,
+    ),
     categories: categories as PriorityCategory[],
-    tickets: tickets.map((r) => strip<QueueTicket>(r)),
-    consultations: consultations.map((r) => strip<Consultation>(r)),
+    tickets: tickets.map((r) => ({ ...strip<QueueTicket>(r), patient_id: canon(r.patient_id) })),
+    consultations: consultations.map((r) => ({ ...strip<Consultation>(r), patient_id: canon(r.patient_id) })),
     diagnoses: diagnoses as Diagnosis[],
-    labs: labs.map((r) => strip<LabOrder>(r)),
-    prescriptions: rx.map((r) => ({ ...strip<Prescription>(r), items: itemsByRx.get(r.prescription_id) ?? [] })),
-    documents: documents.map((r) => strip<DocumentRow>(r)),
+    labs: labs.map((r) => ({ ...strip<LabOrder>(r), patient_id: canon(r.patient_id) })),
+    prescriptions: rx.map((r) => ({ ...strip<Prescription>(r), patient_id: canon(r.patient_id), items: itemsByRx.get(r.prescription_id) ?? [] })),
+    documents: documents.map((r) => ({ ...strip<DocumentRow>(r), patient_id: canon(r.patient_id) })),
     // Files on the server are served through /api/scans/<id>/file (signed-in staff only).
-    scans: scans.map((r) => ({ ...r, file: r.file.startsWith('disk:') ? `/api/scans/${r.page_id}/file` : r.file })) as ScannedPage[],
+    scans: scans.map((r) => ({ ...r, patient_id: canon(r.patient_id), file: r.file.startsWith('disk:') ? `/api/scans/${r.page_id}/file` : r.file })) as ScannedPage[],
     staff: staff.map(staffForSignedIn),
     audit: audit.map((r) => strip<AuditLog>(r)),
     offsite: { pending: offsitePending, lastAt: backupAt },
+    merged,
+    mergedRecords,
+    notDuplicates: (nd?.value as string[] | undefined) ?? [],
     lastImport: (imp[0]?.value as Snapshot['lastImport'] | undefined) ?? { at: 0, count: 0, source: '' },
   }
 }

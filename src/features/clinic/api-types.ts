@@ -3,7 +3,15 @@ import type { ClinicData } from './data/seed'
 /** What GET /api/state returns: the clinic records the signed-in staff member may see. */
 export type Snapshot = Omit<ClinicData, 'counters'> & {
   offsite: { pending: number; lastAt: number }
+  /** A record that was merged into another: old patient id -> the patient it now lives under. */
+  merged: Record<string, string>
+  /** The merged-away records, so the surviving record can say what it absorbed and a doctor can undo it. */
+  mergedRecords: MergedRecord[]
+  /** Pairs staff said are NOT the same person ("idA|idB", ids sorted), so they stop being suggested. */
+  notDuplicates: string[]
 }
+
+export type MergedRecord = { patient_id: string; into: string; full_name: string; patient_no: string; merged_at?: number; merged_by?: string }
 
 export type ConsultInput = {
   consultation_id: string

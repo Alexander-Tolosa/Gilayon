@@ -5,12 +5,14 @@ import { todayKey } from '../../features/clinic/lib/helpers'
 import { verifyPin } from '../auth'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
 import type { Q } from '../db'
+import { canonicalPatientId } from './merge'
 import { patientName } from './records'
 
 type Kind = 'rx' | 'doc'
 
 /** Appends a consultation with its diagnoses, drafts and lab orders. A repeated id is a retry and changes nothing. */
-export async function saveConsultation(q: Q, actor: Actor, input: ConsultInput, opts: { viaSync?: boolean } = {}) {
+export async function saveConsultation(q: Q, actor: Actor, rawInput: ConsultInput, opts: { viaSync?: boolean } = {}) {
+  const input = { ...rawInput, patient_id: await canonicalPatientId(q, rawInput.patient_id) }
   const [dup] = await q.select({ id: t.consultation.consultation_id }).from(t.consultation).where(eq(t.consultation.consultation_id, input.consultation_id))
   if (dup) return 'duplicate' as const
   const created = nowMs()
