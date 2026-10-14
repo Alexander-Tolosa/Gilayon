@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { ConsultInput, Snapshot } from '../api-types'
+import type { BackupStatus, ConsultInput, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import { dropOps, loadOutbox, putOp, type OutboxOp } from '../lib/outbox'
@@ -193,6 +193,8 @@ type Api = {
   updateStaffDetails: (staffId: string, patch: Partial<Pick<Staff, 'name' | 'title' | 'license_no' | 'ptr_no' | 'room' | 'role' | 'services'>>) => Promise<string | null>
   setStaffActive: (staffId: string, active: boolean) => Promise<string | null>
   resetStaffPassword: (staffId: string, temporary: string) => Promise<string | null>
+  fetchBackups: () => Promise<BackupStatus | null>
+  runBackup: () => Promise<string | null>
   resetDemo: () => void
   online: boolean
 }
@@ -365,7 +367,6 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           const snap = await refresh()
           if (snap) {
             await flush()
-            if (m === 'online' && tokenRef.current) await api('/api/backup', { token: tokenRef.current, body: {} }).catch(() => undefined)
             await refresh()
           }
         })()
@@ -616,6 +617,24 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       updateStaffDetails: (staffId, patch) => call(`/api/staff/${staffId}`, patch, 'PATCH'),
       setStaffActive: (staffId, active) => call(`/api/staff/${staffId}/active`, { active }),
       resetStaffPassword: (staffId, temporary) => call(`/api/staff/${staffId}/password`, { temporary }),
+
+      fetchBackups: async () => {
+        try {
+          return await api<BackupStatus>('/api/backups', { token: tokenRef.current })
+        } catch {
+          return null
+        }
+      },
+      runBackup: async () => {
+        try {
+          await api('/api/backups', { token: tokenRef.current, body: {} })
+          await refresh()
+          return null
+        } catch (e) {
+          await refresh()
+          return e instanceof ApiError ? e.message : 'The backup failed.'
+        }
+      },
 
       resetDemo: () => {
         void dropOps(pendingRef.current.map((o) => o.op_id))

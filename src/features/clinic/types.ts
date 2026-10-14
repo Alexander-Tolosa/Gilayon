@@ -198,7 +198,7 @@ export type Staff = {
   must_change_password?: boolean
 }
 
-export type AuditAction = 'create' | 'edit' | 'sign' | 'void' | 'verify' | 'check-in' | 'call' | 'import' | 'upload' | 'sync' | 'flag' | 'status' | 'link'
+export type AuditAction = 'create' | 'edit' | 'sign' | 'void' | 'verify' | 'check-in' | 'call' | 'import' | 'upload' | 'sync' | 'flag' | 'status' | 'link' | 'backup'
 
 export type AuditLog = {
   log_id: string

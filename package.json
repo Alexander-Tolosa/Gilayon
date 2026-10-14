@@ -12,7 +12,11 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run",
+    "backup": "tsx db/backup.ts backup",
+    "backup:list": "tsx db/backup.ts list",
+    "backup:verify": "tsx db/backup.ts verify",
+    "backup:restore": "tsx db/backup.ts restore"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",

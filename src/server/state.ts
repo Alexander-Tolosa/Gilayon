@@ -71,7 +71,8 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     list.push(i as Prescription['items'][number])
     itemsByRx.set(i.prescription_id, list)
   }
-  const offsitePending = doctor ? audit.filter((a) => a.logged_at > backupAt).length : 0
+  // The backup's own log entry is written just after the copy, so it must not count as unsaved work.
+  const offsitePending = doctor ? audit.filter((a) => a.logged_at > backupAt && a.action !== 'backup').length : 0
   return {
     persons: persons as Person[],
     employees: employees as Employee[],
