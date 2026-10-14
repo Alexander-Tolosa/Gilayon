@@ -15,6 +15,12 @@ import { readArchive } from '../src/server/backup/archive'
 import { restoreBackup } from '../src/server/backup/restore'
 import { getDb } from '../src/server/db'
 
+try {
+  process.loadEnvFile('.env')
+} catch {
+  /* no .env file: environment variables only */
+}
+
 const [cmd, ...args] = process.argv.slice(2)
 const cfg = backupConfig()
 const fmt = (n: number) => `${(n / 1024 / 1024).toFixed(1)} MB`

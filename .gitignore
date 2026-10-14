@@ -88,3 +88,8 @@ next-env.d.ts
 uploads/
 *.tsbuildinfo
 .gstack/
+
+# TLS keys and certificates (never commit: the CA key can impersonate the clinic server)
+certs/
+*.key
+*.pem
