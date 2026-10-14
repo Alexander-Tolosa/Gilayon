@@ -144,6 +144,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 
 ## What is simulated
 
+- **Idle sign-out**: a screen signs itself out after `IDLE_MINUTES` (default 15, `0` turns it off) with no touch, key or scroll. The browser sends a heartbeat only while the person is active, and the server rejects a session whose heartbeat stopped, so a token left on a closed tab does not stay usable. Notes waiting in the offline queue are kept and sent after the same person signs in again.
 - **Network mode**: the status badge simulates losing the connection for the demo. Sign-in token, network mode and the pending queue are per tab (`sessionStorage`); the records themselves are on the server.
 - **Offline**: the status badge switches modes for the demo. Consultations saved offline are kept with pre-made ids, so syncing twice can't create duplicates. Signing and issuing queue numbers need the network.
 - **AI recap**: a rule-based draft built from the patient's synthetic record, with links to its sources. No data leaves the browser.

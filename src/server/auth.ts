@@ -6,6 +6,13 @@ import { audit, HttpError, nowMs, type Actor } from './core'
 import type { Db, Q } from './db'
 
 const SESSION_MS = 12 * 60 * 60 * 1000
+const GRACE_MS = 2 * 60_000
+
+/** Minutes without activity before a screen locks (IDLE_MINUTES, default 15; 0 turns it off). */
+export function idleMinutes(): number {
+  const n = Number(process.env.IDLE_MINUTES ?? 15)
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0
+}
 const MAX_FAILS = 5
 const LOCK_MS = 60_000
 
@@ -46,23 +53,33 @@ export async function login(db: Db, staff_id: string, password: string) {
   fails.delete(staff_id)
   const token = randomBytes(32).toString('base64url')
   const now = nowMs()
-  await db.insert(session).values({ token_hash: hash(token), staff_id, created_at: now, expires_at: now + SESSION_MS })
+  await db.insert(session).values({ token_hash: hash(token), staff_id, created_at: now, expires_at: now + SESSION_MS, last_seen_at: now })
   await audit(db, staff_id, { action: 'verify', table: 'user_account', record: staff_id, summary: 'Signed in' })
-  return { token, staff_id, must_change_password: row.must_change_password }
+  return { token, staff_id, must_change_password: row.must_change_password, idle_minutes: idleMinutes() }
 }
 
 export async function logout(db: Db, token: string) {
   await db.delete(session).where(eq(session.token_hash, hash(token)))
 }
 
+/**
+ * The browser sends a heartbeat while someone is actually using the screen; background refreshes
+ * do not count. A session with no heartbeat for the idle time (plus a short grace) stops working.
+ */
+export async function heartbeat(q: Q, token: string) {
+  await q.update(session).set({ last_seen_at: nowMs() }).where(eq(session.token_hash, hash(token)))
+}
+
 export async function actorFromToken(q: Q, token: string | null): Promise<Actor | null> {
   if (!token) return null
   const [row] = await q
-    .select({ staff_id: staff.staff_id, name: staff.name, role: staff.role, license_no: staff.license_no })
+    .select({ staff_id: staff.staff_id, name: staff.name, role: staff.role, license_no: staff.license_no, created_at: session.created_at, last_seen_at: session.last_seen_at })
     .from(session)
     .innerJoin(staff, eq(staff.staff_id, session.staff_id))
     .where(and(eq(session.token_hash, hash(token)), gt(session.expires_at, nowMs()), eq(staff.active, true)))
   if (!row) return null
+  const idle = idleMinutes()
+  if (idle && nowMs() - (row.last_seen_at ?? row.created_at) > idle * 60_000 + GRACE_MS) return null
   return { staff_id: row.staff_id, name: row.name, role: row.role, license_no: row.license_no ?? undefined }
 }
 

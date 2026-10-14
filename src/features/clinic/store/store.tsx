@@ -36,6 +36,9 @@ const S_TOKEN = 'himsog-token'
 const S_SESSION = 'himsog-session'
 const S_NET = 'himsog-network'
 const S_RECENT = 'himsog-recent'
+const S_IDLE = 'himsog-idle-minutes'
+const DEFAULT_IDLE_MINUTES = 15
+const PING_EVERY_MS = 60_000
 
 const EMPTY: Snapshot = {
   persons: [],
@@ -281,6 +284,41 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     void refresh()
   }, [token, refresh])
 
+  // Idle sign-out: shared clinic PCs lock after a few minutes with no touch, key or scroll. Anything
+  // waiting in the offline outbox stays on disk and is sent after the same person signs in again.
+  useEffect(() => {
+    if (!token) return
+    const minutes = ss.get<number>(S_IDLE, DEFAULT_IDLE_MINUTES)
+    if (!minutes) return
+    let last = Date.now()
+    let lastPing = Date.now()
+    const mark = () => {
+      last = Date.now()
+    }
+    const events = ['pointerdown', 'keydown', 'wheel', 'touchstart'] as const
+    events.forEach((e) => window.addEventListener(e, mark, { passive: true }))
+    const lock = () => {
+      void api('/api/auth/logout', { token, body: {} }).catch(() => undefined)
+      clearSession()
+      tell(`Signed out after ${minutes} minutes of no activity. Sign in again to continue; unsent notes are kept.`)
+    }
+    const timer = setInterval(() => {
+      const now = Date.now()
+      if (now - last >= minutes * 60_000) return lock()
+      // Only active use keeps the server's copy of the session alive; background refreshes do not.
+      if (now - last < PING_EVERY_MS && now - lastPing >= PING_EVERY_MS) {
+        lastPing = now
+        void api<{ idle_minutes: number }>('/api/auth/ping', { token, body: {} })
+          .then((r) => ss.set(S_IDLE, r.idle_minutes))
+          .catch(() => undefined)
+      }
+    }, 5_000)
+    return () => {
+      clearInterval(timer)
+      events.forEach((e) => window.removeEventListener(e, mark))
+    }
+  }, [token, clearSession])
+
   // Live updates: the server nudges every screen when any record changes.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -442,7 +480,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       online,
       signIn: async (staffId, password) => {
         try {
-          const res = await api<{ token: string; staff_id: string }>('/api/auth/login', { body: { staff_id: staffId, password } })
+          const res = await api<{ token: string; staff_id: string; idle_minutes?: number }>('/api/auth/login', { body: { staff_id: staffId, password } })
+          ss.set(S_IDLE, res.idle_minutes ?? DEFAULT_IDLE_MINUTES)
           tokenRef.current = res.token
           setSession(res.staff_id)
           setToken(res.token)
