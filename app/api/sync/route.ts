@@ -1,23 +1,74 @@
+import { eq } from 'drizzle-orm'
 import { clientOp } from '../../../db/schema'
 import { audit, nowMs } from '@/server/core'
 import { route, z } from '@/server/http'
 import { ConsultSchema } from '@/server/schemas'
-import { saveConsultation } from '@/server/services/clinical'
-import { eq } from 'drizzle-orm'
+import { editDraft, saveConsultation } from '@/server/services/clinical'
+import { uploadScan } from '@/server/services/records'
 
-const Body = z.object({ ops: z.array(z.object({ op_id: z.string().min(1), kind: z.literal('consult'), input: ConsultSchema })).max(200) })
+const Op = z.discriminatedUnion('kind', [
+  z.object({ op_id: z.string().min(1), kind: z.literal('consult'), input: ConsultSchema }),
+  z.object({
+    op_id: z.string().min(1),
+    kind: z.literal('scan'),
+    input: z.object({
+      page_id: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
+      patient_id: z.string().min(1),
+      file: z.string(),
+      scan_kind: z.enum(['Chart', 'Prescription', 'Lab result', 'Certificate']),
+      page_date: z.string(),
+    }),
+  }),
+  z.object({
+    op_id: z.string().min(1),
+    kind: z.literal('edit_draft'),
+    input: z.object({
+      doc_kind: z.enum(['rx', 'doc']),
+      id: z.string().min(1),
+      patch: z.object({
+        items: z.array(z.object({ drug_name: z.string().min(1), dose: z.string(), frequency: z.string(), quantity: z.number().int().positive() })).optional(),
+        purpose: z.string().optional(),
+        findings: z.string().optional(),
+        rest_days: z.number().int().nullable().optional(),
+        remarks: z.string().nullable().optional(),
+      }),
+    }),
+  }),
+])
 
-/** Applies a browser's offline queue. Each op id is recorded, so replaying the same batch changes nothing. */
-export const POST = route({ roles: ['doctor'], body: Body }, async ({ tx, actor, body }) => {
+const Body = z.object({ ops: z.array(Op).max(200) })
+
+/**
+ * Applies a browser's offline queue in order. Each op id is recorded, so replaying the same batch
+ * changes nothing. Notes, drafts and photos may be entered offline; signing and queue numbers may not.
+ */
+export const POST = route({ roles: ['doctor', 'desk', 'nurse'], body: Body }, async ({ tx, actor, body }) => {
   const applied: string[] = []
+  const rejected: { op_id: string; reason: string }[] = []
   for (const op of body.ops) {
     const [seen] = await tx.select().from(clientOp).where(eq(clientOp.op_id, op.op_id))
     if (!seen) {
-      await saveConsultation(tx, actor, op.input, { viaSync: true })
-      await tx.insert(clientOp).values({ op_id: op.op_id, kind: op.kind, staff_id: actor.staff_id, applied_at: nowMs() })
+      // A savepoint per op: one bad entry must not throw away the rest of the queue.
+      try {
+        await tx.transaction(async (sp) => {
+          if (op.kind === 'consult') {
+            if (actor.role !== 'doctor') throw new Error('Only a doctor can save consultations.')
+            await saveConsultation(sp, actor, op.input, { viaSync: true })
+          } else if (op.kind === 'scan') {
+            await uploadScan(sp, actor, op.input.patient_id, op.input.file, op.input.scan_kind, op.input.page_date, op.input.page_id)
+          } else {
+            if (actor.role !== 'doctor') throw new Error('Only a doctor can edit drafts.')
+            await editDraft(sp, actor, op.input.doc_kind, op.input.id, op.input.patch)
+          }
+          await sp.insert(clientOp).values({ op_id: op.op_id, kind: op.kind, staff_id: actor.staff_id, applied_at: nowMs() })
+        })
+      } catch (e) {
+        rejected.push({ op_id: op.op_id, reason: e instanceof Error ? e.message : 'Rejected' })
+        continue
+      }
     }
     applied.push(op.op_id)
   }
   if (applied.length) await audit(tx, actor.staff_id, { action: 'sync', table: 'client_op', record: applied[0], summary: `Synced ${applied.length} offline ${applied.length === 1 ? 'entry' : 'entries'}` })
-  return { applied }
+  return { applied, rejected }
 })

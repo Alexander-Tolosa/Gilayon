@@ -56,7 +56,34 @@ function NotFound() {
 
 const doctor = (el: React.ReactNode) => <DoctorOnly>{el}</DoctorOnly>
 
+/** Fetch every clinic screen once the app is idle, so the service worker has them for a cold start with the server down. */
+function usePreloadClinicScreens() {
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'production') return
+    const run = () => {
+      void import('../features/clinic/ClinicShell')
+      void import('../features/clinic/pages/ClinicLogin')
+      void import('../features/clinic/pages/CheckIn')
+      void import('../features/clinic/pages/QueueBoard')
+      void import('../features/clinic/pages/Patients')
+      void import('../features/clinic/pages/PatientRecord')
+      void import('../features/clinic/pages/DoctorQueue')
+      void import('../features/clinic/pages/Consult')
+      void import('../features/clinic/pages/Documents')
+      void import('../features/clinic/pages/DailyReport')
+      void import('../features/clinic/pages/AuditTrail')
+      void import('../features/clinic/pages/Settings')
+      void import('../features/clinic/pages/WaitingScreen')
+      void import('../features/clinic/pages/PrintPage')
+    }
+    const w = window as Window & { requestIdleCallback?: (cb: () => void) => number }
+    if (w.requestIdleCallback) w.requestIdleCallback(run)
+    else setTimeout(run, 2000)
+  }, [])
+}
+
 export default function App() {
+  usePreloadClinicScreens()
   return (
     <>
       <ScrollToTop />

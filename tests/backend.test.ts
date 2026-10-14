@@ -294,3 +294,59 @@ describe('scanned pages on disk', () => {
     expect(row.file).toBe('disk:legacy-page-0001.png')
   })
 })
+
+describe('offline sync of notes, drafts and photos', () => {
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const sync = async (token: string, ops: unknown[]) => {
+    const { POST } = await import('../app/api/sync/route')
+    const res = await POST(new Request('http://x/api/sync', { method: 'POST', body: JSON.stringify({ ops }), headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }))
+    return { status: res.status, body: (await res.json()) as { applied: string[]; rejected: { op_id: string; reason: string }[] } }
+  }
+
+  it('applies a consult, an edit of its draft, and a photo in order, once', async () => {
+    const { token } = await login(db, 'st-d1', 'demo-password')
+    const patient_id = (await loadSnapshot(db, doctor)).patients[20].patient_id
+    const c = consult(patient_id, 'off1')
+    const ops = [
+      { op_id: 'o-1', kind: 'consult', input: c },
+      { op_id: 'o-2', kind: 'edit_draft', input: { doc_kind: 'doc', id: c.doc_id, patch: { rest_days: 5, findings: 'Edited while offline' } } },
+      { op_id: 'o-3', kind: 'scan', input: { page_id: 'offline-photo-001', patient_id, file: PNG, scan_kind: 'Lab result', page_date: '2026-03-03' } },
+    ]
+    const first = await sync(token, ops)
+    expect(first.status).toBe(200)
+    expect(first.body.applied).toEqual(['o-1', 'o-2', 'o-3'])
+    const again = await sync(token, ops)
+    expect(again.body.applied).toEqual(['o-1', 'o-2', 'o-3'])
+
+    const s = await loadSnapshot(db, doctor)
+    expect(s.consultations.filter((x) => x.consultation_id === 'c-off1')).toHaveLength(1)
+    expect(s.documents.find((d) => d.document_id === 'doc-off1')).toMatchObject({ rest_days: 5, findings: 'Edited while offline', status: 'draft' })
+    expect(s.scans.filter((x) => x.page_id === 'offline-photo-001')).toHaveLength(1)
+  })
+
+  it('one bad entry does not discard the rest of the queue', async () => {
+    const { token } = await login(db, 'st-d1', 'demo-password')
+    const patient_id = (await loadSnapshot(db, doctor)).patients[21].patient_id
+    const res = await sync(token, [
+      { op_id: 'b-1', kind: 'edit_draft', input: { doc_kind: 'doc', id: 'does-not-exist', patch: { findings: 'x' } } },
+      { op_id: 'b-2', kind: 'consult', input: consult(patient_id, 'off2') },
+    ])
+    expect(res.body.rejected.map((r) => r.op_id)).toEqual(['b-1'])
+    expect(res.body.applied).toEqual(['b-2'])
+  })
+
+  it('does not let a receptionist sync a consultation', async () => {
+    const { token } = await login(db, 'st-f1', 'demo-password')
+    const patient_id = (await loadSnapshot(db, doctor)).patients[22].patient_id
+    const res = await sync(token, [{ op_id: 'f-1', kind: 'consult', input: consult(patient_id, 'off3') }])
+    expect(res.body.rejected[0].op_id).toBe('f-1')
+    expect(res.body.applied).toEqual([])
+  })
+
+  it('a signed document can no longer be edited by a late offline edit', async () => {
+    const { token } = await login(db, 'st-d1', 'demo-password')
+    // doc-a was signed, voided in an earlier test; edit must be rejected, not applied.
+    const res = await sync(token, [{ op_id: 'l-1', kind: 'edit_draft', input: { doc_kind: 'doc', id: 'doc-a', patch: { findings: 'too late' } } }])
+    expect(res.body.rejected[0].op_id).toBe('l-1')
+  })
+})

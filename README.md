@@ -29,11 +29,11 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
 | Audit log | Written in the same transaction as every change; the database refuses deletes. |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
-| Offline | A tab that is offline queues consultations in the browser; `POST /api/sync` applies them once, even if the batch is sent twice. |
+| Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
 
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
-Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), and a multi-process event bus (the server is a single process, as on the clinic PC).
+Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), real nightly USB/off-site backup jobs, and a multi-process event bus (the server is a single process, as on the clinic PC).
 
 ## Demo accounts
 
