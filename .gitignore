@@ -53,3 +53,30 @@ dist/
 /.vibe/
 /.windsurf/
 /.zencoder/
+
+# Build output / tooling caches
+build/
+.next/
+out/
+.vite/
+.turbo/
+.pnp
+.pnp.js
+
+# Environment
+.env.*
+!.env.example
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
