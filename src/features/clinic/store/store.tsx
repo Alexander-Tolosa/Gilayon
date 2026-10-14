@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ConsultInput, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
-import { ApiError, api, readEvents } from '../lib/api'
+import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import type {
   CategoryKey,
   CivilStatus,
@@ -213,8 +213,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   useEffect(() => ss.set(S_RECENT, recent), [recent])
 
   const clearSession = useCallback(() => {
+    forgetBlobUrls()
     setToken(null)
     setSession(null)
+    setRecent([])
   }, [])
 
   /** Pulls the latest records. Signed out, it pulls only the public queue (waiting screen, sign-in page). */

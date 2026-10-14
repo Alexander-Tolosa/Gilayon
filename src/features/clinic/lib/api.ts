@@ -66,3 +66,32 @@ export function readEvents(token: string | null, onChanged: () => void, onState:
     ctrl.abort()
   }
 }
+
+const blobUrls = new Map<string, Promise<string>>()
+
+/** Loads a protected file (a scan) with the sign-in token and returns a local blob URL for <img>. */
+export function authedBlobUrl(path: string): Promise<string> {
+  let hit = blobUrls.get(path)
+  if (!hit) {
+    hit = (async () => {
+      let token: string | null = null
+      try {
+        token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+      } catch {
+        /* no token */
+      }
+      const res = await fetch(path, { headers: token ? { Authorization: `Bearer ${token}` } : {}, cache: 'no-store' })
+      if (!res.ok) throw new ApiError(res.status, 'Could not load the scan')
+      return URL.createObjectURL(await res.blob())
+    })()
+    hit.catch(() => blobUrls.delete(path))
+    blobUrls.set(path, hit)
+  }
+  return hit
+}
+
+/** Called at sign-out so protected images do not outlive the session in memory. */
+export function forgetBlobUrls() {
+  for (const p of blobUrls.values()) void p.then((u) => URL.revokeObjectURL(u)).catch(() => undefined)
+  blobUrls.clear()
+}

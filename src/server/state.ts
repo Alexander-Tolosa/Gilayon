@@ -86,7 +86,8 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     labs: labs.map((r) => strip<LabOrder>(r)),
     prescriptions: rx.map((r) => ({ ...strip<Prescription>(r), items: itemsByRx.get(r.prescription_id) ?? [] })),
     documents: documents.map((r) => strip<DocumentRow>(r)),
-    scans: scans as ScannedPage[],
+    // Files on the server are served through /api/scans/<id>/file (signed-in staff only).
+    scans: scans.map((r) => ({ ...r, file: r.file.startsWith('disk:') ? `/api/scans/${r.page_id}/file` : r.file })) as ScannedPage[],
     staff: staff.map(staffForSignedIn),
     audit: audit.map((r) => strip<AuditLog>(r)),
     offsite: { pending: offsitePending, lastAt: backupAt },

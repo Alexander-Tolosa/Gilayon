@@ -31,7 +31,9 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | A tab that is offline queues consultations in the browser; `POST /api/sync` applies them once, even if the batch is sent twice. |
 
-Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), scanned pages in object storage (they are stored in the database), and a multi-process event bus (the server is a single process, as on the clinic PC).
+| Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
+
+Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), and a multi-process event bus (the server is a single process, as on the clinic PC).
 
 ## Demo accounts
 

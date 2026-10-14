@@ -2,6 +2,7 @@ import { eq, inArray, sql } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import type { CivilStatus, RelationshipType, ScanKind, Sex } from '../../features/clinic/types'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
+import { newScanId, removeScan, storeScan } from '../files'
 import type { Q } from '../db'
 
 export const patientName = async (q: Q, patientId: string) => {
@@ -125,12 +126,20 @@ export async function addAllergy(q: Q, actor: Actor, patientId: string, substanc
   await audit(q, actor.staff_id, { action: 'create', table: 'allergy', record: patientId, summary: `Recorded allergy to ${substance} for ${await patientName(q, patientId)}` })
 }
 
-const MAX_SCAN_BYTES = 2_500_000
-
-export async function uploadScan(q: Q, actor: Actor, patientId: string, file: string, kind: ScanKind, page_date: string) {
-  if (!file.startsWith('data:image/') || file.length > MAX_SCAN_BYTES) throw new HttpError(413, 'Scan must be an image under 2.5 MB.')
-  await q.insert(t.scannedPage).values({ page_id: uuid(), patient_id: patientId, file, kind, page_date, uploaded_by: actor.staff_id, uploaded_at: nowMs() })
-  await audit(q, actor.staff_id, { action: 'upload', table: 'scanned_page', record: patientId, summary: `Attached a scanned ${kind.toLowerCase()} page to ${await patientName(q, patientId)}'s record` })
+/** The scan is written to disk first; if anything after it fails, the file is removed again. */
+export async function uploadScan(q: Q, actor: Actor, patientId: string, file: string, kind: ScanKind, page_date: string, pageId?: string) {
+  const page_id = pageId ?? newScanId()
+  const [dup] = await q.select({ id: t.scannedPage.page_id }).from(t.scannedPage).where(eq(t.scannedPage.page_id, page_id))
+  if (dup) return page_id // retried upload (offline sync)
+  const stored = await storeScan(file, page_id)
+  try {
+    await q.insert(t.scannedPage).values({ page_id, patient_id: patientId, file: stored, kind, page_date, uploaded_by: actor.staff_id, uploaded_at: nowMs() })
+    await audit(q, actor.staff_id, { action: 'upload', table: 'scanned_page', record: patientId, summary: `Attached a scanned ${kind.toLowerCase()} page to ${await patientName(q, patientId)}'s record` })
+  } catch (e) {
+    await removeScan(stored)
+    throw e
+  }
+  return page_id
 }
 
 type HrRow = { employee_no: string; full_name: string; birthdate: string; sex: Sex; office: string; position: string; contact?: string }

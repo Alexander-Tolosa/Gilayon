@@ -1,6 +1,9 @@
+import { mkdtempSync, existsSync, readdirSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { eq } from 'drizzle-orm'
 import { beforeAll, describe, expect, it } from 'vitest'
-import { document, prescription, queueTicket } from '../db/schema'
+import { document, prescription, queueTicket, scannedPage } from '../db/schema'
 import { seed } from '../db/seed'
 import { login, actorFromToken } from '../src/server/auth'
 import { HttpError, type Actor } from '../src/server/core'
@@ -8,11 +11,14 @@ import { getDb, type Db } from '../src/server/db'
 import { loadPublicQueue, loadSnapshot } from '../src/server/state'
 import { saveConsultation, signDocuments, voidDocument, reissueDocument, editDraft } from '../src/server/services/clinical'
 import { issueTicket, callTicket } from '../src/server/services/queue'
+import { uploadScan } from '../src/server/services/records'
+import { moveScansToDisk } from '../src/server/files'
 import { verifyIdentity } from '../src/server/services/records'
 import { changeOwnPassword, changePin, createStaff, resetPassword, setStaffActive, updateStaffDetails } from '../src/server/services/admin'
 import type { ConsultInput } from '../src/features/clinic/api-types'
 
 process.env.PGLITE_DIR = 'memory://'
+process.env.UPLOADS_DIR = mkdtempSync(path.join(tmpdir(), 'himsog-uploads-'))
 
 let db: Db
 const doctor: Actor = { staff_id: 'st-d1', name: 'Dr. Ramon Sollesta', role: 'doctor' }
@@ -227,5 +233,64 @@ describe('staff accounts', () => {
     const me: Actor = { staff_id: id, name: 'Dr. New Doctor', role: 'doctor' }
     expect(await db.transaction((tx) => changePin(tx, me, '', '4321'))).toBe(true)
     expect(await db.transaction((tx) => changePin(tx, me, '0000', '1111'))).toBe(false)
+  })
+})
+
+describe('scanned pages on disk', () => {
+  // A 1x1 PNG and a 1x1 JPEG, so the signature check sees real image bytes.
+  const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+  const JPG = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACv/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q=='
+  let patient_id: string
+
+  beforeAll(async () => {
+    patient_id = (await loadSnapshot(db, desk)).patients[11].patient_id
+  })
+
+  it('stores a real image as a file and serves it only to signed-in staff', async () => {
+    const id = await db.transaction((tx) => uploadScan(tx, desk, patient_id, PNG, 'Chart', '2026-01-02'))
+    const [row] = await db.select().from(scannedPage).where(eq(scannedPage.page_id, id))
+    expect(row.file).toBe(`disk:${id}.png`)
+    expect(row.file.startsWith('data:')).toBe(false)
+    expect(existsSync(path.join(process.env.UPLOADS_DIR!, 'scans', `${id}.png`))).toBe(true)
+
+    const snap = await loadSnapshot(db, desk)
+    expect(snap.scans.find((s) => s.page_id === id)?.file).toBe(`/api/scans/${id}/file`)
+
+    const { GET } = await import('../app/api/scans/[id]/file/route')
+    const ctx = { params: Promise.resolve({ id }) }
+    expect((await GET(new Request('http://x'), ctx)).status).toBe(401)
+    const { token } = await login(db, 'st-f1', 'demo-password')
+    const ok = await GET(new Request('http://x', { headers: { Authorization: `Bearer ${token}` } }), ctx)
+    expect(ok.status).toBe(200)
+    expect(ok.headers.get('content-type')).toBe('image/png')
+    expect(ok.headers.get('cache-control')).toContain('no-store')
+    expect((await ok.arrayBuffer()).byteLength).toBeGreaterThan(20)
+  })
+
+  it('refuses non-images, mislabelled files and oversized scans', async () => {
+    const text = `data:image/png;base64,${Buffer.from('<html>not an image</html>').toString('base64')}`
+    await expect(db.transaction((tx) => uploadScan(tx, desk, patient_id, text, 'Chart', '2026-01-02'))).rejects.toMatchObject({ status: 400 })
+    const mislabelled = JPG.replace('image/jpeg', 'image/png')
+    await expect(db.transaction((tx) => uploadScan(tx, desk, patient_id, mislabelled, 'Chart', '2026-01-02'))).rejects.toMatchObject({ status: 400 })
+    const big = `data:image/jpeg;base64,${Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), Buffer.alloc(2_600_000)]).toString('base64')}`
+    await expect(db.transaction((tx) => uploadScan(tx, desk, patient_id, big, 'Chart', '2026-01-02'))).rejects.toMatchObject({ status: 413 })
+    const before = readdirSync(path.join(process.env.UPLOADS_DIR!, 'scans')).length
+    await expect(db.transaction((tx) => uploadScan(tx, desk, patient_id, 'data:image/svg+xml;base64,AAAA', 'Chart', '2026-01-02'))).rejects.toMatchObject({ status: 400 })
+    expect(readdirSync(path.join(process.env.UPLOADS_DIR!, 'scans')).length).toBe(before)
+  })
+
+  it('a retried upload with the same page id stores one scan', async () => {
+    const run = () => db.transaction((tx) => uploadScan(tx, desk, patient_id, JPG, 'Lab result', '2026-02-03', 'offline-page-0001'))
+    expect(await run()).toBe('offline-page-0001')
+    expect(await run()).toBe('offline-page-0001')
+    const rows = await db.select().from(scannedPage).where(eq(scannedPage.page_id, 'offline-page-0001'))
+    expect(rows).toHaveLength(1)
+  })
+
+  it('moves scans saved in the database by the first version onto disk', async () => {
+    await db.insert(scannedPage).values({ page_id: 'legacy-page-0001', patient_id, file: PNG, kind: 'Chart', page_date: '2025-05-05', uploaded_by: 'st-f1', uploaded_at: Date.now() })
+    await moveScansToDisk(db)
+    const [row] = await db.select().from(scannedPage).where(eq(scannedPage.page_id, 'legacy-page-0001'))
+    expect(row.file).toBe('disk:legacy-page-0001.png')
   })
 })
