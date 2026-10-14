@@ -37,11 +37,13 @@ export function installHelp(): string {
 
 /** Register the service worker in production builds so the app opens with the network down. */
 export function registerServiceWorker() {
-  if (process.env.NODE_ENV === 'production' && 'serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        /* offline caching unavailable: the app still works online */
-      })
+  if (process.env.NODE_ENV !== 'production' || !('serviceWorker' in navigator)) return
+  const register = () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* offline caching unavailable: the app still works online */
     })
   }
+  // The app mounts after the page's load event, so waiting for "load" would never fire.
+  if (document.readyState === 'complete') register()
+  else window.addEventListener('load', register, { once: true })
 }

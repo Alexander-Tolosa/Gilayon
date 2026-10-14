@@ -18,9 +18,9 @@ export default function ClinicLogin() {
   const roleParam = params.get('role')
   const initialRole: StaffRole = roleParam === 'doctor' ? 'doctor' : roleParam === 'nurse' ? 'nurse' : 'desk'
   const [role, setRole] = useState<StaffRole>(initialRole)
-  const accounts = data.staff.filter((s) => s.role === role)
+  const accounts = data.staff.filter((s) => s.role === role && s.active !== false)
   const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
-  const [password, setPassword] = useState('demo-password')
+  const [password, setPassword] = useState(process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_DEMO ? '' : 'demo-password')
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
@@ -64,7 +64,7 @@ export default function ClinicLogin() {
                 aria-selected={role === r}
                 onClick={() => {
                   setRole(r)
-                  setStaffId(data.staff.find((s) => s.role === r)?.staff_id ?? '')
+                  setStaffId(data.staff.find((s) => s.role === r && s.active !== false)?.staff_id ?? '')
                 }}
                 className={cn('h-12 rounded-full text-[15px] font-semibold transition sm:text-[16px]', role === r ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}
               >

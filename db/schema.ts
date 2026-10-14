@@ -79,6 +79,10 @@ export const staff = pgTable('staff', {
   signature_image: text(),
   password_hash: text().notNull(),
   pin_hash: text(),
+  /** Deactivated accounts cannot sign in and keep their history. Staff are never deleted. */
+  active: boolean().notNull().default(true),
+  /** Set when an admin created the account or reset the password: the person must choose their own first. */
+  must_change_password: boolean().notNull().default(false),
 })
 
 export const session = pgTable('session', {

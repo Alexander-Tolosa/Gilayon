@@ -26,12 +26,14 @@ async function open(): Promise<Db> {
   if (url) {
     const db = drizzlePg(postgres(url, { max: 10 }), { schema }) as unknown as Db
     await migratePg(db as never, { migrationsFolder: MIGRATIONS })
+    await (await import('./files')).moveScansToDisk(db)
     return db
   }
   const dir = process.env.PGLITE_DIR ?? './.data/pglite'
   const client = new PGlite(dir)
   const db = drizzlePglite(client, { schema }) as unknown as Db
   await migratePglite(db as never, { migrationsFolder: MIGRATIONS })
+  await (await import('./files')).moveScansToDisk(db)
   // The embedded database is for demos and development: fill an empty one with the synthetic clinic.
   // (Never done on a real DATABASE_URL, where an empty database means "not set up yet".)
   if (process.env.HIMSOG_AUTO_SEED !== '0' && process.env.PGLITE_DIR !== 'memory://') {

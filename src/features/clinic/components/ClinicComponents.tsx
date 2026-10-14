@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Button, Modal } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
+import { authedBlobUrl } from '../lib/api'
 import { fil, setLang, useLang, useT } from '../lib/i18n'
 import { LANE_STYLE, ageOf, fmtStampOf, ticketLabel } from '../lib/helpers'
 import { useClinic } from '../store/store'
@@ -231,8 +232,25 @@ export function SignatureBlock({ staff, signed, documentNo, issuedAt }: { staff:
 
 /* ------------------------------- Sample scans ------------------------------ */
 
+/** A scan kept on the clinic server: fetched with the sign-in token, shown from memory. */
+function ProtectedImage({ path, className }: { path: string; className?: string }) {
+  const [src, setSrc] = useState<string | null>(null)
+  const [failed, setFailed] = useState(false)
+  useEffect(() => {
+    let live = true
+    authedBlobUrl(path).then((u) => live && setSrc(u), () => live && setFailed(true))
+    return () => {
+      live = false
+    }
+  }, [path])
+  if (failed) return <div className={cn('grid place-items-center bg-mist p-4 text-center text-sm text-muted', className)}>Scan could not be loaded</div>
+  if (!src) return <div className={cn('animate-pulse bg-mist', className)} aria-busy="true" />
+  return <img src={src} alt="Scanned page" className={cn('object-contain', className)} />
+}
+
 /** Placeholder image for seeded "old paper" pages. Real uploads are shown as the uploaded image. */
 export function ScanImage({ file, className }: { file: string; className?: string }) {
+  if (file.startsWith('/api/')) return <ProtectedImage path={file} className={className} />
   if (!file.startsWith('sample:')) return <img src={file} alt="Scanned page" className={cn('object-contain', className)} />
   const n = Number(file.split(':')[1])
   const lines = Array.from({ length: 14 }, (_, i) => i)

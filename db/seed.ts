@@ -18,8 +18,9 @@ async function chunked<T>(rows: T[], size: number, fn: (part: T[]) => Promise<un
   for (let i = 0; i < rows.length; i += size) await fn(rows.slice(i, i + size))
 }
 
+/** TRUNCATE, not DELETE: the append-only triggers (rightly) refuse row deletes, and a reset is not a row edit. */
 export async function wipe(db: Q) {
-  for (const name of TABLES) await db.execute(sql.raw(`DELETE FROM "${name}"`))
+  await db.execute(sql.raw(`TRUNCATE TABLE ${TABLES.map((n) => `"${n}"`).join(', ')} CASCADE`))
 }
 
 export async function seed(db: Db) {

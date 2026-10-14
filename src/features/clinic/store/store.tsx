@@ -1,7 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { ConsultInput, Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
-import { ApiError, api, readEvents } from '../lib/api'
+import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
+import { dropOps, loadOutbox, putOp, type OutboxOp } from '../lib/outbox'
 import type {
   CategoryKey,
   CivilStatus,
@@ -33,7 +34,6 @@ import type {
 const S_TOKEN = 'himsog-token'
 const S_SESSION = 'himsog-session'
 const S_NET = 'himsog-network'
-const S_PENDING = 'himsog-pending'
 const S_RECENT = 'himsog-recent'
 
 const EMPTY: Snapshot = {
@@ -80,21 +80,36 @@ const ss = {
 
 export type { ConsultInput }
 
-export type PendingOp = { op_id: string; kind: 'consult'; input: ConsultInput; doctor_id: string; at: number }
+export type PendingOp = OutboxOp
+
+export type NewStaffInput = { name: string; role: 'doctor' | 'desk' | 'nurse'; title: string; license_no?: string; ptr_no?: string; services?: ServiceType[]; room?: string; password: string }
 
 export type NewPersonInput = { full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; philhealth_pin?: string; pwd_id?: string }
 
-/** What this computer shows for a consultation still waiting in its offline queue. */
-function overlayConsult(s: Snapshot, input: ConsultInput, doctor_id: string): Snapshot {
+/** What this computer shows for entries still waiting in its offline queue, applied in the order they were made. */
+function overlayOp(s: Snapshot, op: OutboxOp): Snapshot {
+  if (op.kind === 'scan') {
+    if (s.scans.some((p) => p.page_id === op.input.page_id)) return s
+    return { ...s, scans: [...s.scans, { page_id: op.input.page_id, patient_id: op.input.patient_id, file: op.input.file, kind: op.input.scan_kind, page_date: op.input.page_date, uploaded_by: op.staff_id, uploaded_at: op.at }] }
+  }
+  if (op.kind === 'edit_draft') {
+    const { doc_kind, id, patch } = op.input
+    if (doc_kind === 'rx') {
+      const items = patch.items as { drug_name: string; dose: string; frequency: string; quantity: number }[] | undefined
+      return { ...s, prescriptions: s.prescriptions.map((r) => (r.prescription_id === id && r.status === 'draft' && items ? { ...r, items: items.map((it, i) => ({ ...it, item_id: `${id}-local-${i}`, prescription_id: id })) } : r)) }
+    }
+    return { ...s, documents: s.documents.map((d) => (d.document_id === id && d.status === 'draft' ? ({ ...d, ...patch } as DocumentRow) : d)) }
+  }
+  const { input, staff_id: doctor_id } = op
   if (s.consultations.some((c) => c.consultation_id === input.consultation_id)) return s
-  const created = Date.now()
+  const created = op.at
   const consult: Consultation = {
     consultation_id: input.consultation_id,
     patient_id: input.patient_id,
     ticket_id: input.ticket_id,
     doctor_id,
     service_type: input.service_type,
-    consult_date: todayKey(),
+    consult_date: todayKey(new Date(created)),
     created_at: created,
     chief_complaint: input.chief_complaint,
     treatment_notes: input.treatment_notes,
@@ -172,6 +187,12 @@ type Api = {
   updateCategoryRank: (category: CategoryKey, rank: number) => void
   setSignatureImage: (image: string) => void
   changePin: (current: string, next: string) => Promise<boolean>
+  // accounts (each returns an error message, or null when it worked)
+  changePassword: (current: string, next: string) => Promise<string | null>
+  createStaff: (input: NewStaffInput) => Promise<string | null>
+  updateStaffDetails: (staffId: string, patch: Partial<Pick<Staff, 'name' | 'title' | 'license_no' | 'ptr_no' | 'room' | 'role' | 'services'>>) => Promise<string | null>
+  setStaffActive: (staffId: string, active: boolean) => Promise<string | null>
+  resetStaffPassword: (staffId: string, temporary: string) => Promise<string | null>
   resetDemo: () => void
   online: boolean
 }
@@ -191,7 +212,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => ss.get<string | null>(S_TOKEN, null))
   const [session, setSession] = useState<string | null>(() => ss.get<string | null>(S_SESSION, null))
   const [network, setNetworkState] = useState<NetworkMode>(() => ss.get<NetworkMode>(S_NET, 'online'))
-  const [pending, setPending] = useState<PendingOp[]>(() => ss.get<PendingOp[]>(S_PENDING, []))
+  const [pending, setPending] = useState<PendingOp[]>([])
   const [recent, setRecent] = useState<string[]>(() => ss.get<string[]>(S_RECENT, []))
   const tokenRef = useRef(token)
   const networkRef = useRef(network)
@@ -201,12 +222,13 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   useEffect(() => ss.set(S_TOKEN, token), [token])
   useEffect(() => ss.set(S_SESSION, session), [session])
   useEffect(() => ss.set(S_NET, network), [network])
-  useEffect(() => ss.set(S_PENDING, pending), [pending])
   useEffect(() => ss.set(S_RECENT, recent), [recent])
 
   const clearSession = useCallback(() => {
+    forgetBlobUrls()
     setToken(null)
     setSession(null)
+    setRecent([])
   }, [])
 
   /** Pulls the latest records. Signed out, it pulls only the public queue (waiting screen, sign-in page). */
@@ -262,24 +284,77 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   }, [token, refresh])
 
   // What this computer sees: the server's records plus anything waiting in its own offline queue.
-  const data = useMemo(() => pending.reduce((s, op) => overlayConsult(s, op.input, op.doctor_id), shared), [shared, pending])
+  const data = useMemo(() => pending.reduce(overlayOp, shared), [shared, pending])
   const me = shared.staff.find((s) => s.staff_id === session) ?? null
-  const online = network !== 'offline'
+  // "Online" means this computer can really reach the server, not only that the demo switch is on.
+  const online = network !== 'offline' && connected
 
-  /** Sends the offline queue. The server records each op id, so a retry can never duplicate. */
-  const flush = useCallback(
-    async (ops: PendingOp[]) => {
-      if (!ops.length || !tokenRef.current) return
-      try {
-        const res = await api<{ applied: string[] }>('/api/sync', { token: tokenRef.current, body: { ops: ops.map((o) => ({ op_id: o.op_id, kind: o.kind, input: o.input })) } })
-        const done = new Set(res.applied)
-        setPending((p) => p.filter((o) => !done.has(o.op_id)))
-      } catch (e) {
-        tell(e instanceof ApiError ? `Offline entries could not be sent yet: ${e.message}` : 'Offline entries could not be sent yet.')
-      }
-    },
-    [],
-  )
+  const pendingRef = useRef(pending)
+  pendingRef.current = pending
+  const flushing = useRef(false)
+
+  /** Adds an entry to the outbox. It is on disk (IndexedDB) before the screen says "saved on this computer". */
+  const enqueue = useCallback(async (op: Omit<OutboxOp, 'op_id' | 'staff_id' | 'at'> & { op_id?: string }) => {
+    if (!session) return
+    const full = { ...op, op_id: op.op_id ?? uuid(), staff_id: session, at: Date.now() } as OutboxOp
+    await putOp(full)
+    setPending((p) => [...p, full])
+  }, [session])
+
+  /** Sends the outbox. The server records each op id, so a retry can never duplicate. */
+  const flush = useCallback(async () => {
+    const ops = pendingRef.current
+    if (flushing.current || !ops.length || !tokenRef.current || networkRef.current === 'offline') return
+    flushing.current = true
+    try {
+      const res = await api<{ applied: string[]; rejected: { op_id: string; reason: string }[] }>('/api/sync', { token: tokenRef.current, body: { ops: ops.map((o) => ({ op_id: o.op_id, kind: o.kind, input: o.input })) } })
+      const gone = new Set([...res.applied, ...res.rejected.map((r) => r.op_id)])
+      await dropOps([...gone])
+      setPending((p) => p.filter((o) => !gone.has(o.op_id)))
+      if (res.rejected.length) tell(`${res.rejected.length} offline ${res.rejected.length === 1 ? 'entry' : 'entries'} could not be applied: ${res.rejected[0].reason}`)
+      await refresh()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 0) setConnected(false)
+      else tell(e instanceof ApiError ? `Offline entries could not be sent yet: ${e.message}` : 'Offline entries could not be sent yet.')
+    } finally {
+      flushing.current = false
+    }
+  }, [refresh])
+
+  // Whoever signs in gets their own unsent entries back from disk (also after a restart).
+  useEffect(() => {
+    let live = true
+    if (!session) {
+      setPending([])
+      return
+    }
+    void loadOutbox(session).then((ops) => live && setPending((cur) => [...ops, ...cur.filter((c) => !ops.some((o) => o.op_id === c.op_id))]))
+    return () => {
+      live = false
+    }
+  }, [session])
+
+  // Real connectivity: the browser says when the network drops or returns, and a dropped server is retried.
+  useEffect(() => {
+    const down = () => setConnected(false)
+    const up = () => void refresh()
+    window.addEventListener('offline', down)
+    window.addEventListener('online', up)
+    return () => {
+      window.removeEventListener('offline', down)
+      window.removeEventListener('online', up)
+    }
+  }, [refresh])
+  useEffect(() => {
+    if (connected || network === 'offline') return
+    const id = setInterval(() => void refresh(), 8000)
+    return () => clearInterval(id)
+  }, [connected, network, refresh])
+
+  // As soon as the server is reachable again, send whatever is waiting.
+  useEffect(() => {
+    if (connected && network !== 'offline' && pending.length && token) void flush()
+  }, [connected, network, pending.length, token, flush])
 
   const setNetwork = useCallback(
     (m: NetworkMode) => {
@@ -287,13 +362,16 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       networkRef.current = m
       if (m !== 'offline') {
         void (async () => {
-          await flush(pending)
-          if (m === 'online' && tokenRef.current) await api('/api/backup', { token: tokenRef.current, body: {} }).catch(() => undefined)
-          await refresh()
+          const snap = await refresh()
+          if (snap) {
+            await flush()
+            if (m === 'online' && tokenRef.current) await api('/api/backup', { token: tokenRef.current, body: {} }).catch(() => undefined)
+            await refresh()
+          }
         })()
       }
     },
-    [pending, flush, refresh],
+    [flush, refresh],
   )
 
   const api_ = useMemo<Api>(() => {
@@ -318,18 +396,31 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         await refresh()
         return out
       } catch (e) {
-        tell(e instanceof ApiError ? e.message : 'Something went wrong.')
+        if (e instanceof ApiError && e.status === 0) setConnected(false)
+        tell(e instanceof ApiError ? (e.status === 0 ? 'This computer cannot reach the clinic server.' : e.message) : 'Something went wrong.')
         await refresh()
         return null
+      }
+    }
+
+    /** For forms that show the server's reason next to the field instead of a toast. */
+    const call = async (path: string, body: unknown, method?: string): Promise<string | null> => {
+      try {
+        await api(path, { token: tokenRef.current, body, method })
+        await refresh()
+        return null
+      } catch (e) {
+        return e instanceof ApiError ? e.message : 'Something went wrong.'
       }
     }
 
     return {
       data,
       ready,
-      connected: connected && online,
+      connected: online,
       me,
-      network,
+      // What the badge shows: the demo switch, or the truth when the server cannot be reached.
+      network: network === 'online' && !connected ? 'offline' : network,
       pending,
       recent,
       online,
@@ -424,9 +515,26 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       setTicketStatus: (ticketId, status) => void send(`/api/queue/${ticketId}`, { status }, 'PATCH'),
       markUrgent: (ticketId) => void send(`/api/queue/${ticketId}/urgent`),
 
+      // Photos of old folders can be taken offline; they wait in the outbox with their own id.
       uploadScan: async (patientId, file, kind, page_date) => {
-        if (!online) return false
-        return (await send(`/api/patients/${patientId}/scans`, { file, kind, page_date })) !== null
+        const page_id = uuid().replace(/-/g, '')
+        const queue = async () => {
+          await enqueue({ kind: 'scan', input: { page_id, patient_id: patientId, file, scan_kind: kind, page_date } })
+          return true
+        }
+        if (!online) return queue()
+        try {
+          await api(`/api/patients/${patientId}/scans`, { token: tokenRef.current, body: { page_id, file, kind, page_date } })
+          await refresh()
+          return true
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 0) {
+            setConnected(false)
+            return queue()
+          }
+          tell(e instanceof ApiError ? e.message : 'The scan could not be saved.')
+          return false
+        }
       },
 
       addFamilyHistory: (patientId, relative, condition, notes) => void send(`/api/patients/${patientId}/family-history`, { relative, condition, notes }),
@@ -443,18 +551,21 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       startConsult: (ticketId) => void send(`/api/queue/${ticketId}/start`),
 
       saveConsultation: async (input) => {
-        const queueLocally = () => {
-          setPending((p) => [...p, { op_id: uuid(), kind: 'consult', input, doctor_id: me?.staff_id ?? 'unknown', at: Date.now() }])
+        const queueLocally = async () => {
+          await enqueue({ kind: 'consult', input })
           return 'local' as const
         }
-        // Server unreachable: keep the entry in this browser. Documents stay drafts until signed.
+        // Server unreachable: keep the entry on this computer. Documents stay drafts until signed.
         if (!online) return queueLocally()
         try {
           await api('/api/consultations', { token: tokenRef.current, body: input })
           await refresh()
           return 'saved'
         } catch (e) {
-          if (e instanceof ApiError && e.status === 0) return queueLocally()
+          if (e instanceof ApiError && e.status === 0) {
+            setConnected(false)
+            return queueLocally()
+          }
           tell(e instanceof ApiError ? e.message : 'The consultation could not be saved.')
           throw e
         }
@@ -467,7 +578,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           await refresh()
           return res.result
         } catch (e) {
-          if (e instanceof ApiError && e.status === 0) return 'offline'
+          if (e instanceof ApiError && e.status === 0) {
+            setConnected(false)
+            return 'offline'
+          }
           tell(e instanceof ApiError ? e.message : 'Signing failed.')
           return 'bad-pin'
         }
@@ -483,6 +597,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
 
       editDraft: (kind, id, patch) => {
         const body = kind === 'rx' ? { items: (patch as Partial<Prescription>).items } : patch
+        // A draft can be corrected offline (including one made offline); it is applied after its consultation.
+        if (!online) return void enqueue({ kind: 'edit_draft', input: { doc_kind: kind, id, patch: body as Record<string, unknown> } })
         void send(`/api/documents/${kind}/${id}`, body, 'PATCH')
       },
 
@@ -495,13 +611,20 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         return !!res?.ok
       },
 
+      changePassword: (current, next) => call('/api/auth/password', { current, next }),
+      createStaff: (input) => call('/api/staff', input),
+      updateStaffDetails: (staffId, patch) => call(`/api/staff/${staffId}`, patch, 'PATCH'),
+      setStaffActive: (staffId, active) => call(`/api/staff/${staffId}/active`, { active }),
+      resetStaffPassword: (staffId, temporary) => call(`/api/staff/${staffId}/password`, { temporary }),
+
       resetDemo: () => {
+        void dropOps(pendingRef.current.map((o) => o.op_id))
         setPending([])
         setRecent([])
         void send('/api/dev/reset')
       },
     }
-  }, [data, ready, connected, me, network, pending, recent, online, setNetwork, refresh, clearSession])
+  }, [data, ready, connected, me, network, pending, recent, online, setNetwork, refresh, clearSession, enqueue])
 
   return <Ctx.Provider value={api_}>{children}</Ctx.Provider>
 }

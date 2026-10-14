@@ -23,18 +23,21 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | --- | --- |
 | Source of truth | PostgreSQL schema in `db/schema.ts`, migrations in `db/migrations/`. Services in `src/server/services/`, one route file per endpoint in `app/api/`. |
 | Sign-in | `POST /api/auth/login` returns a bearer token (kept per browser tab). Passwords and signing PINs are bcrypt hashes. Five wrong passwords lock the account for a minute. |
+| Staff accounts | Doctors add staff, edit details, deactivate or reactivate (never delete), and set temporary passwords. A new or reset account must choose its own password at first sign-in. Everyone can change their own password. Deactivating or resetting signs the person out everywhere. The last active doctor can't be deactivated. |
 | Roles | Doctor, nurse, receptionist. Calling patients, consulting, signing, voiding, reports, audit and settings are doctor-only and enforced on the server. |
 | Queue numbers and document numbers | Issued only by the server, atomically, so two computers can never hand out the same one. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
 | Audit log | Written in the same transaction as every change; the database refuses deletes. |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
-| Offline | A tab that is offline queues consultations in the browser; `POST /api/sync` applies them once, even if the batch is sent twice. |
+| Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
 
-Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), scanned pages in object storage (they are stored in the database), and a multi-process event bus (the server is a single process, as on the clinic PC).
+| Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
+
+Not built yet: HTTPS certificate and Windows-service setup (deployment steps from the concept), real nightly USB/off-site backup jobs, and a multi-process event bus (the server is a single process, as on the clinic PC).
 
 ## Demo accounts
 
-Passwords are pre-filled on `/clinic/login`. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
+With `NEXT_PUBLIC_DEMO=1` (see `.env.example`) the demo password is pre-filled on `/clinic/login`; without it the field starts empty. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
 
 | Role | Who | Can do |
 | --- | --- | --- |

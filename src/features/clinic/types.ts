@@ -193,7 +193,9 @@ export type Staff = {
   services?: ServiceType[]
   room?: string
   signature_image?: string // data URL drawn by the doctor; falls back to a script-font rendering of the name
-  pin?: string // demo only: real deployments store a hash
+  pin?: string // never the PIN itself: "" when one is set, absent when not
+  active?: boolean // false = cannot sign in
+  must_change_password?: boolean
 }
 
 export type AuditAction = 'create' | 'edit' | 'sign' | 'void' | 'verify' | 'check-in' | 'call' | 'import' | 'upload' | 'sync' | 'flag' | 'status' | 'link'

@@ -17,11 +17,26 @@ const fails = (g.__himsogFails ??= new Map())
 
 export const hashSecret = (s: string) => bcrypt.hash(s, 8)
 
+export const MIN_PASSWORD = 8
+
+/** One rule for every place a password is set. Returns a message when it is not acceptable. */
+export function passwordProblem(pw: string, username?: string): string | null {
+  if (pw.length < MIN_PASSWORD) return `Use at least ${MIN_PASSWORD} characters.`
+  if (!/[A-Za-z]/.test(pw) || !/\d/.test(pw)) return 'Use letters and at least one number.'
+  if (username && pw.toLowerCase() === username.toLowerCase()) return 'The password cannot be your account name.'
+  return null
+}
+
+export async function endSessions(q: Q, staff_id: string) {
+  await q.delete(session).where(eq(session.staff_id, staff_id))
+}
+
 export async function login(db: Db, staff_id: string, password: string) {
   const f = fails.get(staff_id)
   if (f && f.until > nowMs()) throw new HttpError(429, 'Too many attempts. Wait a minute and try again.')
   const [row] = await db.select().from(staff).where(eq(staff.staff_id, staff_id))
-  const ok = row ? await bcrypt.compare(password, row.password_hash) : false
+  // Deactivated accounts get the same answer as a wrong password, so the account list can't be probed.
+  const ok = row && row.active ? await bcrypt.compare(password, row.password_hash) : false
   if (!row || !ok) {
     const n = (f?.n ?? 0) + 1
     fails.set(staff_id, { n, until: n >= MAX_FAILS ? nowMs() + LOCK_MS : 0 })
@@ -33,7 +48,7 @@ export async function login(db: Db, staff_id: string, password: string) {
   const now = nowMs()
   await db.insert(session).values({ token_hash: hash(token), staff_id, created_at: now, expires_at: now + SESSION_MS })
   await audit(db, staff_id, { action: 'verify', table: 'user_account', record: staff_id, summary: 'Signed in' })
-  return { token, staff_id }
+  return { token, staff_id, must_change_password: row.must_change_password }
 }
 
 export async function logout(db: Db, token: string) {
@@ -46,7 +61,7 @@ export async function actorFromToken(q: Q, token: string | null): Promise<Actor 
     .select({ staff_id: staff.staff_id, name: staff.name, role: staff.role, license_no: staff.license_no })
     .from(session)
     .innerJoin(staff, eq(staff.staff_id, session.staff_id))
-    .where(and(eq(session.token_hash, hash(token)), gt(session.expires_at, nowMs())))
+    .where(and(eq(session.token_hash, hash(token)), gt(session.expires_at, nowMs()), eq(staff.active, true)))
   if (!row) return null
   return { staff_id: row.staff_id, name: row.name, role: row.role, license_no: row.license_no ?? undefined }
 }
