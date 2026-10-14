@@ -1,6 +1,6 @@
 {
-  "name": "Himsog · HMO-Clinic Digital Records",
-  "short_name": "Himsog",
+  "name": "Gilayon · HMO-Clinic Digital Records",
+  "short_name": "Gilayon",
   "description": "Verified check-in, priority queue, patient records, signed documents and daily reports for the HMO-Clinic. Works offline.",
   "start_url": "/clinic",
   "scope": "/",

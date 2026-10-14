@@ -31,24 +31,13 @@ const YEAR = new Date().getFullYear()
 
 /* ----------------------------------- Nav ----------------------------------- */
 
-const NAV = [
-  { href: '#services', label: 'Services' },
-  { href: '#security', label: 'Security' },
-]
-
 function Nav() {
   const [open, setOpen] = useState(false)
+
   return (
     <header className="glass sticky top-0 z-40 border-b border-line/60">
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Main">
-          {NAV.map((n) => (
-            <a key={n.href} href={n.href} className="rounded-full px-4 py-2 text-sm font-medium text-ink-2 transition hover:bg-mist hover:text-ink">
-              {n.label}
-            </a>
-          ))}
-        </nav>
         <div className="flex items-center gap-2">
           <Button to="/auth?mode=signin" variant="ghost" size="sm" className="hidden sm:inline-flex">
             Sign in
@@ -58,7 +47,7 @@ function Nav() {
           </Button>
           <button
             onClick={() => setOpen((o) => !o)}
-            className="grid size-9 place-items-center rounded-full border border-line bg-surface text-ink-2 lg:hidden"
+            className="grid size-9 place-items-center rounded-full border border-line bg-surface text-ink-2 sm:hidden"
             aria-label={open ? 'Close menu' : 'Open menu'}
             aria-expanded={open}
           >
@@ -72,16 +61,11 @@ function Nav() {
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            className="overflow-hidden border-t border-line bg-surface lg:hidden"
+            className="overflow-hidden border-t border-line bg-surface sm:hidden"
             aria-label="Mobile"
           >
             <div className="flex flex-col gap-1 px-4 py-3">
-              {NAV.map((n) => (
-                <a key={n.href} href={n.href} onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-ink-2 hover:bg-mist">
-                  {n.label}
-                </a>
-              ))}
-              <Link to="/auth?mode=signin" className="rounded-2xl px-4 py-3 text-[15px] font-medium text-brand-700 hover:bg-mist">
+              <Link to="/auth?mode=signin" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-brand-700 hover:bg-mist">
                 Sign in
               </Link>
             </div>
@@ -114,7 +98,7 @@ function Hero() {
   const reduce = useReducedMotion()
   const rise = (d: number) => (reduce ? {} : { initial: { opacity: 0, y: 18 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.8, delay: d, ease: [0.16, 1, 0.3, 1] as const } })
   return (
-    <section className="relative overflow-hidden">
+    <section id="hero" className="relative overflow-hidden scroll-mt-20">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[640px] bg-[radial-gradient(60%_60%_at_50%_0%,#dce7ff_0%,rgba(245,248,254,0)_70%)]" />
       <div className="relative mx-auto flex min-h-[calc(100dvh-72px)] max-w-7xl flex-col items-center justify-center px-4 pb-16 pt-12 text-center sm:px-6 lg:pt-16">
         {/* Orbit ring + floating icons (desktop) */}
@@ -145,7 +129,7 @@ function Hero() {
         </motion.h1>
 
         <motion.p {...rise(0.16)} className="mx-auto mt-6 max-w-[560px] text-[17px] leading-relaxed text-muted sm:text-lg">
-          Himsog turns the HMO-Clinic's paper folders into one record for IPG employees and their dependents, with a fair queue, signed documents and a daily report.
+          Gilayon turns the HMO-Clinic's paper folders into one record for IPG employees and their dependents, with a fair queue, signed documents and a daily report.
         </motion.p>
 
         <motion.div {...rise(0.24)} className="mt-8 flex items-center gap-3">
@@ -188,7 +172,7 @@ function Problem() {
               <RevealText text="Paper folders get lost." /> <RevealText text="Your health story shouldn't." className="text-brand-600" delay={0.25} />
             </h2>
             <p className="mt-5 max-w-[62ch] text-[17px] leading-relaxed text-ink-2">
-              Today every visit means writing by hand, filing folders on shelves and searching for them while the line grows. Himsog keeps one standard record per patient, opened in seconds and ready before the consult.
+              Today every visit means writing by hand, filing folders on shelves and searching for them while the line grows. Gilayon keeps one standard record per patient, opened in seconds and ready before the consult.
             </p>
           </div>
           <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
@@ -524,7 +508,7 @@ function Footer() {
         ))}
       </div>
       <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {YEAR} Himsog · Team KasCoders, Hack Iloilo 2026.</p>
+        <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
         <p>Prototype with synthetic data only. Not for real patient data.</p>
       </div>
     </footer>
