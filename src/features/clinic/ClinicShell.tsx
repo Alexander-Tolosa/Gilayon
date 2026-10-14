@@ -44,15 +44,10 @@ function useNav(role: StaffRole): Item[] {
   const { data, me } = useClinic()
   const waiting = data.tickets.filter((t) => t.status === 'waiting' && t.day === todayKey()).length
   const unread = role === 'doctor' && me ? unreadActivity(data, me.staff_id).length : 0
-  if (role === 'desk')
+  // The concept gives the receptionist and the nurse the same access, so they share one menu.
+  if (role === 'desk' || role === 'nurse')
     return [
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
-      { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
-      { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
-    ]
-  if (role === 'nurse')
-    return [
-      { to: '/clinic/checkin', label: 'Check in & Triage', icon: UserCirclePlus },
       { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     ]

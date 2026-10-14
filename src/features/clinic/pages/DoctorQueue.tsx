@@ -1,11 +1,13 @@
-import { Bell, Megaphone, Play, Warning } from '@phosphor-icons/react'
+import { Bell, ChartBar, CheckCircle, ClipboardText, FileText, Megaphone, Play, UsersThree, Warning } from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, TicketNo } from '../components/ClinicComponents'
+import { censusFor } from '../lib/census'
 import { useT } from '../lib/i18n'
 import { unreadActivity } from '../lib/activity'
-import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel } from '../lib/helpers'
+import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel, todayKey } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import { TicketRow, useNow, useToday } from './QueueBoard'
 
@@ -24,6 +26,15 @@ export default function DoctorQueue() {
   const allergies = next ? data.allergies.filter((a) => a.patient_id === next.patient_id) : []
   const seenToday = q.done.filter((x) => x.doctor_id === me?.staff_id).length
   const news = unreadActivity(data, me?.staff_id ?? '')
+  // Pending items prepared for this doctor: drafts waiting for a PIN signature.
+  const drafts = data.prescriptions.filter((r) => r.status === 'draft' && r.doctor_id === me?.staff_id).length + data.documents.filter((d) => d.status === 'draft' && d.doctor_id === me?.staff_id).length
+  const census = censusFor(data.tickets, todayKey())
+  const stats: { to: string; label: string; value: number; hint: string; icon: Icon; alert?: boolean }[] = [
+    { to: '/clinic/queue', label: 'Waiting for you', value: mine.length, hint: 'Queue board', icon: UsersThree },
+    { to: '/clinic/documents', label: 'Drafts to sign', value: drafts, hint: drafts ? 'Sign with your PIN' : 'Nothing to sign', icon: FileText, alert: drafts > 0 },
+    { to: '/clinic/report', label: 'Seen today', value: seenToday, hint: 'Daily report', icon: CheckCircle },
+    { to: '/clinic/audit', label: 'New changes', value: news.length, hint: 'Audit trail', icon: ClipboardText, alert: news.length > 0 },
+  ]
 
   const open = (ticketId: string, patientId: string) => {
     startConsult(ticketId)
@@ -33,6 +44,38 @@ export default function DoctorQueue() {
   return (
     <div>
       <PageTitle title={t('My queue')} sub={`${me?.name} · ${me?.room} · ${services.map((s) => t(s)).join(', ')} · ${seenToday} ${t('seen today')}`} />
+
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stats.map((st) => (
+          <Link key={st.label} to={st.to} className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 sm:p-5">
+            <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${st.alert ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>
+              <st.icon size={24} weight="fill" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[2rem] font-semibold leading-none tabular">{st.value}</span>
+              <span className="mt-1 block truncate text-[15px] font-medium text-ink">{st.label}</span>
+              <span className="block truncate text-sm text-muted group-hover:text-brand-700">{st.hint}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <Link to="/clinic/report" className="mb-5 flex flex-col gap-3 rounded-3xl border border-line bg-surface p-4 shadow-soft transition hover:border-brand-300 sm:flex-row sm:items-center sm:p-5">
+        <span className="flex items-center gap-2 text-base font-semibold sm:w-36">
+          <ChartBar size={22} weight="fill" className="text-brand-600" /> Census
+        </span>
+        <span className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+          {census.map((c) => (
+            <span key={c.period} className="rounded-2xl bg-canvas px-4 py-2.5">
+              <span className="block text-sm text-muted">{c.period === 'Day' ? 'Today' : `This ${c.period.toLowerCase()}`}</span>
+              <span className="block text-lg font-semibold tabular">
+                {c.visits} <span className="text-sm font-normal text-muted">visits</span>
+              </span>
+              <span className="block text-sm text-muted tabular">{c.patients} patients</span>
+            </span>
+          ))}
+        </span>
+      </Link>
 
       {news.length > 0 && (
         <Card className="mb-5 p-5">

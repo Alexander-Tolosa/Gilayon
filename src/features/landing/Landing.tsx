@@ -3,17 +3,25 @@ import {
   CheckCircle,
   ClipboardText,
   CloudCheck,
-  Drop,
+  CursorClick,
+  Desktop,
   FileText,
   Fingerprint,
   Flask,
   Heartbeat,
+  Lightning,
   List,
   LockKey,
   Pill,
+  ShieldCheck,
   Stethoscope,
   Syringe,
+  ThumbsUp,
+  TreeStructure,
+  UserCirclePlus,
+  UsersThree,
   Wheelchair,
+  WifiHigh,
   X,
 } from '@phosphor-icons/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
@@ -21,11 +29,11 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Logo } from '../../shared/components/Logo'
 import { Reveal } from '../../shared/components/Reveal'
-import { Drift, ParallaxImage, PopIn, RevealText, ScrollAway, ScrollProgress } from '../../shared/components/ScrollFx'
-import { Avatar, Badge, Button } from '../../shared/components/ui'
-import { DOCTORS } from '../portal/data/seed'
+import { Drift, PopIn, RevealText, ScrollAway, ScrollProgress } from '../../shared/components/ScrollFx'
+import { Badge, Button } from '../../shared/components/ui'
+import { LegalModal, type LegalKind } from '../../shared/components/Legal'
 import '@fontsource/allura'
-import { cn, img, PHOTOS } from '../../shared/lib/utils'
+import { cn } from '../../shared/lib/utils'
 
 const YEAR = new Date().getFullYear()
 
@@ -39,7 +47,8 @@ function Nav() {
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
         <div className="flex items-center gap-2">
-          <Button to="/auth?mode=signin" variant="ghost" size="sm" className="hidden sm:inline-flex">
+          {/* Sign in goes straight to the account form; Get started first asks which role you are. */}
+          <Button to="/clinic/login" variant="secondary" size="sm" className="hidden sm:inline-flex">
             Sign in
           </Button>
           <Button to="/auth" size="sm" iconRight={<ArrowRight size={14} weight="bold" />}>
@@ -65,9 +74,15 @@ function Nav() {
             aria-label="Mobile"
           >
             <div className="flex flex-col gap-1 px-4 py-3">
-              <Link to="/auth?mode=signin" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-brand-700 hover:bg-mist">
+              <Link to="/clinic/login" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-brand-700 hover:bg-mist">
                 Sign in
               </Link>
+              <a href="#services" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-ink-2 hover:bg-mist">
+                Services
+              </a>
+              <a href="#security" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-ink-2 hover:bg-mist">
+                Security and privacy
+              </a>
             </div>
           </motion.nav>
         )}
@@ -87,12 +102,7 @@ const ORBIT: { icon: ReactNode; className: string; delay: number }[] = [
   { icon: <Syringe size={30} />, className: 'right-[15%] top-[76%]', delay: 2 },
 ]
 
-const HERO_PEOPLE = [
-  { name: 'Dr. Ramon Sollesta', photo: DOCTORS[0].photo },
-  { name: 'Dr. Liza Magbanua', photo: DOCTORS[1].photo },
-  { name: 'Front desk staff', photo: DOCTORS[2].photo },
-  { name: 'Patient', photo: DOCTORS[3].photo },
-]
+const HERO_POINTS = ['Works without internet', "Runs on the clinic's own computers", 'Front desk, nurse and doctor share one record']
 
 function Hero() {
   const reduce = useReducedMotion()
@@ -121,31 +131,27 @@ function Hero() {
         ))}
 
         <ScrollAway className="w-full">
-        <motion.h1 {...rise(0.08)} className="mt-10 text-[44px] leading-[1.02] tracking-[-0.045em] text-ink sm:text-6xl lg:text-[84px]">
-          <span className="block font-light">Every health record,</span>
-          <span className="block font-semibold">
-            in one <span className="text-brand-600">secure</span> place.
-          </span>
-        </motion.h1>
-
-        <motion.p {...rise(0.16)} className="mx-auto mt-6 max-w-[560px] text-[17px] leading-relaxed text-muted sm:text-lg">
-          Gilayon turns the HMO-Clinic's paper folders into one record for IPG employees and their dependents, with a fair queue, signed documents and a daily report.
+        <motion.p {...rise(0)} className="mx-auto inline-flex items-center gap-2 rounded-full border border-brand-200/80 bg-surface/80 px-4 py-1.5 text-[13px] font-semibold text-brand-700 shadow-soft">
+          <Heartbeat size={16} weight="fill" className="text-brand-600" /> HMO-Clinic · Iloilo Provincial Government
         </motion.p>
 
-        <motion.div {...rise(0.24)} className="mt-8 flex items-center gap-3">
-          <div className="flex -space-x-3">
-            {HERO_PEOPLE.map((d) => (
-              <Avatar key={d.name} name={d.name} src={d.photo} size="md" className="ring-[3px]" />
-            ))}
-          </div>
-          <p className="text-left text-[13px] leading-snug text-ink-2">
-            Front desk, doctors and patients
-            <br />
-            <span className="text-muted">working from the same record</span>
-          </p>
-        </motion.div>
+        <motion.h1 {...rise(0.08)} className="mx-auto mt-7 max-w-[15ch] text-balance text-[42px] font-semibold leading-[1.05] tracking-[-0.035em] text-ink sm:text-6xl lg:text-[76px]">
+          Every health record, in one <span className="text-brand-600">secure</span> place.
+        </motion.h1>
 
-        <motion.div {...rise(0.32)} className="mt-9 flex flex-col gap-3 sm:flex-row">
+        <motion.p {...rise(0.16)} className="mx-auto mt-6 max-w-[600px] text-pretty text-[17px] leading-relaxed text-ink-2 sm:text-lg">
+          Gilayon replaces the HMO-Clinic's paper folders with one digital record for every IPG employee and dependent, plus a fair queue, signed documents and a daily report.
+        </motion.p>
+
+        <motion.ul {...rise(0.24)} className="mx-auto mt-7 flex max-w-2xl flex-wrap items-center justify-center gap-x-6 gap-y-2">
+          {HERO_POINTS.map((p) => (
+            <li key={p} className="flex items-center gap-1.5 text-[14px] font-medium text-ink-2">
+              <CheckCircle size={18} weight="fill" className="text-ok" /> {p}
+            </li>
+          ))}
+        </motion.ul>
+
+        <motion.div {...rise(0.32)} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
           <Button to="/auth" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
             Get started
           </Button>
@@ -161,8 +167,17 @@ function Hero() {
 
 /* -------------------------------- Problem ---------------------------------- */
 
+// The qualities the HMO-Clinic asked for in a good solution, and how Gilayon meets each one.
+const QUALITIES: { icon: ReactNode; tone: string; t: string; d: string }[] = [
+  { icon: <WifiHigh size={24} weight="bold" />, tone: 'bg-brand-600', t: 'Works offline', d: 'Notes and scans are saved on the PC when the internet drops, then sent once it is back.' },
+  { icon: <TreeStructure size={24} weight="bold" />, tone: 'bg-ok', t: 'Office networking', d: 'Every computer in the clinic opens the same record over the office network.' },
+  { icon: <Desktop size={24} weight="bold" />, tone: 'bg-warn', t: 'Uses existing devices', d: "Runs in the browser of the clinic's current computers. Nothing new to buy." },
+  { icon: <CursorClick size={24} weight="bold" />, tone: 'bg-brand-600', t: 'Simple interface', d: 'Large text, big buttons and plain words for staff who are not technical.' },
+  { icon: <Lightning size={24} weight="bold" />, tone: 'bg-ok', t: 'Minimal steps', d: 'Search, check in and open a patient in a few clicks, not a few minutes.' },
+  { icon: <ThumbsUp size={24} weight="bold" />, tone: 'bg-warn', t: 'Practical', d: 'Built around the clinic\'s real day, from the first check-in to the daily report.' },
+]
+
 function Problem() {
-  const photos = [PHOTOS.doctorPhone, PHOTOS.labTubes, PHOTOS.consult, PHOTOS.nurse]
   return (
     <section className="px-4 sm:px-6 lg:px-8">
       <Reveal>
@@ -175,10 +190,16 @@ function Problem() {
               Today every visit means writing by hand, filing folders on shelves and searching for them while the line grows. Gilayon keeps one standard record per patient, opened in seconds and ready before the consult.
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-1 md:grid-cols-4">
-            {photos.map((p, i) => (
-              <Reveal key={p} delay={i * 0.08} y={48} className={cn(i > 1 && 'hidden md:block')}>
-                <ParallaxImage src={img.unsplash(p, 700, 875)} className="aspect-[4/5]" />
+          <div className="grid grid-cols-1 gap-3 px-4 pb-4 sm:grid-cols-2 sm:px-6 sm:pb-6 lg:grid-cols-3">
+            {QUALITIES.map((q, i) => (
+              <Reveal key={q.t} delay={i * 0.06} className="h-full">
+                <div className="flex h-full items-start gap-4 rounded-3xl bg-surface p-5 shadow-soft sm:p-6">
+                  <span className={cn('grid size-12 shrink-0 place-items-center rounded-full text-white', q.tone)}>{q.icon}</span>
+                  <div>
+                    <h3 className="text-lg font-semibold tracking-tight text-ink">{q.t}</h3>
+                    <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{q.d}</p>
+                  </div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -213,7 +234,7 @@ function Services() {
     {
       id: 'medical',
       title: 'Medical consultations',
-      subtitle: 'Doctor check-ups, ongoing senior care, and attentive visits without feeling rushed.',
+      subtitle: 'Check-ups and follow-up care with a doctor who has your full history on screen.',
       badgeText: 'Senior Priority',
       badgeTone: 'brand',
       icon: <Stethoscope size={30} weight="duotone" />,
@@ -222,16 +243,16 @@ function Services() {
       cardBorder: 'border-brand-200/70',
       benefits: [
         {
-          title: 'Priority check-in at Counter 1',
-          description: 'Seniors aged 60 and above go directly to our priority lane with comfortable seating.',
+          title: 'Seniors are called first',
+          description: 'Patients aged 60 and up, pregnant patients and PWDs get a priority queue number.',
         },
         {
-          title: 'Unhurried time with your physician',
-          description: 'Discuss blood pressure, joint pain, maintenance medicines, and any health concerns.',
+          title: 'Time to talk with your doctor',
+          description: 'Bring up blood pressure, pain, regular medicines or any other concern.',
         },
         {
-          title: 'Companions and family always welcome',
-          description: 'Your family member or caregiver is encouraged to join inside the consultation room.',
+          title: 'Family can come with you',
+          description: 'A relative or caregiver may join you inside the consultation room.',
         },
       ],
       actionLabel: 'Schedule doctor visit',
@@ -240,7 +261,7 @@ function Services() {
     {
       id: 'prescription',
       title: 'Prescriptions and medicines',
-      subtitle: 'Clear dosage schedules, allergy safeguards, and worry-free maintenance refills.',
+      subtitle: 'Printed, signed prescriptions that are easy to read and checked against your allergies.',
       badgeText: 'Safe Dosage',
       badgeTone: 'ok',
       icon: <Pill size={30} weight="duotone" />,
@@ -249,16 +270,16 @@ function Services() {
       cardBorder: 'border-emerald-200/70',
       benefits: [
         {
-          title: 'Large-print dosage instructions',
-          description: 'Easy-to-read directions detailing morning, afternoon, and bedtime medicines with meals.',
+          title: 'Clear, printed instructions',
+          description: 'Each medicine shows the dose and when to take it. No handwriting to decode.',
         },
         {
-          title: 'Automatic allergy protection',
-          description: 'Our system double-checks every medicine against your health record to prevent reactions.',
+          title: 'Allergy check',
+          description: 'Your doctor is warned if a medicine matches an allergy on your record.',
         },
         {
-          title: 'Sent directly to the clinic dispensary',
-          description: 'No paper slips to misplace. Your prescription is waiting at the pharmacy counter.',
+          title: 'Signed by your doctor',
+          description: 'Every prescription carries the doctor\'s e-signature, license number and a document number.',
         },
       ],
       actionLabel: 'View prescription care',
@@ -267,7 +288,7 @@ function Services() {
     {
       id: 'laboratory',
       title: 'Laboratory and diagnostics',
-      subtitle: 'Gentle blood collection, vital monitoring, and test results explained in plain words.',
+      subtitle: 'Common tests done at the clinic, with results saved straight to your record.',
       badgeText: 'Fast Results',
       badgeTone: 'brand',
       icon: <Flask size={30} weight="duotone" />,
@@ -276,16 +297,16 @@ function Services() {
       cardBorder: 'border-blue-200/70',
       benefits: [
         {
-          title: 'Gentle, experienced sample collection',
-          description: 'Trained medical technologists ensure comfortable, patient, and painless blood extraction.',
+          title: 'Careful sample collection',
+          description: 'Trained staff take your blood or urine sample as gently as they can.',
         },
         {
-          title: 'Routine senior health screenings',
-          description: 'Fasting blood sugar, cholesterol, uric acid, and urinalysis tests completed on-site.',
+          title: 'Routine tests on-site',
+          description: 'Blood sugar, cholesterol, uric acid and urinalysis are done here at the clinic.',
         },
         {
-          title: 'Results explained in simple words',
-          description: 'Results go straight to your doctor so you do not need return trips or confusing paperwork.',
+          title: 'Results go to your doctor',
+          description: 'Your doctor sees the results in your record and explains them at your next visit.',
         },
       ],
       actionLabel: 'View laboratory tests',
@@ -305,10 +326,10 @@ function Services() {
           <span>Clinic Services</span>
         </div>
         <h2 className="mt-4 text-3xl font-normal leading-[1.12] tracking-[-0.035em] text-ink sm:text-4xl lg:text-5xl">
-          <RevealText text="Care made simple for every senior and family" />
+          <RevealText text="Clinic care, made simple" />
         </h2>
         <p className="mt-4 text-[17px] leading-relaxed text-ink-2 sm:text-[18px]">
-          We have simplified the clinic experience. Enjoy priority lanes, large-print instructions, and dedicated staff ready to assist you in person.
+          Three things the clinic does every day, now backed by one digital record.
         </p>
       </Reveal>
 
@@ -390,7 +411,7 @@ function Services() {
                 <span className="rounded-full bg-brand-100 px-2.5 py-0.5 text-[11px] font-semibold text-brand-800">Free Staff Help</span>
               </div>
               <p className="mt-1.5 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                Our front desk assistants are stationed at Counter 1 to guide you to consultation rooms, print large-print medical summaries, and explain doctor notes at a comfortable pace.
+                The front desk can bring you to the right room and explain your doctor's notes. Just ask when you check in.
               </p>
             </div>
           </div>
@@ -438,34 +459,38 @@ function Security() {
 /* -------------------------------- Personas --------------------------------- */
 
 function Personas() {
-  // Composite personas built from the problems the HMO-Clinic described. Not real people or real quotes.
-  const people = [
-    { name: 'Front desk staff', role: 'HMO-Clinic', quote: 'Every visit starts with finding a folder on the shelf while the line keeps growing.', photo: img.portrait('women', 44) },
-    { name: 'Senior physician', role: 'HMO-Clinic', quote: 'Handwriting every prescription is slow, and past visits are only as good as the folder I am handed.', photo: img.unsplash(PHOTOS.drMale, 160, 160) },
-    { name: 'IPG employee', role: 'Provincial office', quote: 'I lose half a morning waiting for a signed medical certificate for my sick leave.', photo: img.portrait('men', 41) },
-    { name: 'Senior dependent', role: 'Spouse of an employee', quote: 'I arrive at seven and still wait as long as everyone else, with no idea when I will be called.', photo: img.portrait('women', 79) },
+  // Built from the problems the HMO-Clinic described. Not real people or real quotes, so no names, photos or ratings.
+  const people: { icon: ReactNode; who: string; before: string; after: string }[] = [
+    { icon: <UserCirclePlus size={24} weight="bold" />, who: 'Front desk and nurse', before: 'Every visit starts with hunting for a folder on the shelf while the line grows.', after: 'Search by name or ID, verify, and give a queue number in under a minute.' },
+    { icon: <Stethoscope size={24} weight="bold" />, who: 'Doctor', before: 'Handwriting every prescription is slow, and history is only as good as the folder.', after: 'Past visits, allergies and scans are on screen. Documents are signed with a PIN.' },
+    { icon: <FileText size={24} weight="bold" />, who: 'IPG employee', before: 'Half a morning is lost waiting for a signed medical certificate.', after: 'The certificate is printed and signed before you leave the room.' },
+    { icon: <UsersThree size={24} weight="bold" />, who: 'Senior dependent', before: 'Arriving at seven still means waiting as long as everyone else.', after: 'Seniors get a priority number and can watch it on the waiting screen.' },
   ]
   return (
-    <section className="mx-auto max-w-7xl px-4 py-24 sm:px-6 lg:px-8 lg:py-32">
+    <section className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:px-8 lg:py-28">
       <Reveal>
-        <h2 className="max-w-2xl text-4xl font-normal leading-[1.05] tracking-[-0.035em] sm:text-5xl">
+        <h2 className="max-w-2xl text-3xl font-normal leading-[1.08] tracking-[-0.035em] sm:text-5xl">
           <RevealText text="Designed around the people in the room" />
         </h2>
-        <p className="mt-5 max-w-[56ch] text-[17px] leading-relaxed text-ink-2">Composite personas built from the problems the HMO-Clinic described. Each one shaped a screen.</p>
+        <p className="mt-5 max-w-[56ch] text-[17px] leading-relaxed text-ink-2">Each screen answers a problem the HMO-Clinic described.</p>
       </Reveal>
-      <div className="scrollbar-none -mx-4 mt-12 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 lg:grid-cols-4">
+      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {people.map((p, i) => (
-          <Reveal key={p.name} delay={i * 0.06} className="w-[82%] shrink-0 snap-start sm:w-auto">
-            <figure className={cn('flex h-full flex-col justify-between rounded-3xl border border-line p-6', i % 2 === 0 ? 'bg-surface' : 'bg-mist')}>
-              <blockquote className="text-[17px] leading-relaxed text-ink">“{p.quote}”</blockquote>
-              <figcaption className="mt-8 flex items-center gap-3">
-                <Avatar name={p.name} src={p.photo} size="md" />
-                <div>
-                  <p className="text-sm font-semibold">{p.name}</p>
-                  <p className="text-[13px] text-muted">{p.role}</p>
+          <Reveal key={p.who} delay={i * 0.06} className="h-full">
+            <article className="flex h-full flex-col rounded-3xl border border-line bg-surface p-6 shadow-soft">
+              <div className="flex items-center gap-3">
+                <span className="grid size-11 shrink-0 place-items-center rounded-full bg-brand-50 text-brand-700">{p.icon}</span>
+                <h3 className="text-lg font-semibold tracking-tight text-ink">{p.who}</h3>
+              </div>
+              <p className="mt-5 text-[12px] font-semibold uppercase tracking-wider text-muted">Before</p>
+              <p className="mt-1 text-[15px] leading-relaxed text-ink-2">{p.before}</p>
+              <div className="mt-auto pt-5">
+                <div className="rounded-2xl bg-brand-50 p-4">
+                  <p className="text-[12px] font-semibold uppercase tracking-wider text-brand-700">With Gilayon</p>
+                  <p className="mt-1 text-[15px] font-medium leading-relaxed text-ink">{p.after}</p>
                 </div>
-              </figcaption>
-            </figure>
+              </div>
+            </article>
           </Reveal>
         ))}
       </div>
@@ -476,40 +501,62 @@ function Personas() {
 /* ---------------------------------- Footer --------------------------------- */
 
 function Footer() {
+  const [legal, setLegal] = useState<LegalKind | null>(null)
+  const link = 'text-sm text-brand-100 transition hover:text-white'
   return (
-    <footer className="mx-auto max-w-7xl px-4 pb-10 pt-20 sm:px-6 lg:px-8">
-      <div className="grid grid-cols-1 gap-10 border-b border-line pb-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
-        <div>
-          <Logo />
-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-muted">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
-          <div className="mt-5 flex items-center gap-2 text-[13px] text-muted">
-            <Drop size={16} weight="fill" className="text-brand-500" /> Runs on the clinic's own computers
+    <footer className="bg-brand-600 text-white">
+      <LegalModal kind={legal} onClose={() => setLegal(null)} />
+      <div className="mx-auto max-w-7xl px-4 pb-10 pt-16 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-10 border-b border-white/20 pb-10 sm:grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div>
+            <Logo light markClassName="rounded-lg ring-2 ring-white/70" />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-100">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
+            <div className="mt-5 flex items-center gap-2 text-[13px] text-brand-100">
+              <Desktop size={16} weight="fill" className="text-white" /> Runs on the clinic's own computers
+            </div>
+          </div>
+          {[
+            { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
+            { h: 'Clinic', l: [['Doctor', '/clinic/login?role=doctor'], ['Receptionist', '/clinic/login?role=desk'], ['Nurse', '/clinic/login?role=nurse'], ['Waiting screen', '/waiting']] },
+            { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/clinic/login']] },
+          ].map((c) => (
+            <div key={c.h}>
+              <p className="text-sm font-semibold text-white">{c.h}</p>
+              <ul className="mt-4 space-y-2.5">
+                {c.l.map(([label, href]) => (
+                  <li key={label}>
+                    {href.startsWith('#') ? (
+                      <a href={href} className={link}>{label}</a>
+                    ) : (
+                      <Link to={href} className={link}>{label}</Link>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="mt-8 flex flex-col gap-4 rounded-3xl bg-white/10 p-5 ring-1 ring-inset ring-white/15 sm:flex-row sm:items-start sm:gap-5 sm:p-6">
+          <ShieldCheck size={28} weight="fill" className="shrink-0 text-white" />
+          <div className="flex-1">
+            <p className="font-semibold">Disclaimer and data privacy</p>
+            <p className="mt-1 max-w-3xl text-sm leading-relaxed text-brand-100">
+              This prototype uses synthetic patient data only. Gilayon is designed on the principles of the Data Privacy Act of 2012 (RA 10173): access by role, an audit trail and records kept on the clinic's own server. It does not claim certification, and the clinic's data protection officer should review it before real patient data is used.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <Button variant="white" size="sm" onClick={() => setLegal('privacy')}>
+              Data Privacy Act notice
+            </Button>
+            <Button variant="onBrand" size="sm" onClick={() => setLegal('disclaimer')}>
+              Disclaimer
+            </Button>
           </div>
         </div>
-        {[
-          { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
-          { h: 'Clinic', l: [['Front desk', '/clinic/login?role=desk'], ['Doctor', '/clinic/login?role=doctor'], ['Waiting screen', '/waiting']] },
-          { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/auth?mode=signin']] },
-        ].map((c) => (
-          <div key={c.h}>
-            <p className="text-sm font-semibold text-ink">{c.h}</p>
-            <ul className="mt-4 space-y-2.5">
-              {c.l.map(([label, href]) => (
-                <li key={label}>
-                  {href.startsWith('#') ? (
-                    <a href={href} className="text-sm text-muted transition hover:text-brand-700">{label}</a>
-                  ) : (
-                    <Link to={href} className="text-sm text-muted transition hover:text-brand-700">{label}</Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-faint sm:flex-row">
-        <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
-        <p>Prototype with synthetic data only. Not for real patient data.</p>
+        <div className="flex flex-col justify-between gap-3 pt-6 text-[13px] text-brand-100 sm:flex-row">
+          <p>© {YEAR} Gilayon · Team KasCoders, Hack Iloilo 2026.</p>
+          <p>Iloilo Provincial Government · HMO-Clinic · 2026 Startup Hackathon Challenge</p>
+        </div>
       </div>
     </footer>
   )

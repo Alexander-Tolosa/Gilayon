@@ -1,14 +1,17 @@
-import { ArrowLeft, ArrowRight, CheckCircle, LockKey, ShieldCheck } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, CheckCircle, FirstAid, LockKey, Stethoscope, UserCirclePlus } from '@phosphor-icons/react'
+import type { Icon } from '@phosphor-icons/react'
 import { motion, useReducedMotion } from 'motion/react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { LegalLinks } from '../../shared/components/Legal'
 import { Logo } from '../../shared/components/Logo'
-import { Avatar } from '../../shared/components/ui'
-import { img, PHOTOS } from '../../shared/lib/utils'
 
-const ROLE_CARDS: { role: 'doctor' | 'desk' | 'nurse'; title: string; body: string; photo: string }[] = [
-  { role: 'doctor', title: "I'm a doctor", body: 'Consultations, signed prescriptions, diagnostic orders and reports', photo: img.unsplash(PHOTOS.drMale, 200, 200) },
-  { role: 'desk', title: "I'm a receptionist", body: 'Patient check-in, identity verification, priority queue and records', photo: img.portrait('women', 44) },
-  { role: 'nurse', title: "I'm a nurse", body: 'Vital signs, patient triage, queue monitoring and care coordination', photo: img.unsplash(PHOTOS.nurse, 200, 200) },
+// Nurse and receptionist have the same access in the concept document, so they share one description.
+const DESK_AND_NURSE = 'Register patients or pull old folders, set the priority and queue number, update records and attach scans.'
+
+const ROLE_CARDS: { role: 'doctor' | 'desk' | 'nurse'; title: string; body: string; icon: Icon }[] = [
+  { role: 'doctor', title: "I'm a doctor", body: 'Consultations, prescriptions and certificates signed with your PIN, the census and the audit trail.', icon: Stethoscope },
+  { role: 'desk', title: "I'm a receptionist", body: DESK_AND_NURSE, icon: UserCirclePlus },
+  { role: 'nurse', title: "I'm a nurse", body: DESK_AND_NURSE, icon: FirstAid },
 ]
 
 export default function AuthPage() {
@@ -23,75 +26,80 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="grid grid-cols-1 min-h-[100dvh] bg-surface lg:grid-cols-[1.05fr_0.95fr]">
-      <div className="flex flex-col px-5 py-6 sm:px-10 lg:px-16">
+    <div className="grid min-h-[100dvh] grid-cols-1 bg-canvas lg:h-[100dvh] lg:grid-cols-[0.85fr_1.15fr]">
+      <AsidePanel />
+
+      <div className="flex min-h-0 flex-col px-5 py-5 sm:px-10 lg:px-14">
         <div className="flex items-center justify-between">
-          <Logo />
-          <button onClick={() => navigate('/')} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-muted transition hover:bg-mist hover:text-ink">
-            <ArrowLeft size={16} /> Back
+          <span className="lg:invisible">
+            <Logo />
+          </span>
+          <button onClick={() => navigate('/')} className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-4 py-2 text-sm font-medium text-ink-2 transition hover:border-brand-300 hover:text-brand-700">
+            <ArrowLeft size={16} /> Back to home
           </button>
         </div>
 
-        <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-10">
-          <motion.div initial={reduce ? { opacity: 0 } : { opacity: 0, x: 24 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
-            <h1 className="text-[34px] font-semibold leading-tight tracking-[-0.035em] sm:text-[40px]">
-              {params.get('mode') === 'signin' ? 'Welcome back.' : 'Welcome to Gilayon.'}
-              <br />
-              <span className="font-light text-muted">Which one are you?</span>
-            </h1>
-            <div className="mt-10 flex flex-col gap-3">
+        <div className="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center py-8">
+          <motion.div initial={reduce ? { opacity: 0 } : { opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}>
+            <p className="text-sm font-semibold text-brand-700">{params.get('mode') === 'signin' ? 'Welcome back' : 'Welcome to Gilayon'}</p>
+            <h1 className="mt-2 text-[32px] font-semibold leading-tight tracking-[-0.03em] text-ink sm:text-[38px]">Which one are you?</h1>
+            <p className="mt-2 text-[15px] text-ink-2">Pick your role to see your accounts. You can switch roles on the next screen.</p>
+            <div className="mt-7 flex flex-col gap-3">
               {ROLE_CARDS.map((c) => (
                 <button
                   key={c.role}
                   onClick={() => navigate(`/clinic/login?role=${c.role}`)}
-                  className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-4 text-left transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-soft active:scale-[0.99] sm:p-5"
+                  className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-4 text-left shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-lift active:scale-[0.99] sm:p-5"
                 >
-                  <Avatar name={c.title} src={c.photo} size="lg" className="ring-4 ring-brand-50" />
-                  <span className="flex-1">
+                  <span className="grid size-13 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-700 transition group-hover:bg-brand-600 group-hover:text-white">
+                    <c.icon size={26} weight="duotone" />
+                  </span>
+                  <span className="min-w-0 flex-1">
                     <span className="block text-[17px] font-semibold tracking-tight text-ink">{c.title}</span>
-                    <span className="mt-0.5 block text-sm text-muted">{c.body}</span>
+                    <span className="mt-0.5 block text-sm leading-snug text-muted">{c.body}</span>
                   </span>
-                  <span className="grid size-10 place-items-center rounded-full bg-mist text-ink-2 transition group-hover:bg-brand-600 group-hover:text-white">
-                    <ArrowRight size={16} weight="bold" />
-                  </span>
+                  <ArrowRight size={18} weight="bold" className="shrink-0 text-faint transition group-hover:translate-x-0.5 group-hover:text-brand-600" />
                 </button>
               ))}
             </div>
+            <p className="mt-5 text-sm text-muted">
+              Already know your account?{' '}
+              <Link to="/clinic/login" className="font-semibold text-brand-700 hover:underline">
+                Go straight to sign in
+              </Link>
+            </p>
           </motion.div>
         </div>
 
-        <p className="flex items-center gap-2 text-xs text-faint">
-          <LockKey size={14} /> Encrypted connection. Prototype with sample data only.
-        </p>
+        <div className="flex flex-col gap-2 border-t border-line pt-4 text-xs text-muted sm:flex-row sm:items-center sm:justify-between">
+          <p className="flex items-center gap-2">
+            <LockKey size={14} /> Encrypted connection. Prototype with synthetic data only.
+          </p>
+          <LegalLinks linkClassName="font-medium text-brand-700" />
+        </div>
       </div>
-
-      <AsidePanel />
     </div>
   )
 }
 
 function AsidePanel() {
   return (
-    <aside className="relative hidden overflow-hidden bg-brand-950 lg:block">
-      <img src={img.unsplash(PHOTOS.stethoscopeBlue, 1400, 1800)} alt="" className="absolute inset-0 size-full object-cover opacity-90" />
-      <div className="absolute inset-0 bg-gradient-to-t from-brand-950 via-brand-950/40 to-brand-900/10" />
-      <div className="absolute inset-x-10 bottom-10 xl:inset-x-14 xl:bottom-14">
-        <div className="glass max-w-md rounded-3xl p-6 text-ink">
-          <div className="flex items-center gap-2 text-sm font-semibold text-brand-700">
-            <ShieldCheck size={18} weight="fill" /> Your record stays private
-          </div>
-          <ul className="mt-4 space-y-3 text-[14px] text-ink-2">
-            {['Only your care team can open clinical notes', 'Every view of your record is logged', 'Encrypted at rest and in transit'].map((t) => (
-              <li key={t} className="flex gap-2.5">
-                <CheckCircle size={18} weight="fill" className="shrink-0 text-brand-600" /> {t}
-              </li>
-            ))}
-          </ul>
-        </div>
-        <p className="mt-8 max-w-md text-3xl font-light leading-tight tracking-[-0.03em] text-white">
-          One record for every visit, <span className="font-semibold">from intake to follow-up.</span>
-        </p>
+    <aside className="relative hidden overflow-hidden bg-brand-600 px-12 py-10 text-white lg:flex lg:flex-col xl:px-14">
+      <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:radial-gradient(rgb(255_255_255/0.5)_1px,transparent_1px)] [background-size:22px_22px]" />
+      <div className="relative">
+        <Logo light markClassName="rounded-lg ring-2 ring-white/70" />
       </div>
+      <div className="relative my-auto max-w-md">
+        <p className="text-[34px] font-semibold leading-tight tracking-[-0.03em]">One record for every visit, from check-in to signed documents.</p>
+        <ul className="mt-8 space-y-3.5 text-[16px] text-brand-50">
+          {['Only doctors open and sign consultation notes', 'Every view and change is written to the audit trail', "Records stay on the clinic's own server", 'Keeps working when the internet is down'].map((t) => (
+            <li key={t} className="flex gap-3">
+              <CheckCircle size={22} weight="fill" className="shrink-0 text-white" /> {t}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="relative text-sm text-brand-100">Iloilo Provincial Government · HMO-Clinic</p>
     </aside>
   )
 }
