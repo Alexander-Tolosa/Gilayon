@@ -10,16 +10,46 @@ import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
 import type { StaffRole } from '../types'
 
+const LAST_LOGIN_KEY = 'himsog-last-login'
+
+export function rememberLastLogin(role: StaffRole, staffId: string) {
+  try {
+    localStorage.setItem(LAST_LOGIN_KEY, JSON.stringify({ role, staffId }))
+  } catch {
+    /* ignore */
+  }
+}
+
+export function lastLogin(): { role: StaffRole; staffId: string } | null {
+  try {
+    const raw = localStorage.getItem(LAST_LOGIN_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.role === 'doctor' || parsed?.role === 'desk' || parsed?.role === 'nurse') return parsed
+    return null
+  } catch {
+    return null
+  }
+}
+
+const ROLE_INFO: Record<StaffRole, { label: string; body: string }> = {
+  doctor: { label: 'Doctor', body: 'Consultations, signed prescriptions, diagnostic orders and reports.' },
+  desk: { label: 'Receptionist', body: 'Patient check-in, identity verification and the priority queue.' },
+  nurse: { label: 'Nurse', body: 'Vital signs, patient triage and queue monitoring.' },
+}
+
 export default function ClinicLogin() {
   useClinicScale()
   const t = useT()
   const { data, me, signIn } = useClinic()
   const [params] = useSearchParams()
   const roleParam = params.get('role')
-  const initialRole: StaffRole = roleParam === 'doctor' ? 'doctor' : roleParam === 'nurse' ? 'nurse' : 'desk'
+  const accountParam = params.get('account')
+  const initialRole: StaffRole = roleParam === 'doctor' ? 'doctor' : roleParam === 'nurse' ? 'nurse' : roleParam === 'desk' ? 'desk' : (lastLogin()?.role ?? 'desk')
   const [role, setRole] = useState<StaffRole>(initialRole)
   const accounts = data.staff.filter((s) => s.role === role && s.active !== false)
-  const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
+  const preselect = accountParam ?? (role === initialRole ? lastLogin()?.staffId : undefined)
+  const [staffId, setStaffId] = useState(() => (preselect && accounts.some((a) => a.staff_id === preselect) ? preselect : (accounts[0]?.staff_id ?? '')))
   const [password, setPassword] = useState(process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_DEMO ? '' : 'demo-password')
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -31,6 +61,7 @@ export default function ClinicLogin() {
     if (!password) return setError('Enter your password.')
     const failure = await signIn(staffId, password)
     if (failure) return setError(failure)
+    rememberLastLogin(role, staffId)
     navigate(role === 'doctor' ? '/clinic/doctor' : '/clinic/checkin')
   }
 
@@ -46,7 +77,7 @@ export default function ClinicLogin() {
             <StatusBadge />
           </div>
         </div>
-        <form onSubmit={submit} className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-10">
+        <form onSubmit={submit} className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center py-8">
           <div className="flex items-center gap-3">
             <LogoMark className="size-12 rounded-2xl" />
             <div>
@@ -54,8 +85,8 @@ export default function ClinicLogin() {
               <p className="text-[15px] text-muted">HMO-Clinic digital records</p>
             </div>
           </div>
-          <h1 className="mt-10 text-[2.1rem] font-semibold leading-tight tracking-[-0.03em]">Sign in to the clinic</h1>
-          <div className="mt-6 grid grid-cols-3 gap-1.5 rounded-full border border-line bg-surface p-1.5" role="tablist">
+          <h1 className="mt-8 text-[2.1rem] font-semibold leading-tight tracking-[-0.03em]">Sign in to the clinic</h1>
+          <div className="mt-5 grid grid-cols-3 gap-1.5 rounded-full border border-line bg-surface p-1.5" role="tablist">
             {(['doctor', 'desk', 'nurse'] as const).map((r) => (
               <button
                 key={r}
@@ -68,12 +99,13 @@ export default function ClinicLogin() {
                 }}
                 className={cn('h-12 rounded-full text-[15px] font-semibold transition sm:text-[16px]', role === r ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}
               >
-                {t(r === 'doctor' ? 'Doctor' : r === 'nurse' ? 'Nurse' : 'Receptionist')}
+                {t(ROLE_INFO[r].label)}
               </button>
             ))}
           </div>
-          <p className="mb-2 mt-6 text-[15px] font-medium text-ink-2">Account</p>
-          <div className="flex flex-col gap-2">
+          <p className="mt-2.5 text-[13px] leading-snug text-muted">{ROLE_INFO[role].body}</p>
+          <p className="mb-2 mt-5 text-[15px] font-medium text-ink-2">Account</p>
+          <div className={cn('flex flex-col gap-2', accounts.length > 4 && 'max-h-[300px] overflow-y-auto pr-1')}>
             {accounts.map((a) => (
               <button
                 key={a.staff_id}
