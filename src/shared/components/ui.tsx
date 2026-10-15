@@ -6,9 +6,11 @@ import {
   useContext,
   useEffect,
   useId,
+  useRef,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
+  type RefObject,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -36,7 +38,7 @@ const variants: Record<Variant, string> = {
 }
 
 const sizes: Record<Size, string> = {
-  sm: 'h-9 px-3.5 text-[13px] gap-1.5',
+  sm: 'min-h-10 px-3.5 text-[13px] gap-1.5',
   md: 'h-11 px-5 text-sm gap-2',
   lg: 'h-13 px-7 text-[15px] gap-2.5',
 }
@@ -171,39 +173,52 @@ export function Avatar({ name, src, size = 'md', className }: { name: string; sr
 
 /* ---------------------------------- Forms ---------------------------------- */
 
+/** Lets Input / Select / Textarea inside a Field pick up the label's id and the hint/error text without every call site wiring it. */
+const FieldCtx = createContext<{ id: string; describedBy?: string } | null>(null)
+
 export function Field({ label, hint, error, children, className, htmlFor, optional }: { label: string; hint?: string; error?: string; children: ReactNode; className?: string; htmlFor?: string; optional?: boolean }) {
+  const auto = useId()
+  const id = htmlFor ?? auto
+  const noteId = `${id}-note`
   return (
+    <FieldCtx.Provider value={{ id, describedBy: error || hint ? noteId : undefined }}>
     <div className={cn('flex flex-col gap-1.5', className)}>
-      <label htmlFor={htmlFor} className="text-[13px] font-medium text-ink-2">
+      <label htmlFor={id} className="text-[13px] font-medium text-ink-2">
         {label}
         {optional && <span className="ml-1 font-normal text-faint">(optional)</span>}
       </label>
       {children}
       {error ? (
-        <p className="flex items-center gap-1 text-xs font-medium text-danger" role="alert">
+        <p id={noteId} className="flex items-center gap-1 text-xs font-medium text-danger" role="alert">
           <WarningCircle size={14} weight="fill" /> {error}
         </p>
       ) : hint ? (
-        <p className="text-xs text-muted">{hint}</p>
+        <p id={noteId} className="text-xs text-muted">{hint}</p>
       ) : null}
     </div>
+    </FieldCtx.Provider>
   )
 }
 
 const inputBase =
-  'w-full rounded-xl border bg-surface px-3.5 text-sm text-ink placeholder:text-faint transition focus:outline-none focus:ring-4 focus:ring-brand-100'
+  'w-full rounded-xl border bg-surface px-3.5 text-sm text-ink placeholder:text-faint transition focus:outline-none focus:ring-4 focus:ring-brand-200'
 
 export function Input({ className, invalid, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
-  return <input className={cn(inputBase, 'h-11', invalid ? 'border-danger focus:border-danger' : 'border-line-strong focus:border-brand-500', className)} aria-invalid={invalid || undefined} {...rest} />
+  const f = useContext(FieldCtx)
+  return <input id={f?.id} aria-describedby={f?.describedBy} className={cn(inputBase, 'h-11', invalid ? 'border-danger focus:border-danger' : 'border-line-strong focus:border-brand-500', className)} aria-invalid={invalid || undefined} {...rest} />
 }
 
 export function Textarea({ className, ...rest }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
-  return <textarea className={cn(inputBase, 'min-h-24 resize-y border-line-strong py-3 leading-relaxed focus:border-brand-500', className)} {...rest} />
+  const f = useContext(FieldCtx)
+  return <textarea id={f?.id} aria-describedby={f?.describedBy} className={cn(inputBase, 'min-h-24 resize-y border-line-strong py-3 leading-relaxed focus:border-brand-500', className)} {...rest} />
 }
 
 export function Select({ className, children, ...rest }: SelectHTMLAttributes<HTMLSelectElement>) {
+  const f = useContext(FieldCtx)
   return (
     <select
+      id={f?.id}
+      aria-describedby={f?.describedBy}
       className={cn(
         inputBase,
         'h-11 appearance-none border-line-strong bg-[url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 fill=%27%235f6f8a%27 viewBox=%270 0 256 256%27%3E%3Cpath d=%27M213.66,101.66l-80,80a8,8,0,0,1-11.32,0l-80-80A8,8,0,0,1,53.66,90.34L128,164.69l74.34-74.35a8,8,0,0,1,11.32,11.32Z%27/%3E%3C/svg%3E")] bg-[length:16px] bg-[right_12px_center] bg-no-repeat pr-10 focus:border-brand-500',
@@ -223,7 +238,7 @@ export function Chip({ selected, onClick, children, className }: { selected?: bo
       aria-pressed={selected}
       onClick={onClick}
       className={cn(
-        'inline-flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition active:scale-[0.97]',
+        'inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] font-medium transition active:scale-[0.97]',
         selected ? 'border-brand-600 bg-brand-600 text-white' : 'border-line-strong bg-surface text-ink-2 hover:border-brand-300 hover:text-brand-700',
         className,
       )}
@@ -260,11 +275,12 @@ export function Tabs<T extends string>({ tabs, value, onChange, className, size 
           <button
             key={t.value}
             role="tab"
+            type="button"
             aria-selected={active}
             onClick={() => onChange(t.value)}
             className={cn(
               'relative inline-flex shrink-0 items-center gap-1.5 rounded-full font-medium transition-colors',
-              size === 'sm' ? 'h-8 px-3 text-[13px]' : 'h-9 px-4 text-sm',
+              size === 'sm' ? 'min-h-10 px-3 text-[13px]' : 'min-h-11 px-4 text-sm',
               active ? 'text-brand-700' : 'text-muted hover:text-ink',
             )}
           >
@@ -282,8 +298,53 @@ export function Tabs<T extends string>({ tabs, value, onChange, className, size 
 
 /* ------------------------------ Modal & Drawer ----------------------------- */
 
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+
+/**
+ * Dialog keyboard behaviour: move focus into the panel when it opens (unless something inside
+ * already took it, e.g. autoFocus), keep Tab inside it, and hand focus back to the opener on close.
+ */
+export function useDialogFocus(panel: RefObject<HTMLElement | null>, active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    const opener = document.activeElement as HTMLElement | null
+    const raf = requestAnimationFrame(() => {
+      const el = panel.current
+      if (el && !el.contains(document.activeElement)) (el.querySelector<HTMLElement>(FOCUSABLE) ?? el).focus()
+    })
+    const onKey = (e: KeyboardEvent) => {
+      const el = panel.current
+      if (e.key !== 'Tab' || !el) return
+      const items = [...el.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((n) => n.offsetParent !== null)
+      if (!items.length) return e.preventDefault()
+      const first = items[0]
+      const last = items[items.length - 1]
+      const cur = document.activeElement
+      if (!el.contains(cur)) {
+        e.preventDefault()
+        first.focus()
+      } else if (e.shiftKey && (cur === first || cur === el)) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && cur === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => {
+      cancelAnimationFrame(raf)
+      document.removeEventListener('keydown', onKey)
+      if (opener && document.contains(opener)) opener.focus()
+    }
+  }, [panel, active])
+}
+
 export function Modal({ open, onClose, title, subtitle, children, footer, wide }: { open: boolean; onClose: () => void; title: ReactNode; subtitle?: ReactNode; children: ReactNode; footer?: ReactNode; wide?: boolean }) {
   const reduce = useReducedMotion()
+  const titleId = useId()
+  const panel = useRef<HTMLDivElement>(null)
+  useDialogFocus(panel, open)
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -299,9 +360,11 @@ export function Modal({ open, onClose, title, subtitle, children, footer, wide }
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true">
-          <motion.div className="absolute inset-0 bg-brand-950/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+        <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-labelledby={titleId}>
+          <motion.div aria-hidden="true" className="absolute inset-0 bg-brand-950/30 backdrop-blur-[2px]" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
           <motion.div
+            ref={panel}
+            tabIndex={-1}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: 16, scale: 0.98 }}
@@ -310,10 +373,10 @@ export function Modal({ open, onClose, title, subtitle, children, footer, wide }
           >
             <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
               <div>
-                <h2 className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
+                <h2 id={titleId} className="text-lg font-semibold tracking-tight text-ink">{title}</h2>
                 {subtitle && <p className="mt-0.5 text-sm text-muted">{subtitle}</p>}
               </div>
-              <IconButton label="Close" onClick={onClose} className="size-9 border-transparent bg-mist">
+              <IconButton label="Close" onClick={onClose} className="size-10 border-transparent bg-mist">
                 <X size={16} />
               </IconButton>
             </div>

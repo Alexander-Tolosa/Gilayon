@@ -51,7 +51,7 @@ export function TicketRow({ ticket, position, actions, now }: { ticket: QueueTic
       {position !== undefined && <span className="hidden w-8 text-center text-xl font-semibold text-faint tabular sm:block">{position}</span>}
       <TicketNo ticket={ticket} />
       <div className="min-w-0">
-        <p className="truncate text-xl font-semibold">{p?.full_name}</p>
+        <p className="break-words text-xl font-semibold">{p?.full_name}</p>
         <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[15px] text-ink-2">
           <span>{[p && `${ageOf(p.birthdate)} ${t('yrs')} · ${t(p.sex)}`, t(ticket.service_type), ticket.reason, dep && t('Dependent')].filter(Boolean).join(' · ')}</span>
           {!ticket.is_returning && <span className="rounded-full bg-brand-50 px-2 text-sm font-semibold text-brand-800">{t('New record')}</span>}
@@ -61,6 +61,7 @@ export function TicketRow({ ticket, position, actions, now }: { ticket: QueueTic
           <StatusPill status={ticket.status} />
           <span className={cn('tabular', ticket.status === 'waiting' && wait >= 30 ? 'font-semibold text-danger' : 'text-muted')}>
             {ticket.status === 'waiting' ? `${t('Waiting')} ${fmtMinutes(wait)}` : `${t('Wait time')} ${fmtMinutes(wait)}`}
+            {ticket.status === 'waiting' && wait >= 30 && <span className="sr-only"> (long wait)</span>}
           </span>
           {doc && <span className="text-muted">· {doc.name} ({doc.room})</span>}
           <span className="text-faint">· {t('in at')} {fmtTimeOf(ticket.checked_in_at)}</span>
@@ -134,12 +135,12 @@ export default function QueueBoard() {
               position={tab === 'waiting' ? i + 1 : undefined}
               actions={
                 <>
-                  <Button size="sm" variant="ghost" icon={<Printer size={16} />} onClick={() => window.open(`/print/ticket/${tk.ticket_id}`, '_blank')}>
+                  <Button size="md" variant="ghost" icon={<Printer size={16} />} onClick={() => window.open(`/print/ticket/${tk.ticket_id}`, '_blank')}>
                     {t('Print slip')}
                   </Button>
                   {tab === 'waiting' && tk.category_id !== 'urgent' && (
                     <Button
-                      size="sm"
+                      size="md"
                       variant="danger"
                       icon={<Siren size={16} />}
                       onClick={() => {
@@ -151,16 +152,16 @@ export default function QueueBoard() {
                     </Button>
                   )}
                   {tab === 'waiting' && (
-                    <Button size="sm" variant="secondary" icon={<SignOut size={16} />} onClick={() => setTicketStatus(tk.ticket_id, 'left')}>
+                    <Button size="md" variant="secondary" icon={<SignOut size={16} />} onClick={() => setTicketStatus(tk.ticket_id, 'left')}>
                       {t('Mark left')}
                     </Button>
                   )}
                   {(tab === 'left' || (tab === 'active' && tk.status === 'called')) && (
-                    <Button size="sm" variant="secondary" icon={<ArrowCounterClockwise size={16} />} onClick={() => setTicketStatus(tk.ticket_id, 'waiting')}>
+                    <Button size="md" variant="secondary" icon={<ArrowCounterClockwise size={16} />} onClick={() => setTicketStatus(tk.ticket_id, 'waiting')}>
                       Back to waiting
                     </Button>
                   )}
-                  <Link to={`/clinic/patients/${tk.patient_id}`} className="inline-flex h-9 items-center rounded-full px-3.5 text-[13px] font-semibold text-brand-700 hover:bg-brand-50">
+                  <Link to={`/clinic/patients/${tk.patient_id}`} className="inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold text-brand-700 hover:bg-brand-50">
                     {t('Open record')}
                   </Link>
                 </>

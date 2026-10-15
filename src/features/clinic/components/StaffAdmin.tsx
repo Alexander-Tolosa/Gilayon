@@ -1,6 +1,6 @@
 import { KeyReturn, LockKey, Plus, UserMinus, UserPlus } from '@phosphor-icons/react'
-import { useState, type FormEvent } from 'react'
-import { Badge, Button, Card, Field, Input, Modal, Select, useToast } from '../../../shared/components/ui'
+import { useRef, useState, type FormEvent } from 'react'
+import { Badge, Button, Card, Field, Input, Modal, Select, useDialogFocus, useToast } from '../../../shared/components/ui'
 import { useClinic } from '../store/store'
 import type { ServiceType, Staff, StaffRole } from '../types'
 
@@ -57,9 +57,12 @@ export function ChangePasswordForm({ onDone, forced }: { onDone?: () => void; fo
 /** Blocks the clinic screens until a person with a temporary password chooses their own. */
 export function ForcePasswordChange() {
   const { me, signOut } = useClinic()
-  if (!me?.must_change_password) return null
+  const panel = useRef<HTMLDivElement>(null)
+  const forced = !!me?.must_change_password
+  useDialogFocus(panel, forced)
+  if (!forced || !me) return null
   return (
-    <div className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-brand-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Choose a new password">
+    <div ref={panel} className="fixed inset-0 z-[80] grid place-items-center overflow-y-auto bg-brand-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Choose a new password">
       <Card className="w-full max-w-md p-6">
         <p className="text-xl font-semibold">Choose your own password</p>
         <p className="mb-4 mt-1 text-[15px] text-muted">Hello, {me.name}. This account was set up with a temporary password. Pick one only you know before you continue.</p>

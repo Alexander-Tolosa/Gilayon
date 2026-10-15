@@ -91,7 +91,7 @@ export default function Patients() {
             <li key={r.pt.patient_id}>
               <button onClick={() => open(r.pt.patient_id)} className="grid w-full grid-cols-1 items-center gap-1 px-6 py-4 text-left transition hover:bg-brand-50/50 lg:grid-cols-[1.6fr_0.7fr_1.4fr_0.9fr_auto] lg:gap-4">
                 <span className="min-w-0">
-                  <span className="block truncate text-lg font-semibold">{r.per.full_name}</span>
+                  <span className="block break-words text-lg font-semibold">{r.per.full_name}</span>
                   <span className="block text-sm text-muted">
                     {r.pt.patient_no}
                     {r.pt.legacy_folder_no && ` · folder ${r.pt.legacy_folder_no}`}
@@ -104,7 +104,7 @@ export default function Patients() {
                 <span className="min-w-0 text-base text-ink-2">
                   {r.emp ? (
                     <>
-                      <span className="font-mono text-brand-800">{r.emp.employee_no}</span> · <span className="truncate">{r.emp.office}</span>
+                      <span className="font-mono text-brand-800">{r.emp.employee_no}</span> · <span className="break-words">{r.emp.office}</span>
                     </>
                   ) : (
                     <>

@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react'
 import { StrictMode, useEffect, type ReactNode } from 'react'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
@@ -38,6 +39,8 @@ export default function Root() {
   }, [])
   return (
     <StrictMode>
+      {/* Honour the computer's reduced-motion setting for every JS-driven animation too. */}
+      <MotionConfig reducedMotion="user">
       <BrowserRouter>
         <StoreProvider>
           <ClinicProvider>
@@ -50,6 +53,7 @@ export default function Root() {
           </ClinicProvider>
         </StoreProvider>
       </BrowserRouter>
+      </MotionConfig>
     </StrictMode>
   )
 }

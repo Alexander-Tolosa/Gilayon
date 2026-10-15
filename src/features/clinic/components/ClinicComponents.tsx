@@ -74,7 +74,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
   return (
     <div className={cn('flex rounded-full border border-line-strong bg-surface p-1', className)} role="group" aria-label="Language">
       {(['en', 'fil'] as const).map((l) => (
-        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('h-9 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('min-h-11 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
           {l === 'en' ? 'EN' : 'FIL'}
         </button>
       ))}
@@ -97,7 +97,7 @@ export function TextSizeSwitch({ className }: { className?: string }) {
   return (
     <div className={cn('hidden rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label="Text size">
       {TEXT_SIZES.map((s) => (
-        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('h-9 min-w-10 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('min-h-11 min-w-11 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
           {s.label}
         </button>
       ))}
@@ -183,14 +183,19 @@ export function PinModal({ open, onClose, onSubmit, title, children }: { open: b
       {children}
       <div className="mt-2 flex justify-center gap-3" aria-live="polite">
         {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn('size-5 rounded-full border-2', i < pin.length ? 'border-brand-600 bg-brand-600' : 'border-line-strong')} />
+          <span key={i} aria-hidden="true" className={cn('size-5 rounded-full border-2', i < pin.length ? 'border-brand-600 bg-brand-600' : 'border-line-strong')} />
         ))}
+        <span className="sr-only">{pin.length} of 4 digits entered</span>
       </div>
-      {error && <p className="mt-3 text-center text-[15px] font-semibold text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-center text-[15px] font-semibold text-danger">{error}</p>}
       <div className="mx-auto mt-5 grid max-w-xs grid-cols-3 gap-2">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k) => (
           <button
             key={k || 'blank'}
+            type="button"
+            aria-label={k === '⌫' ? 'Delete last digit' : undefined}
+            aria-hidden={!k || undefined}
+            tabIndex={k ? undefined : -1}
             disabled={!k}
             onClick={() => (k === '⌫' ? setPin((p) => p.slice(0, -1)) : press(k))}
             className={cn('h-16 rounded-2xl text-2xl font-semibold tabular transition active:scale-95', k ? 'bg-mist text-ink hover:bg-brand-50' : 'invisible')}
