@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { censusFor, weekRange } from '../src/features/clinic/lib/census'
 import { unreadActivity } from '../src/features/clinic/lib/activity'
+import { buildSeed } from '../src/features/clinic/data/seed'
+import { dayKeyOffset, todayKey } from '../src/features/clinic/lib/helpers'
 
 const t = (day: string, patient_id: string) => ({ day, patient_id })
 
@@ -50,5 +52,27 @@ describe('what a doctor has not seen yet', () => {
 
   it('shows nothing once the mark is at the latest entry', () => {
     expect(unreadActivity({ audit, auditSeenAt: 300 }, 'st-d1')).toEqual([])
+  })
+})
+
+describe('the seeded pitch week', () => {
+  const PITCH_VISITS = [0, 14, 12, 11, 13, 9, 6] // Sun..Sat, same shape as the seed
+  const { tickets } = buildSeed()
+
+  it('gives each of the last six days its designed number of visits', () => {
+    for (let d = 1; d <= 6; d++) {
+      const day = dayKeyOffset(-d)
+      const [y, m, dd] = day.split('-').map(Number)
+      const want = PITCH_VISITS[new Date(y, m - 1, dd).getDay()]
+      expect(tickets.filter((x) => x.day === day), day).toHaveLength(want)
+    }
+  })
+
+  it('shows more visits than distinct patients over the trailing seven days, and a non-empty today', () => {
+    // Not the calendar week: on a Monday that week holds only today.
+    const from = dayKeyOffset(-6)
+    const week = tickets.filter((x) => x.day >= from && x.day <= todayKey())
+    expect(week.length).toBeGreaterThan(new Set(week.map((x) => x.patient_id)).size)
+    expect(censusFor(tickets, todayKey())[0].visits).toBeGreaterThan(0)
   })
 })
