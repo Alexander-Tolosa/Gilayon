@@ -1,9 +1,8 @@
-import { ArrowDown, DownloadSimple, FileCsv } from '@phosphor-icons/react'
+import { ArrowDown, Check, DownloadSimple, FileCsv } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Chip, Input, useToast } from '../../../shared/components/ui'
 import { cn, downloadCSV } from '../../../shared/lib/utils'
-import { PageTitle } from '../ClinicShell'
 import { useT } from '../lib/i18n'
 import { unreadActivity } from '../lib/activity'
 import { fmtStampOf } from '../lib/helpers'
@@ -28,16 +27,17 @@ const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok',
 export default function AuditTrail() {
   const t = useT()
   const toast = useToast()
-  const { data, staffById, me, fetchAuditPage, exportAudit, online } = useClinic()
+  const { data, staffById, me, markAuditSeen, fetchAuditPage, exportAudit, online } = useClinic()
   // The snapshot carries the newest entries; older pages are fetched from the server on request.
   const [older, setOlder] = useState<AuditLog[]>([])
   const [olderDone, setOlderDone] = useState(false)
-  const [busy, setBusy] = useState<'older' | 'export' | null>(null)
+  const [busy, setBusy] = useState<'older' | 'export' | 'read' | null>(null)
   const all = useMemo(() => {
     const seen = new Set(data.audit.map((a) => a.log_id))
     return [...data.audit, ...older.filter((a) => !seen.has(a.log_id))]
   }, [data.audit, older])
-  const unread = useMemo(() => new Set(unreadActivity(data, me?.staff_id ?? '').map((a) => a.log_id)), [data, me])
+  const unreadRows = useMemo(() => unreadActivity(data, me?.staff_id ?? ''), [data, me])
+  const unread = useMemo(() => new Set(unreadRows.map((a) => a.log_id)), [unreadRows])
   const [group, setGroup] = useState('all')
   const [staff, setStaff] = useState('all')
   const [q, setQ] = useState('')
@@ -47,42 +47,81 @@ export default function AuditTrail() {
     return all
       .filter((a) => !g.actions.length || g.actions.includes(a.action))
       .filter((a) => staff === 'all' || a.staff_id === staff)
-      .filter((a) => !q || a.summary.toLowerCase().includes(q.toLowerCase()))
-  }, [all, group, staff, q])
-  const patientIds = new Set(data.patients.map((p) => p.patient_id))
+      // Search matches what the box promises: the summary (patient, document no.), the action, who did it, and the record.
+      .filter((a) => {
+        const needle = q.trim().toLowerCase()
+        if (!needle) return true
+        return [a.summary, a.detail ?? '', a.action, a.table_name, a.record_id, staffById(a.staff_id)?.name ?? 'System'].some((f) => f.toLowerCase().includes(needle))
+      })
+  }, [all, group, staff, q, staffById])
+  // Most entries are about a patient through another record (a consultation, document, ticket or scan):
+  // map each of those ids to its patient so "open record" works on them too.
+  const patientOf = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const p of data.patients) m.set(p.patient_id, p.patient_id)
+    for (const c of data.consultations) m.set(c.consultation_id, c.patient_id)
+    for (const r of data.prescriptions) m.set(r.prescription_id, r.patient_id)
+    for (const d of data.documents) m.set(d.document_id, d.patient_id)
+    for (const tk of data.tickets) m.set(tk.ticket_id, tk.patient_id)
+    for (const sc of data.scans) m.set(sc.page_id, sc.patient_id)
+    for (const l of data.labs) m.set(l.lab_id, l.patient_id)
+    return m
+  }, [data])
 
   return (
     <div>
-      <PageTitle
-        title={t('Audit trail')}
-        sub={t('Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge.')}
-        actions={
-          // The two exports sit side by side on one row, the same height (they may wrap only on a phone).
-          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
-            <Button
-              variant="secondary"
-              size="lg"
-              icon={<DownloadSimple size={20} />}
-              onClick={() => downloadCSV('gilayon-audit-trail-view.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
-            >
-              Export this view
-            </Button>
-            <Button
-              size="lg"
-              icon={<FileCsv size={20} />}
-              disabled={!online || busy !== null}
-              onClick={async () => {
-                setBusy('export')
-                const problem = await exportAudit()
-                setBusy(null)
-                toast(problem ? { tone: 'warn', title: problem } : { tone: 'ok', title: 'Full audit trail downloaded', body: 'The export is recorded in the audit trail.' })
-              }}
-            >
-              {busy === 'export' ? 'Preparing…' : 'Export full log'}
-            </Button>
-          </div>
-        }
-      />
+      {/* Same title style as other screens. The description, the two exports and a compact "Mark all as read" share
+          one row on wide screens; on narrower ones the description sits above and the three buttons share the row below. */}
+      <div className="mb-6">
+        <h1 className="text-[1.9rem] font-semibold leading-tight tracking-[-0.025em] text-ink sm:text-[2.2rem]">{t('Audit trail')}</h1>
+        <div className="mt-1 grid grid-cols-1 gap-2 sm:grid-cols-[repeat(2,minmax(12rem,1fr))_auto] sm:items-center xl:grid-cols-[minmax(0,1fr)_repeat(2,minmax(12rem,auto))_auto]">
+          <p className="mb-2 text-base text-ink-2 sm:col-span-3 xl:col-span-1 xl:mb-0 xl:pr-4">{t('Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge.')}</p>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full"
+            icon={<DownloadSimple size={20} />}
+            onClick={() => {
+              if (!rows.length) return toast({ tone: 'warn', title: 'Nothing to export', body: 'No entries match the current filters.' })
+              downloadCSV('gilayon-audit-trail-view.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))
+              toast({ tone: 'ok', title: `Exported ${rows.length} ${rows.length === 1 ? 'entry' : 'entries'}`, body: 'Every entry that matches the current filters.' })
+            }}
+          >
+            Export this view
+          </Button>
+          <Button
+            size="lg"
+            className="w-full"
+            icon={<FileCsv size={20} />}
+            disabled={!online || busy !== null}
+            onClick={async () => {
+              setBusy('export')
+              const problem = await exportAudit()
+              setBusy(null)
+              toast(problem ? { tone: 'warn', title: problem } : { tone: 'ok', title: 'Full audit trail downloaded', body: 'The export is recorded in the audit trail.' })
+            }}
+          >
+            {busy === 'export' ? 'Preparing…' : 'Export full log'}
+          </Button>
+          <Button
+            variant="soft"
+            size="lg"
+            className="w-full gap-1.5 px-3.5 text-[13px] sm:w-auto"
+            icon={<Check size={16} weight="bold" />}
+            disabled={!online || busy !== null}
+            onClick={async () => {
+              if (!unreadRows.length) return toast({ tone: 'ok', title: 'Everything is already marked as read' })
+              setBusy('read')
+              await markAuditSeen(Math.max(...unreadRows.map((a) => a.logged_at)))
+              setBusy(null)
+              toast({ tone: 'ok', title: `Marked ${unreadRows.length} ${unreadRows.length === 1 ? 'entry' : 'entries'} as read` })
+            }}
+          >
+            {busy === 'read' ? 'Marking…' : 'Mark all as read'}
+            {unreadRows.length > 0 && busy !== 'read' && <span className="grid min-w-[18px] place-items-center rounded-full bg-brand-600 px-1 text-[10px] font-bold leading-[18px] text-white tabular">{unreadRows.length}</span>}
+          </Button>
+        </div>
+      </div>
       <div className="scrollbar-none mb-3 flex gap-2 overflow-x-auto">
         {GROUPS.map((g) => (
           <Chip key={g.key} selected={group === g.key} onClick={() => setGroup(g.key)} className="h-11 text-base">
@@ -115,10 +154,10 @@ export default function AuditTrail() {
                 {a.detail && <p className="mt-0.5 font-mono text-sm text-ink-2">{a.detail}</p>}
                 <p className="text-sm text-muted">
                   {staffById(a.staff_id)?.name ?? 'System'} · {a.table_name}
-                  {patientIds.has(a.record_id) && (
+                  {patientOf.has(a.record_id) && (
                     <>
                       {' · '}
-                      <Link to={`/clinic/patients/${a.record_id}`} className="font-semibold text-brand-700 hover:underline">
+                      <Link to={`/clinic/patients/${patientOf.get(a.record_id)}`} className="font-semibold text-brand-700 hover:underline">
                         open record
                       </Link>
                     </>

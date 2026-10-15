@@ -40,6 +40,8 @@ export default function Consult() {
   const [cert, setCert] = useState<{ on: boolean; purpose: string; findings: string; rest_days: number; remarks: string }>({ on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
   const [errors, setErrors] = useState<string[]>([])
   const [recap, setRecap] = useState(false)
+  // The template applied last shows as selected (blue), like the lab request chips.
+  const [templateKey, setTemplateKey] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [saved, setSaved] = useState<{ input: ConsultInput; result: 'saved' | 'local'; signed: boolean } | null>(null)
 
@@ -67,6 +69,7 @@ export default function Consult() {
 
   const applyTemplate = (key: string) => {
     const tpl = TEMPLATES.find((x) => x.key === key)!
+    setTemplateKey(key)
     setService(tpl.service)
     setComplaint(tpl.complaint)
     setNotes(tpl.notes)
@@ -254,7 +257,7 @@ export default function Consult() {
           <p className="text-base font-semibold text-ink-2">{t('Templates')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {TEMPLATES.filter((x) => (me.services ?? []).includes(x.service)).map((x) => (
-              <Chip key={x.key} onClick={() => applyTemplate(x.key)} className="h-11 text-[15px]">
+              <Chip key={x.key} selected={templateKey === x.key} onClick={() => applyTemplate(x.key)} className="h-11 text-[15px]">
                 {x.label}
               </Chip>
             ))}
