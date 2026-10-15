@@ -58,7 +58,7 @@ export type ConsultInput = {
   vitals?: { bp?: string; temperature?: string; pulse?: string; weight?: string }
   diagnoses: { description: string; icd10_code: string }[]
   rx: { drug_name: string; dose: string; frequency: string; quantity: number }[]
-  certificate?: { purpose: string; findings: string; rest_days?: number; remarks?: string }
+  certificate?: { doc_type?: 'Medical certificate' | 'Dental report'; purpose: string; findings: string; rest_days?: number; remarks?: string }
   labs: string[]
   correction_of?: string
   // Ids generated up front so a retried sync can never create a duplicate.

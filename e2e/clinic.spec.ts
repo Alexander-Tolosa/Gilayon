@@ -170,6 +170,43 @@ test.describe('doctor', () => {
     await expect(page.getByText(/RX-\d{4}-\d{6}/)).toBeVisible()
   })
 
+  test('signs a prescription and a dental report, and the nurse stamps them from To stamp', async ({ page }) => {
+    await signIn(page, 'doctor')
+    const resume = page.getByRole('button', { name: 'Resume' })
+    if (await resume.count()) await resume.first().click()
+    else {
+      await page.getByRole('button', { name: 'Call next patient' }).click()
+      await page.getByRole('button', { name: /Start consultation/ }).first().click()
+    }
+    await expect(page).toHaveURL(/\/clinic\/consult\//)
+    // Records from other clinics can be scanned in without leaving the consultation.
+    await expect(page.getByText('Records from other clinics')).toBeVisible()
+    await page.getByRole('button', { name: 'Fever', exact: true }).click()
+    await page.getByRole('checkbox', { name: /Issue a/ }).check()
+    await page.getByRole('button', { name: 'Dental report', exact: true }).click()
+    await page.getByRole('button', { name: 'Save and sign' }).click()
+    const pin = page.getByRole('dialog')
+    for (const d of '1234') await pin.getByRole('button', { name: d, exact: true }).click()
+    await expect(page.getByText('Consultation saved')).toBeVisible()
+    await expect(page.getByText(/RX-\d{4}-\d{6}/)).toBeVisible()
+    await expect(page.getByText(/DR-\d{4}-\d{6}/)).toBeVisible()
+    await expect(page.getByText(/Sent to the front desk to be stamped/)).toBeVisible()
+
+    // The nurse finds both under To stamp, marks them, and they move to Stamped.
+    await page.getByRole('button', { name: 'Sign out' }).first().click()
+    await signIn(page, 'nurse')
+    await page.locator('aside nav').first().getByRole('link', { name: /To stamp/ }).click()
+    await expect(page).toHaveURL(/\/clinic\/stamp$/)
+    await expect(page.getByText(/DR-\d{4}-\d{6}/).first()).toBeVisible()
+    const mark = page.getByRole('button', { name: 'Stamped, given to patient' })
+    const waiting = await mark.count()
+    expect(waiting).toBeGreaterThanOrEqual(2)
+    await mark.first().click()
+    await expect(mark).toHaveCount(waiting - 1)
+    await page.getByRole('tab', { name: /^Stamped/ }).click()
+    await expect(page.getByText(/(RX|DR|MC)-\d{4}-\d{6}/).first()).toBeVisible()
+  })
+
   test('a note written offline waits on the computer and syncs on reconnect', async ({ page }) => {
     await signIn(page, 'doctor')
     const before = await serverState(page)
@@ -356,6 +393,26 @@ test.describe('scanning an old folder', () => {
     await page.getByRole('tab', { name: 'Accuracy and speed' }).click()
     await expect(page.getByText('Field accuracy')).toBeVisible()
     await expect(page.getByText(/%$/).first()).toBeVisible()
+  })
+
+  test('Scan with AI from check-in returns to check-in after the nurse confirms', async ({ page }) => {
+    await signIn(page, 'nurse')
+    await page.getByRole('button', { name: 'Maria Lourdes Villanueva', exact: true }).click()
+    await page.getByRole('button', { name: /^Maria Lourdes Villanueva .*IPG-2004-0318/ }).click()
+    await expect(page.getByRole('heading', { name: 'Check the paper folder' })).toBeVisible()
+    await page.getByRole('button', { name: 'Check and continue' }).click()
+    await expect(page.getByRole('button', { name: 'Scan with AI' })).toBeVisible()
+    await page.locator('input[type=file]').nth(1).setInputFiles('public/forms/sample-villanueva.png')
+
+    // The read form opens on the verify screen, for this patient.
+    await expect(page.getByText(/Read in \d/)).toBeVisible({ timeout: 60_000 })
+    await page.getByRole('button', { name: /I checked every field/ }).click()
+    await expect(page.getByText('Saved to the record')).toBeVisible({ timeout: 30_000 })
+
+    // One click takes the nurse back to where they were: the same patient, at the records step.
+    await page.getByRole('link', { name: 'Back to check-in' }).click()
+    await expect(page).toHaveURL(/\/clinic\/checkin\?resume=/)
+    await expect(page.getByText('Identity verified')).toBeVisible()
   })
 
   test('a correction is kept, and a line can be added or taken away', async ({ page }) => {

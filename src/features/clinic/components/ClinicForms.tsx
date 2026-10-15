@@ -9,7 +9,7 @@ import { useClinic, type NewPersonInput, type UnlistedInput } from '../store/sto
 import type { CivilStatus, RelationshipType, ScanCategory, ScanKind, Sex } from '../types'
 
 /** Attach scans of old paper pages to a record, by upload (or the camera on a tablet). */
-export function ScanUploader({ patientId, compact }: { patientId: string; compact?: boolean }) {
+export function ScanUploader({ patientId, compact, returnTo, defaultCategory = 'Old folder' }: { patientId: string; compact?: boolean; returnTo?: string; defaultCategory?: ScanCategory }) {
   const { uploadScan, scanFolderForm, online } = useClinic()
   const toast = useToast()
   const t = useT()
@@ -18,7 +18,7 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
   const aiInput = useRef<HTMLInputElement>(null)
   const [kind, setKind] = useState<ScanKind>('Chart')
   const [date, setDate] = useState('')
-  const [category, setCategory] = useState<ScanCategory>('Old folder')
+  const [category, setCategory] = useState<ScanCategory>(defaultCategory)
   const [source, setSource] = useState('')
   const [busy, setBusy] = useState(false)
   const outside = category === 'Outside report'
@@ -54,7 +54,7 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
       if (out.error || !out.reading) {
         toast({ tone: 'warn', title: t('The scan could not be read.'), body: out.error ?? t('Retake it flat, in good light, with the whole form in view.') })
       } else {
-        navigate('/clinic/scan', { state: { image, reading: out.reading, patientId } })
+        navigate('/clinic/scan', { state: { image, reading: out.reading, patientId, returnTo } })
       }
     } catch {
       toast({ tone: 'warn', title: `${f.name} ${t('is not an image')}`, body: t('Scan pages as JPG or PNG.') })

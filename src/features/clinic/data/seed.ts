@@ -13,6 +13,7 @@ import type {
   CivilStatus,
   Consultation,
   Diagnosis,
+  DocumentRelease,
   DocumentRow,
   Employee,
   FamilyHistory,
@@ -42,6 +43,7 @@ export type ClinicData = {
   labs: LabOrder[]
   prescriptions: Prescription[]
   documents: DocumentRow[]
+  releases: DocumentRelease[]
   scans: ScannedPage[]
   staff: Staff[]
   audit: AuditLog[]
@@ -431,6 +433,7 @@ export function buildSeed(): ClinicData {
     labs,
     prescriptions,
     documents,
+    releases: [],
     scans,
     staff: STAFF,
     audit,

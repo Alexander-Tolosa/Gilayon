@@ -12,7 +12,7 @@ import {
   X,
   Queue as QueueIcon,
 } from '@phosphor-icons/react'
-import { Key, Scan } from '@phosphor-icons/react'
+import { Key, Scan, Stamp } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
@@ -25,6 +25,7 @@ import { applyTextSize, savedTextSize } from './lib/textsize'
 import { useT } from './lib/i18n'
 import { unreadActivity } from './lib/activity'
 import { todayKey } from './lib/helpers'
+import { toStampCount } from './lib/release'
 import { ChangePasswordForm, ForcePasswordChange } from './components/StaffAdmin'
 import { RejectedOutbox } from './components/RejectedOutbox'
 import { useClinic } from './store/store'
@@ -53,6 +54,7 @@ function useNav(role: StaffRole): Item[] {
     return [
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
       { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
+      { to: '/clinic/stamp', label: 'To stamp', icon: Stamp, badge: toStampCount(data) || undefined },
       { to: '/clinic/scan', label: 'Scan old folder', icon: Scan },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     ]

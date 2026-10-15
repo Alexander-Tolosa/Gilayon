@@ -11,9 +11,11 @@ import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, ICD10, LAB_TESTS, TEMPLA
 import { useClinic, type ConsultInput } from '../store/store'
 import type { ServiceType } from '../types'
 import { VisitHistory } from '../components/History'
+import { ScanUploader } from '../components/ClinicForms'
 
 type RxRow = { drug_name: string; dose: string; frequency: string; quantity: number; ack?: boolean }
-type Cert = { on: boolean; purpose: string; findings: string; rest_days: number; remarks: string }
+type CertType = 'Medical certificate' | 'Dental report'
+type Cert = { on: boolean; type?: CertType; purpose: string; findings: string; rest_days: number; remarks: string }
 type Vitals = { bp: string; temperature: string; pulse: string; weight: string }
 
 /**
@@ -77,6 +79,9 @@ export default function Consult() {
   const [saved, setSaved] = useState<{ input: ConsultInput; result: 'saved' | 'local'; signed: boolean } | null>(null)
 
   // Keep what has been typed so far; forget it once the consultation is saved.
+  // A dental visit issues a dental report by default; the doctor can switch to a medical certificate.
+  const certType: CertType = cert.type ?? (service === 'Dental' ? 'Dental report' : 'Medical certificate')
+  const dentalReport = certType === 'Dental report'
   const typed = notes.trim().length > 0 || rx.some((r) => r.drug_name.trim()) || dx.length > 0 || labs.length > 0 || cert.findings.trim().length > 0
   useEffect(() => {
     if (saved) return writeDraft(key, null)
@@ -132,7 +137,7 @@ export default function Consult() {
     const filled = rx.filter((r) => r.drug_name.trim())
     if (filled.some((r) => !r.dose.trim() || !r.frequency.trim() || !r.quantity)) e.push('Each prescription item needs a dose, how often, and a quantity.')
     if (filled.some((r) => conflicts(r.drug_name).length && !r.ack)) e.push('Resolve the allergy warning on the prescription.')
-    if (cert.on && (!cert.purpose.trim() || !cert.findings.trim())) e.push('The medical certificate needs a purpose and findings.')
+    if (cert.on && (!cert.purpose.trim() || !cert.findings.trim())) e.push(`The ${certType.toLowerCase()} needs a ${dentalReport ? 'procedure' : 'purpose'} and findings.`)
     setErrors(e)
     if (e.length) return null
     return {
@@ -145,7 +150,7 @@ export default function Consult() {
       vitals: service === 'Dental' || !Object.values(vitals).some(Boolean) ? undefined : vitals,
       diagnoses: dx,
       rx: filled.map(({ drug_name, dose, frequency, quantity }) => ({ drug_name, dose, frequency, quantity })),
-      certificate: cert.on ? { purpose: cert.purpose, findings: cert.findings, rest_days: cert.rest_days, remarks: cert.remarks || undefined } : undefined,
+      certificate: cert.on ? { doc_type: certType, purpose: cert.purpose, findings: cert.findings, rest_days: dentalReport ? undefined : cert.rest_days, remarks: cert.remarks || undefined } : undefined,
       labs,
       correction_of: correctId,
       rx_id: uuid(),
@@ -203,13 +208,18 @@ export default function Consult() {
             )}
             {mcRow && (
               <li className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-4">
-                <span className="text-lg font-medium">{t('Medical certificate')}</span>
+                <span className="text-lg font-medium">{t(mcRow.doc_type)}</span>
                 <span className="flex items-center gap-2">
                   {mcRow.document_no ? <span className="font-mono text-base font-semibold text-danger">{mcRow.document_no}</span> : <Badge tone="warn">{t('Not yet signed')}</Badge>}
                   <Button size="sm" variant="secondary" icon={<Printer size={16} />} onClick={() => window.open(`/print/mc/${mcRow.document_id}`, '_blank')}>
                     {t('Print')}
                   </Button>
                 </span>
+              </li>
+            )}
+            {(rxRow?.status === 'signed' || mcRow?.status === 'signed') && (
+              <li className="flex items-center gap-2 rounded-2xl bg-ok-soft p-4 text-base font-medium text-ok">
+                <CheckCircle size={20} weight="fill" /> Sent to the front desk to be stamped and given to the patient.
               </li>
             )}
             {saved.result === 'local' && (rxRow || mcRow || saved.input.rx.length > 0 || saved.input.certificate) && <li className="rounded-2xl bg-danger-soft p-4 text-base text-danger">A computer that cannot reach the server cannot issue a valid signed document. Sign from Documents once it reconnects.</li>}
@@ -320,6 +330,7 @@ export default function Consult() {
           <AnimatePresence>{recap && <Recap patientId={patientId} onDraft={(text) => setCert({ ...cert, on: true, findings: text })} onClose={() => setRecap(false)} />}</AnimatePresence>
           <FamilyLine patientId={patientId} />
           <VisitHistory patientId={patientId} compact />
+          <OutsideRecords patientId={patientId} />
         </div>
 
         {/* Consultation form on one screen */}
@@ -478,11 +489,26 @@ export default function Consult() {
             <div className="rounded-3xl border border-line p-5">
               <label className="flex items-center gap-3 text-lg font-semibold">
                 <input type="checkbox" checked={cert.on} onChange={(e) => setCert({ ...cert, on: e.target.checked, findings: cert.findings || dx[0]?.description || '' })} className="size-6 accent-brand-600" />
-                <FileText size={22} className="text-brand-600" /> Issue a {t('Medical certificate').toLowerCase()}
+                <FileText size={22} className="text-brand-600" /> Issue a {dentalReport ? 'dental report' : t('Medical certificate').toLowerCase()}
               </label>
               {cert.on && (
+                <div className="mt-4 flex flex-wrap gap-2" role="group" aria-label="Document type">
+                  {(['Medical certificate', 'Dental report'] as CertType[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      aria-pressed={certType === k}
+                      onClick={() => setCert({ ...cert, type: k, purpose: cert.purpose === 'Excuse from work' || cert.purpose === 'Dental procedure' || !cert.purpose ? (k === 'Dental report' ? 'Dental procedure' : 'Excuse from work') : cert.purpose })}
+                      className={cn('h-11 rounded-full border-2 px-5 text-base font-semibold transition', certType === k ? 'border-brand-600 bg-brand-600 text-white' : 'border-line hover:border-brand-300')}
+                    >
+                      {t(k)}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {cert.on && (
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <Field label="Purpose">
+                  <Field label={dentalReport ? 'Procedure' : 'Purpose'}>
                     <Input value={cert.purpose} onChange={(e) => setCert({ ...cert, purpose: e.target.value })} list="purposes" className="h-12 text-base" />
                     <datalist id="purposes">
                       {['Excuse from work', 'Fit to work', 'Annual physical examination requirement', 'Dental procedure', 'Sick leave application'].map((x) => (
@@ -490,13 +516,15 @@ export default function Consult() {
                       ))}
                     </datalist>
                   </Field>
-                  <Field label="Rest days">
-                    <Input type="number" min={0} value={cert.rest_days} onChange={(e) => setCert({ ...cert, rest_days: Number(e.target.value) })} className="h-12 text-base" />
-                  </Field>
-                  <Field label="Findings" className="sm:col-span-2">
+                  {!dentalReport && (
+                    <Field label="Rest days">
+                      <Input type="number" min={0} value={cert.rest_days} onChange={(e) => setCert({ ...cert, rest_days: Number(e.target.value) })} className="h-12 text-base" />
+                    </Field>
+                  )}
+                  <Field label={dentalReport ? 'Findings (teeth and condition)' : 'Findings'} className="sm:col-span-2">
                     <Textarea value={cert.findings} onChange={(e) => setCert({ ...cert, findings: e.target.value })} className="min-h-20 text-base" />
                   </Field>
-                  <Field label="Remarks" optional className="sm:col-span-2">
+                  <Field label={dentalReport ? 'Recommendations' : 'Remarks'} optional className="sm:col-span-2">
                     <Input value={cert.remarks} onChange={(e) => setCert({ ...cert, remarks: e.target.value })} className="h-12 text-base" />
                   </Field>
                 </div>
@@ -515,6 +543,35 @@ export default function Consult() {
         </Card>
       </div>
       <p className="mt-3 text-center text-sm text-faint">Consultations are only added, never overwritten. Patient {ageOf(p.birthdate)} years old as of today.</p>
+    </div>
+  )
+}
+
+/** Lab results, prescriptions or certificates the patient brings from another doctor or clinic: scanned and filed here. */
+function OutsideRecords({ patientId }: { patientId: string }) {
+  const t = useT()
+  const { data } = useClinic()
+  const pages = data.scans.filter((s) => s.patient_id === patientId).sort((a, b) => b.uploaded_at - a.uploaded_at)
+  const outside = pages.filter((s) => s.category === 'Outside report')
+  return (
+    <div className="rounded-3xl border border-line bg-surface p-5">
+      <p className="text-lg font-semibold">{t('Records from other clinics')}</p>
+      <p className="mb-3 text-base text-ink-2">{t('Scan lab results, prescriptions or certificates the patient brought, and they are filed to this record.')}</p>
+      <ScanUploader patientId={patientId} compact defaultCategory="Outside report" />
+      {outside.length > 0 && (
+        <ul className="mt-3 flex flex-col gap-1.5">
+          {outside.slice(0, 4).map((s) => (
+            <li key={s.page_id} className="rounded-xl bg-canvas px-4 py-2 text-[15px]">
+              <b>{t(s.kind)}</b> · {s.source_clinic ?? t('Other clinic')} <span className="text-muted">· {fmtDay(s.page_date)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {pages.length > 0 && (
+        <Link to={`/clinic/patients/${patientId}`} className="mt-3 inline-block text-base font-semibold text-brand-700 underline underline-offset-4">
+          {t('Open all attached pages')} ({pages.length})
+        </Link>
+      )}
     </div>
   )
 }

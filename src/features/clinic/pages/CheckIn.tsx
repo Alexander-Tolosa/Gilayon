@@ -1,7 +1,7 @@
 import { ArrowLeft, ArrowRight, CheckCircle, Flag, FolderOpen, IdentificationCard, MagnifyingGlass, Printer, ShieldCheck, Sparkle, UserPlus, Warning } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useMemo, useState, type ReactNode } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Chip, Field, Input, Select, Textarea, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
@@ -24,10 +24,13 @@ const STEPS: { key: Step; label: string }[] = [
 
 export default function CheckIn() {
   const t = useT()
-  const [step, setStep] = useState<Step>('search')
-  const [personId, setPersonId] = useState<string | null>(null)
+  const { patientOfPerson, patient } = useClinic()
+  // Coming back from "Scan with AI": pick the same patient up again at the records step.
+  const resume = new URLSearchParams(useLocation().search).get('resume')
+  const resumed = resume ? patient(resume) : undefined
+  const [step, setStep] = useState<Step>(resumed ? 'record' : 'search')
+  const [personId, setPersonId] = useState<string | null>(resumed?.person_id ?? null)
   const [ticket, setTicket] = useState<QueueTicket | null>(null)
-  const { patientOfPerson } = useClinic()
   const patientId = personId ? patientOfPerson(personId)?.patient_id : undefined
 
   const restart = () => {
@@ -464,8 +467,8 @@ function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () 
               <Input value={folderNo} onChange={(e) => setFolderNo(e.target.value)} placeholder="F-2004-0181" className="h-12 font-mono text-base" />
             </Field>
             <div>
-              <p className="mb-2 text-lg font-semibold">Scan it this visit (optional)</p>
-              <ScanUploader patientId={pt.patient_id} compact />
+              <p className="mb-2 text-lg font-semibold">Scan the paper folder into the system now (you can skip this)</p>
+              <ScanUploader patientId={pt.patient_id} compact returnTo={`/clinic/checkin?resume=${pt.patient_id}`} />
             </div>
           </div>
         )}
@@ -473,8 +476,8 @@ function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () 
         )}
         {paperKnown && paper === 'on_file' && (
           <div className="mt-7">
-            <p className="mb-2 text-lg font-semibold">Scan it this visit (optional)</p>
-            <ScanUploader patientId={pt.patient_id} compact />
+            <p className="mb-2 text-lg font-semibold">Scan the paper folder into the system now (you can skip this)</p>
+            <ScanUploader patientId={pt.patient_id} compact returnTo={`/clinic/checkin?resume=${pt.patient_id}`} />
           </div>
         )}
         {error && <p className="mt-4 rounded-2xl bg-danger-soft px-4 py-3 text-base text-danger">{error}</p>}
@@ -633,8 +636,8 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
           </div>
           {pt.paper_status === 'on_file' && (
             <div className="mt-5">
-              <p className="mb-2 text-lg font-semibold">Old paper folder? Scan it this visit.</p>
-              <ScanUploader patientId={patientId} compact />
+              <p className="mb-2 text-lg font-semibold">Scan the paper folder into the system now (you can skip this)</p>
+              <ScanUploader patientId={patientId} compact returnTo={`/clinic/checkin?resume=${patientId}`} />
             </div>
           )}
           <Link to={`/clinic/patients/${patientId}`} onClick={() => touch(patientId)} className="mt-4 inline-block text-base font-semibold text-brand-700 underline underline-offset-4">

@@ -22,7 +22,7 @@ const GROUPS: { key: string; label: string; actions: AuditAction[] }[] = [
   { key: 'export', label: 'Exports', actions: ['export'] },
 ]
 
-const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok', void: 'bg-danger-soft text-danger', flag: 'bg-warn-soft text-warn', edit: 'bg-brand-50 text-brand-800', sync: 'bg-mist text-ink-2', export: 'bg-warn-soft text-warn' }
+const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok', void: 'bg-danger-soft text-danger', flag: 'bg-warn-soft text-warn', edit: 'bg-brand-50 text-brand-800', sync: 'bg-mist text-ink-2', export: 'bg-warn-soft text-warn', release: 'bg-ok-soft text-ok' }
 
 export default function AuditTrail() {
   const t = useT()

@@ -56,6 +56,7 @@ const EMPTY: Snapshot = {
   labs: [],
   prescriptions: [],
   documents: [],
+  releases: [],
   scans: [],
   staff: [],
   audit: [],
@@ -209,6 +210,8 @@ type Api = {
   saveConsultation: (input: ConsultInput) => Promise<'saved' | 'local'>
   signDocuments: (refs: { kind: 'rx' | 'doc'; id: string }[], pin: string) => Promise<SignResult>
   voidDocument: (kind: 'rx' | 'doc', id: string, reason: string) => void
+  /** The front desk stamped a signed document and handed it to the patient. */
+  releaseDocument: (kind: 'rx' | 'doc', id: string) => void
   reissueDocument: (kind: 'rx' | 'doc', id: string) => string | null
   editDraft: (kind: 'rx' | 'doc', id: string, patch: Partial<Prescription> | Partial<DocumentRow>) => void
   addLabResult: (labId: string, result: string) => void
@@ -752,6 +755,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       },
 
       voidDocument: (kind, id, reason) => void send(`/api/documents/${kind}/${id}/void`, { reason }),
+
+      releaseDocument: (kind, id) => void send(`/api/documents/${kind}/${id}/release`),
 
       reissueDocument: (kind, id) => {
         const newId = uuid()
