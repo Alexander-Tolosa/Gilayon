@@ -6,7 +6,7 @@ import { cn } from '../../../shared/lib/utils'
 import { useT } from '../lib/i18n'
 import { ageOf, compressImage, fmtDay, todayKey } from '../lib/helpers'
 import { useClinic, type NewPersonInput, type UnlistedInput } from '../store/store'
-import type { CivilStatus, RelationshipType, ScanCategory, ScanKind, Sex } from '../types'
+import type { CivilStatus, RelationshipType, ScanCategory, ScanKind, Sex, Vitals } from '../types'
 
 /** Attach scans of old paper pages to a record, by upload (or the camera on a tablet). */
 export function ScanUploader({ patientId, compact, returnTo, defaultCategory = 'Old folder' }: { patientId: string; compact?: boolean; returnTo?: string; defaultCategory?: ScanCategory }) {
@@ -101,8 +101,34 @@ export function ScanUploader({ patientId, compact, returnTo, defaultCategory = '
   )
 }
 
+/** Vital signs taken at the front desk. Optional: the doctor sees them already filled in. */
+export function VitalsFields({ vitals, onChange, className }: { vitals: Vitals; onChange: (v: Vitals) => void; className?: string }) {
+  const t = useT()
+  const fields = [
+    ['bp', 'Blood pressure (mmHg)', '120/80'],
+    ['temperature', 'Body temp (°C)', '36.8'],
+    ['pulse', 'Pulse rate (bpm)', '78'],
+    ['respiration', 'Respiration rate (/min)', '16'],
+    ['height', 'Height (cm)', '165'],
+    ['weight', 'Weight (kg)', '62'],
+  ] as const
+  return (
+    <div className={className ?? 'mt-5'}>
+      <p className="text-lg font-semibold">{t('Vital signs')}</p>
+      <p className="text-base text-ink-2">{t('Taken at the front desk for this visit. The doctor starts from these.')}</p>
+      <div className="mt-3 grid grid-cols-2 items-end gap-4 sm:grid-cols-3">
+        {fields.map(([k, label, ph]) => (
+          <Field key={k} label={label}>
+            <Input value={vitals[k] ?? ''} onChange={(e) => onChange({ ...vitals, [k]: e.target.value })} placeholder={ph} className="h-12 text-base" inputMode={k === 'bp' ? 'text' : 'decimal'} maxLength={k === 'bp' ? 20 : 10} />
+          </Field>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 /** Create a dependent linked to an employee, with the duplicate-patient warning. */
-export function DependentForm({ principalPatientId, onDone, onCancel }: { principalPatientId: string; onDone: (patientId: string) => void; onCancel?: () => void }) {
+export function DependentForm({ principalPatientId, onDone, onCancel, vitals, onVitals }: { principalPatientId: string; onDone: (patientId: string) => void; onCancel?: () => void; vitals?: Vitals; onVitals?: (v: Vitals) => void }) {
   const t = useT()
   const { createDependent, findDuplicates, personOfPatient, patientOfPerson, online } = useClinic()
   const toast = useToast()
@@ -171,6 +197,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
         <Field label={t('PWD ID')} optional>
           <Input value={f.pwd_id} onChange={(e) => setF({ ...f, pwd_id: e.target.value })} className="h-12 text-base" />
         </Field>
+        {vitals && onVitals && <VitalsFields vitals={vitals} onChange={onVitals} className="sm:col-span-2" />}
         <label className="flex items-center gap-3 rounded-2xl bg-canvas px-4 py-3 text-[15px] sm:col-span-2">
           <input type="checkbox" checked={f.mdr} onChange={(e) => setF({ ...f, mdr: e.target.checked })} className="size-5 accent-brand-600" />
           {t("Listed as a dependent on the employee's PhilHealth MDR")}
@@ -206,7 +233,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
 }
 
 /** For someone who is not in the system yet: a paper-only past patient or a walk-in. Employee details are optional. */
-export function UnlistedForm({ onDone, onCancel }: { onDone: (patientId: string, personId: string) => void; onCancel?: () => void }) {
+export function UnlistedForm({ onDone, onCancel, vitals, onVitals }: { onDone: (patientId: string, personId: string) => void; onCancel?: () => void; vitals?: Vitals; onVitals?: (v: Vitals) => void }) {
   const t = useT()
   const { registerUnlisted, online } = useClinic()
   const toast = useToast()
@@ -277,6 +304,7 @@ export function UnlistedForm({ onDone, onCancel }: { onDone: (patientId: string,
         <Field label={t('PWD ID')} optional>
           <Input value={f.pwd_id} onChange={(e) => setF({ ...f, pwd_id: e.target.value })} className="h-12 text-base" />
         </Field>
+        {vitals && onVitals && <VitalsFields vitals={vitals} onChange={onVitals} className="sm:col-span-2" />}
         <p className="text-base font-semibold text-ink-2 sm:col-span-2">{t('Works for the partner company? (optional)')}</p>
         <Field label={t('Employee ID')} optional>
           <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} placeholder="IPG-0000-0000" className="h-12 font-mono text-base uppercase" />

@@ -16,6 +16,21 @@ async function signIn(page: Page, role: Role) {
   await expect(page).toHaveURL(role === 'doctor' ? /\/clinic\/doctor$/ : /\/clinic\/checkin$/)
 }
 
+/** Fills what a consultation needs (complaint, notes, one diagnosis) and writes one prescription. */
+async function fillConsult(page: Page) {
+  await page.getByLabel(/^Chief complaint/).fill('Fever for 2 days')
+  await page.getByRole('textbox', { name: /^Treatment notes/ }).fill('Rest, fluids and paracetamol as needed.')
+  // The doctor types the diagnosis in their own words; there is no code to pick.
+  await page.getByPlaceholder(/Type the diagnosis/).fill('Viral fever')
+  await page.keyboard.press('Enter')
+  await expect(page.getByText('Viral fever', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Add drug' }).click()
+  await page.getByLabel('Drug', { exact: true }).fill('Paracetamol')
+  await page.getByLabel('Dose', { exact: true }).fill('500 mg')
+  await page.getByLabel('How often', { exact: true }).fill('Every 6 hours as needed')
+  await page.getByLabel('Quantity', { exact: true }).fill('10')
+}
+
 /** Reads the signed-in snapshot straight from the API, to check what reached the server. */
 function serverState(page: Page) {
   return page.evaluate(async () => {
@@ -119,6 +134,9 @@ test.describe('front desk', () => {
     await page.getByRole('button', { name: 'New patient', exact: true }).click()
     await page.getByRole('textbox', { name: 'Full name' }).fill('Nilda Parreno-Santos')
     await page.locator('input[type=date]').fill('1975-06-09')
+    // Vital signs sit under PhilHealth PIN and PWD ID on the registration form.
+    await page.getByRole('textbox', { name: /^Blood pressure/ }).fill('130/85')
+    await page.getByRole('textbox', { name: /^Weight/ }).fill('64')
     await page.getByRole('button', { name: 'Register person' }).click()
     await expect(page.getByRole('heading', { name: 'Check the paper folder' })).toBeVisible()
     await page.getByRole('button', { name: /^No folder/ }).click()
@@ -126,16 +144,65 @@ test.describe('front desk', () => {
     await page.getByRole('button', { name: 'Next', exact: true }).click()
     await expect(page.getByText('Required field')).toBeVisible()
     await page.getByRole('textbox', { name: 'Contact' }).fill('0917 111 2222')
+    // Typed once at registration, they are still there on this step and travel with the queue number.
+    await expect(page.getByRole('textbox', { name: /^Blood pressure/ })).toHaveValue('130/85')
     await page.getByRole('button', { name: 'Next', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Priority lane' })).toBeVisible()
     await expect(page.getByRole('button', { name: /^Urgent/ })).toHaveCount(0)
     await page.getByRole('button', { name: 'Issue queue number' }).click()
     await expect(page.getByText(/^[RP]-\d{3}$/)).toBeVisible()
+    const tickets = await page.evaluate(async () => {
+      const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+      const res = await fetch('/api/state', { headers: { Authorization: `Bearer ${token}` } })
+      return ((await res.json()) as { tickets: { vitals?: { bp?: string; weight?: string } }[] }).tickets
+    })
+    expect(tickets.some((x) => x.vitals?.bp === '130/85' && x.vitals?.weight === '64')).toBe(true)
 
     // The queue board has no Urgent lane and no "Mark urgent".
     await page.goto('/clinic/queue')
     await expect(page.getByRole('button', { name: 'Mark urgent' })).toHaveCount(0)
     await expect(page.getByText('Urgent', { exact: true })).toHaveCount(0)
+  })
+
+  test('vital signs typed at registration are already filled in for the doctor', async ({ page }) => {
+    await signIn(page, 'desk')
+    await page.getByRole('button', { name: 'Add Patient' }).click()
+    await page.getByRole('button', { name: 'New patient', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Full name' }).fill('Lorna Dimaculangan')
+    await page.locator('input[type=date]').fill('1982-11-03')
+    await page.getByRole('textbox', { name: /^Blood pressure/ }).fill('118/76')
+    await page.getByRole('textbox', { name: /^Body temp/ }).fill('36.9')
+    await page.getByRole('textbox', { name: /^Pulse rate/ }).fill('80')
+    await page.getByRole('textbox', { name: /^Respiration rate/ }).fill('18')
+    await page.getByRole('textbox', { name: /^Height/ }).fill('158')
+    await page.getByRole('textbox', { name: /^Weight/ }).fill('55')
+    await page.getByRole('button', { name: 'Register person' }).click()
+    await page.getByRole('button', { name: /^No folder/ }).click()
+    await page.getByRole('button', { name: 'Check and continue' }).click()
+    // Still there on the Records step, with no retyping.
+    await expect(page.getByRole('textbox', { name: /^Respiration rate/ })).toHaveValue('18')
+    await page.getByRole('textbox', { name: 'Contact' }).fill('0917 222 3333')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await page.getByRole('button', { name: 'Issue queue number' }).click()
+    await expect(page.getByText(/^[RP]-\d{3}$/)).toBeVisible()
+    const patientId = await page.evaluate(async () => {
+      const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+      const res = await fetch('/api/state', { headers: { Authorization: `Bearer ${token}` } })
+      const st = (await res.json()) as { persons: { person_id: string; full_name: string }[]; patients: { patient_id: string; person_id: string }[] }
+      const person = st.persons.find((x) => x.full_name === 'Lorna Dimaculangan')!
+      return st.patients.find((x) => x.person_id === person.person_id)!.patient_id
+    })
+
+    // The doctor opens the patient: the same readings are in the consultation form.
+    await page.getByRole('button', { name: 'Sign out' }).first().click()
+    await signIn(page, 'doctor')
+    await page.goto(`/clinic/consult/${patientId}`)
+    await expect(page.getByRole('textbox', { name: /^Blood pressure/ })).toHaveValue('118/76')
+    await expect(page.getByRole('textbox', { name: /^Body temp/ })).toHaveValue('36.9')
+    await expect(page.getByRole('textbox', { name: /^Pulse rate/ })).toHaveValue('80')
+    await expect(page.getByRole('textbox', { name: /^Respiration rate/ })).toHaveValue('18')
+    await expect(page.getByRole('textbox', { name: /^Height/ })).toHaveValue('158')
+    await expect(page.getByRole('textbox', { name: /^Weight/ })).toHaveValue('55')
   })
 
   test('the nurse has exactly the receptionist menu', async ({ page }) => {
@@ -154,7 +221,7 @@ test.describe('doctor', () => {
   test('sees the dashboard, then consults and signs with a PIN', async ({ page }) => {
     await signIn(page, 'doctor')
     for (const label of ['Waiting for you', 'Drafts to sign', 'Seen today', 'New changes']) await expect(page.getByText(label, { exact: true })).toBeVisible()
-    await expect(page.getByText('Census')).toBeVisible()
+    await expect(page.getByText('Census')).toHaveCount(0)
     const resume = page.getByRole('button', { name: 'Resume' })
     if (await resume.count()) await resume.first().click()
     else {
@@ -162,7 +229,7 @@ test.describe('doctor', () => {
       await page.getByRole('button', { name: /Start consultation/ }).first().click()
     }
     await expect(page).toHaveURL(/\/clinic\/consult\//)
-    await page.getByRole('button', { name: 'Fever', exact: true }).click()
+    await fillConsult(page)
     await page.getByRole('button', { name: 'Save and sign' }).click()
     const pin = page.getByRole('dialog')
     for (const d of '1234') await pin.getByRole('button', { name: d, exact: true }).click()
@@ -181,7 +248,11 @@ test.describe('doctor', () => {
     await expect(page).toHaveURL(/\/clinic\/consult\//)
     // Records from other clinics can be scanned in without leaving the consultation.
     await expect(page.getByText('Records from other clinics')).toBeVisible()
-    await page.getByRole('button', { name: 'Fever', exact: true }).click()
+    await fillConsult(page)
+    // Lab requests are typed too, not picked from a fixed list.
+    await page.getByLabel('Lab test', { exact: true }).fill('Fasting blood sugar')
+    await page.keyboard.press('Enter')
+    await expect(page.getByText('Fasting blood sugar', { exact: true })).toBeVisible()
     await page.getByRole('checkbox', { name: /Issue a/ }).check()
     await page.getByRole('button', { name: 'Dental report', exact: true }).click()
     await page.getByRole('button', { name: 'Save and sign' }).click()
@@ -191,6 +262,12 @@ test.describe('doctor', () => {
     await expect(page.getByText(/RX-\d{4}-\d{6}/)).toBeVisible()
     await expect(page.getByText(/DR-\d{4}-\d{6}/)).toBeVisible()
     await expect(page.getByText(/Sent to the front desk to be stamped/)).toBeVisible()
+    const labNames = await page.evaluate(async () => {
+      const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+      const res = await fetch('/api/state', { headers: { Authorization: `Bearer ${token}` } })
+      return ((await res.json()) as { labs: { test_name: string }[] }).labs.map((l) => l.test_name)
+    })
+    expect(labNames).toContain('Fasting blood sugar')
 
     // The nurse finds both under To stamp, marks them, and they move to Stamped.
     await page.getByRole('button', { name: 'Sign out' }).first().click()
@@ -212,9 +289,9 @@ test.describe('doctor', () => {
     const before = await serverState(page)
     const patient = before.patients.find((p) => !before.consultations.some((c) => c.patient_id === p.patient_id))!
     await page.goto(`/clinic/consult/${patient.patient_id}`)
-    await expect(page.getByRole('button', { name: 'Cough and colds', exact: true })).toBeVisible()
+    await expect(page.getByLabel(/^Chief complaint/)).toBeVisible()
     await setConnection(page, 'This computer disconnected')
-    await page.getByRole('button', { name: 'Cough and colds', exact: true }).click()
+    await fillConsult(page)
     // Offline, "Save and sign" also becomes "Save consultation" (signing needs the server); either keeps the note.
     await page.getByRole('button', { name: 'Save consultation', exact: true }).first().click()
     await expect(page.getByText('Saved on this computer').first()).toBeVisible()
@@ -265,7 +342,7 @@ test.describe('corrections', () => {
     // A patient with no visit yet, taken from the end of the list so it does not clash with the other tests.
     const patient = before.patients.filter((p) => !before.consultations.some((c) => c.patient_id === p.patient_id)).at(-1)!
     await page.goto(`/clinic/consult/${patient.patient_id}`)
-    await page.getByRole('button', { name: 'Fever', exact: true }).click()
+    await fillConsult(page)
     await page.getByRole('button', { name: 'Save and sign' }).click()
     const pin = page.getByRole('dialog')
     for (const d of '1234') await pin.getByRole('button', { name: d, exact: true }).click()

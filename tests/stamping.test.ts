@@ -88,3 +88,15 @@ describe('stamping and handing over', () => {
     await expect(db.delete(documentRelease).where(eq(documentRelease.document_id, 'doc-d1'))).rejects.toThrow()
   })
 })
+
+describe('vital signs taken at the front desk', () => {
+  it('travel with the queue number and blank readings are dropped', async () => {
+    const { issueTicket } = await import('../src/server/services/queue')
+    const { queueTicket } = await import('../db/schema')
+    const id = await db.transaction((tx) => issueTicket(tx, desk, patient_id, ['regular'], 'Medical', 'Checkup', undefined, { bp: '120/80', temperature: ' 36.8 ', pulse: '', respiration: '16', height: '165', weight: '62' }))
+    const [row] = await db.select().from(queueTicket).where(eq(queueTicket.ticket_id, id))
+    expect(row.vitals).toEqual({ bp: '120/80', temperature: '36.8', respiration: '16', height: '165', weight: '62' })
+    const snap = await loadSnapshot(db, nurse)
+    expect(snap.tickets.find((x) => x.ticket_id === id)?.vitals).toEqual({ bp: '120/80', temperature: '36.8', respiration: '16', height: '165', weight: '62' })
+  })
+})

@@ -82,6 +82,8 @@ export type QueueTicket = {
   queue_no: number
   service_type: ServiceType
   reason?: string
+  /** Taken at check-in; the consultation starts from these. */
+  vitals?: Vitals
   status: TicketStatus
   checked_in_at: number
   called_at?: number
@@ -90,7 +92,7 @@ export type QueueTicket = {
   day: string // YYYY-MM-DD
 }
 
-export type Vitals = { bp?: string; temperature?: string; pulse?: string; weight?: string }
+export type Vitals = { bp?: string; temperature?: string; pulse?: string; respiration?: string; height?: string; weight?: string }
 
 export type Consultation = {
   consultation_id: string

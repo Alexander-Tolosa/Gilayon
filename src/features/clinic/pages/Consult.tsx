@@ -2,12 +2,12 @@ import { ArrowLeft, CheckCircle, CloudArrowUp, FileText, Plus, Printer, Robot, S
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Badge, Button, Card, Chip, Field, Input, Textarea, useToast } from '../../../shared/components/ui'
+import { Badge, Button, Card, Field, Input, Textarea, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { AgeSex, LaneBadge, PinModal } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
-import { ageOf, fmtDay, uuid } from '../lib/helpers'
-import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, ICD10, LAB_TESTS, TEMPLATES } from '../data/reference'
+import { ageOf, fmtDay, todayKey, uuid } from '../lib/helpers'
+import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, LAB_TESTS } from '../data/reference'
 import { useClinic, type ConsultInput } from '../store/store'
 import type { ServiceType } from '../types'
 import { VisitHistory } from '../components/History'
@@ -16,7 +16,7 @@ import { ScanUploader } from '../components/ClinicForms'
 type RxRow = { drug_name: string; dose: string; frequency: string; quantity: number; ack?: boolean }
 type CertType = 'Medical certificate' | 'Dental report'
 type Cert = { on: boolean; type?: CertType; purpose: string; findings: string; rest_days: number; remarks: string }
-type Vitals = { bp: string; temperature: string; pulse: string; weight: string }
+type Vitals = { bp: string; temperature: string; pulse: string; respiration: string; height: string; weight: string }
 
 /**
  * What the doctor has typed but not saved, kept in this tab (sessionStorage) per doctor, patient and visit.
@@ -64,17 +64,20 @@ export default function Consult() {
   const [complaint, setComplaint] = useState(d0?.complaint ?? original?.chief_complaint ?? ticket?.reason ?? '')
   const [notes, setNotes] = useState(d0?.notes ?? original?.treatment_notes ?? '')
   // A correction starts from the original's vitals, like its complaint and notes.
-  const startVitals: Vitals = { bp: original?.vitals?.bp ?? '', temperature: original?.vitals?.temperature ?? '', pulse: original?.vitals?.pulse ?? '', weight: original?.vitals?.weight ?? '' }
+  // A new visit starts from the vital signs the front desk took at check-in.
+  // Opened without a queue link (from the record): use the patient's open ticket from today, if there is one.
+  const openTicket = ticket ?? data.tickets.find((x) => x.patient_id === patientId && x.day === todayKey() && ['waiting', 'called', 'in_consult'].includes(x.status))
+  const base = original?.vitals ?? openTicket?.vitals
+  const startVitals: Vitals = { bp: base?.bp ?? '', temperature: base?.temperature ?? '', pulse: base?.pulse ?? '', respiration: base?.respiration ?? '', height: base?.height ?? '', weight: base?.weight ?? '' }
   const [vitals, setVitals] = useState<Vitals>(d0?.vitals ?? startVitals)
   const [dx, setDx] = useState<{ description: string; icd10_code: string }[]>(d0?.dx ?? (original ? data.diagnoses.filter((d) => d.consultation_id === original.consultation_id).map(({ description, icd10_code }) => ({ description, icd10_code })) : []))
   const [dxQuery, setDxQuery] = useState('')
+  const [labQuery, setLabQuery] = useState('')
   const [labs, setLabs] = useState<string[]>(d0?.labs ?? [])
   const [rx, setRx] = useState<RxRow[]>(d0?.rx ?? [])
   const [cert, setCert] = useState<Cert>(d0?.cert ?? { on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
   const [errors, setErrors] = useState<string[]>([])
   const [recap, setRecap] = useState(false)
-  // The template applied last shows as selected (blue), like the lab request chips.
-  const [templateKey, setTemplateKey] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [saved, setSaved] = useState<{ input: ConsultInput; result: 'saved' | 'local'; signed: boolean } | null>(null)
 
@@ -116,18 +119,6 @@ export default function Consult() {
   }
   const emp = employeeOfPerson(p.person_id)
   const principal = principalOf(patientId)
-
-  const applyTemplate = (key: string) => {
-    const tpl = TEMPLATES.find((x) => x.key === key)!
-    setTemplateKey(key)
-    setService(tpl.service)
-    setComplaint(tpl.complaint)
-    setNotes(tpl.notes)
-    setDx([tpl.diagnosis])
-    setRx(tpl.rx.map((r) => ({ ...r })))
-    setLabs(tpl.labs ?? [])
-    setCert(tpl.certificate ? { on: tpl.certificate.rest_days > 0 || tpl.key === 'pe', purpose: tpl.certificate.purpose, findings: tpl.diagnosis.description, rest_days: tpl.certificate.rest_days, remarks: '' } : { ...cert, on: false })
-  }
 
   const build = (): ConsultInput | null => {
     const e: string[] = []
@@ -245,7 +236,19 @@ export default function Consult() {
     )
   }
 
-  const icdHits = dxQuery.trim() ? ICD10.filter((d) => `${d.icd10_code} ${d.description}`.toLowerCase().includes(dxQuery.toLowerCase())).slice(0, 6) : []
+  // Diagnoses are typed by the doctor. Ones used before at this clinic are offered as suggestions.
+  const pastDiagnoses = [...new Set(data.diagnoses.map((d) => d.description.trim()).filter(Boolean))].sort().slice(0, 200)
+  const labSuggestions = [...new Set([...LAB_TESTS, ...data.labs.map((l) => l.test_name.trim())].filter(Boolean))].sort()
+  const addLab = () => {
+    const test = labQuery.trim()
+    if (test && !labs.some((x) => x.toLowerCase() === test.toLowerCase())) setLabs([...labs, test])
+    setLabQuery('')
+  }
+  const addDiagnosis = () => {
+    const description = dxQuery.trim()
+    if (description && !dx.some((x) => x.description.toLowerCase() === description.toLowerCase())) setDx([...dx, { description, icd10_code: '' }])
+    setDxQuery('')
+  }
 
   return (
     <div>
@@ -335,16 +338,7 @@ export default function Consult() {
 
         {/* Consultation form on one screen */}
         <Card className="p-6">
-          <p className="text-base font-semibold text-ink-2">{t('Templates')}</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {TEMPLATES.filter((x) => (me.services ?? []).includes(x.service)).map((x) => (
-              <Chip key={x.key} selected={templateKey === x.key} onClick={() => applyTemplate(x.key)} className="h-11 text-[15px]">
-                {x.label}
-              </Chip>
-            ))}
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-5">
+          <div className="grid grid-cols-1 gap-5">
             <div className="grid grid-cols-3 gap-2">
               {(['Medical', 'Dental', 'Laboratory'] as ServiceType[]).map((s) => (
                 <button key={s} onClick={() => setService(s)} className={cn('h-12 rounded-2xl border-2 text-base font-semibold transition', service === s ? 'border-brand-600 bg-brand-600 text-white' : 'border-line hover:border-brand-300')}>
@@ -363,12 +357,14 @@ export default function Consult() {
             {service !== 'Dental' && (
               <div>
                 <p className="mb-1.5 text-[13px] font-medium text-ink-2">{t('Vital signs')}</p>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3">
                   {(
                     [
-                      ['bp', 'BP (mmHg)', '120/80'],
-                      ['temperature', 'Temp (°C)', '36.8'],
-                      ['pulse', 'Pulse (bpm)', '78'],
+                      ['bp', 'Blood pressure (mmHg)', '120/80'],
+                      ['temperature', 'Body temp (°C)', '36.8'],
+                      ['pulse', 'Pulse rate (bpm)', '78'],
+                      ['respiration', 'Respiration rate (/min)', '16'],
+                      ['height', 'Height (cm)', '165'],
                       ['weight', 'Weight (kg)', '62'],
                     ] as const
                   ).map(([k, l, ph]) => (
@@ -383,36 +379,41 @@ export default function Consult() {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} className="min-h-28 text-base" />
             </Field>
 
-            <Field label={`${t('Diagnosis')} (ICD-10) *`}>
+            <Field label={`${t('Diagnosis')} *`}>
               <div className="flex flex-wrap gap-2">
                 {dx.map((d) => (
-                  <span key={d.icd10_code + d.description} className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 py-1.5 pl-4 pr-2 text-base font-medium text-white">
-                    {d.icd10_code} {d.description}
+                  <span key={d.description} className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 py-1.5 pl-4 pr-2 text-base font-medium text-white">
+                    {d.icd10_code ? `${d.icd10_code} ` : ''}
+                    {d.description}
                     <button aria-label={`Remove ${d.description}`} onClick={() => setDx(dx.filter((x) => x !== d))} className="-my-1.5 -mr-1.5 grid size-10 place-items-center rounded-full hover:bg-white/20">
                       <X size={14} weight="bold" />
                     </button>
                   </span>
                 ))}
               </div>
-              <div className="relative">
-                <Input value={dxQuery} onChange={(e) => setDxQuery(e.target.value)} placeholder="Search ICD-10, e.g. hypertension or I10" className="h-12 text-base" />
-                {icdHits.length > 0 && (
-                  <ul className="absolute inset-x-0 top-14 z-10 rounded-2xl border border-line bg-surface p-1.5 shadow-lift">
-                    {icdHits.map((h) => (
-                      <li key={h.icd10_code}>
-                        <button
-                          onClick={() => {
-                            if (!dx.some((x) => x.icd10_code === h.icd10_code)) setDx([...dx, h])
-                            setDxQuery('')
-                          }}
-                          className="w-full rounded-xl px-3 py-2.5 text-left text-base hover:bg-mist"
-                        >
-                          <b className="font-mono">{h.icd10_code}</b> {h.description}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
+              {/* Typed by the doctor in their own words. Past diagnoses from this clinic are only offered as suggestions. */}
+              <div className="flex gap-2">
+                <Input
+                  value={dxQuery}
+                  onChange={(e) => setDxQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addDiagnosis()
+                    }
+                  }}
+                  list="diagnoses"
+                  placeholder={t('Type the diagnosis, e.g. Acute bronchitis')}
+                  className="h-12 text-base"
+                />
+                <datalist id="diagnoses">
+                  {pastDiagnoses.map((d) => (
+                    <option key={d} value={d} />
+                  ))}
+                </datalist>
+                <Button type="button" variant="soft" className="h-12 shrink-0" icon={<Plus size={16} weight="bold" />} disabled={!dxQuery.trim()} onClick={addDiagnosis}>
+                  {t('Add')}
+                </Button>
               </div>
             </Field>
 
@@ -424,7 +425,7 @@ export default function Consult() {
                   Add drug
                 </Button>
               </div>
-              {rx.length === 0 && <p className="mt-2 text-base text-muted">{t('No medicines. Add a drug or use a template.')}</p>}
+              {rx.length === 0 && <p className="mt-2 text-base text-muted">{t('No medicines. Add a drug.')}</p>}
               <datalist id="drugs">
                 {DRUGS.map((d) => (
                   <option key={d.name} value={d.name} />
@@ -476,12 +477,42 @@ export default function Consult() {
             {/* Labs */}
             <div className="rounded-3xl border border-line p-5">
               <p className="text-lg font-semibold">{t('Lab requests')}</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {LAB_TESTS.map((l) => (
-                  <Chip key={l} selected={labs.includes(l)} onClick={() => setLabs(labs.includes(l) ? labs.filter((x) => x !== l) : [...labs, l])} className="h-11 text-[15px]">
-                    {l}
-                  </Chip>
-                ))}
+              {labs.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {labs.map((l) => (
+                    <span key={l} className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 py-1.5 pl-4 pr-2 text-base font-medium text-white">
+                      {l}
+                      <button type="button" aria-label={`Remove ${l}`} onClick={() => setLabs(labs.filter((x) => x !== l))} className="-my-1.5 -mr-1.5 grid size-10 place-items-center rounded-full hover:bg-white/20">
+                        <X size={14} weight="bold" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {/* Typed by the doctor. Common tests and ones requested before are only suggestions. */}
+              <div className="mt-3 flex gap-2">
+                <Input
+                  value={labQuery}
+                  onChange={(e) => setLabQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addLab()
+                    }
+                  }}
+                  list="lab-tests"
+                  aria-label={t('Lab test')}
+                  placeholder={t('Type the lab test, e.g. Complete blood count')}
+                  className="h-12 text-base"
+                />
+                <datalist id="lab-tests">
+                  {labSuggestions.map((l) => (
+                    <option key={l} value={l} />
+                  ))}
+                </datalist>
+                <Button type="button" variant="soft" className="h-12 shrink-0" icon={<Plus size={16} weight="bold" />} disabled={!labQuery.trim()} onClick={addLab}>
+                  {t('Add')}
+                </Button>
               </div>
             </div>
 

@@ -14,7 +14,7 @@ function asText(op: PendingOp, name: string) {
       `Written: ${new Date(op.at).toLocaleString()}`,
       `Chief complaint: ${c.chief_complaint}`,
       `Notes: ${c.treatment_notes}`,
-      c.diagnoses.length ? `Diagnosis: ${c.diagnoses.map((d) => `${d.description} (${d.icd10_code})`).join('; ')}` : '',
+      c.diagnoses.length ? `Diagnosis: ${c.diagnoses.map((d) => (d.icd10_code ? `${d.description} (${d.icd10_code})` : d.description)).join('; ')}` : '',
       c.rx.length ? `Prescription: ${c.rx.map((r) => `${r.drug_name} ${r.dose}, ${r.frequency}, #${r.quantity}`).join('; ')}` : '',
       c.certificate ? `Certificate: ${c.certificate.purpose}; ${c.certificate.findings}${c.certificate.rest_days ? `; ${c.certificate.rest_days} day(s) rest` : ''}` : '',
       c.labs.length ? `Labs: ${c.labs.join(', ')}` : '',

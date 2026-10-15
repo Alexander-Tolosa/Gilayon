@@ -55,7 +55,7 @@ export type ConsultInput = {
   service_type: 'Medical' | 'Dental' | 'Laboratory'
   chief_complaint: string
   treatment_notes: string
-  vitals?: { bp?: string; temperature?: string; pulse?: string; weight?: string }
+  vitals?: { bp?: string; temperature?: string; pulse?: string; respiration?: string; height?: string; weight?: string }
   diagnoses: { description: string; icd10_code: string }[]
   rx: { drug_name: string; dose: string; frequency: string; quantity: number }[]
   certificate?: { doc_type?: 'Medical certificate' | 'Dental report'; purpose: string; findings: string; rest_days?: number; remarks?: string }

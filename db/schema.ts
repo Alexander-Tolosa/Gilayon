@@ -121,6 +121,8 @@ export const queueTicket = pgTable(
     queue_no: integer().notNull(),
     service_type: text().$type<'Medical' | 'Dental' | 'Laboratory'>().notNull(),
     reason: text(),
+    /** Vital signs taken at the front desk, so the doctor does not measure them again. */
+    vitals: jsonb().$type<{ bp?: string; temperature?: string; pulse?: string; respiration?: string; height?: string; weight?: string }>(),
     status: text().$type<'waiting' | 'called' | 'in_consult' | 'done' | 'left'>().notNull(),
     checked_in_at: ms('checked_in_at').notNull(),
     called_at: ms('called_at'),
@@ -141,7 +143,7 @@ export const consultation = pgTable('consultation', {
   created_at: ms('created_at').notNull(),
   chief_complaint: text().notNull(),
   treatment_notes: text().notNull(),
-  vitals: jsonb().$type<{ bp?: string; temperature?: string; pulse?: string; weight?: string }>(),
+  vitals: jsonb().$type<{ bp?: string; temperature?: string; pulse?: string; respiration?: string; height?: string; weight?: string }>(),
   correction_of: text(),
 })
 

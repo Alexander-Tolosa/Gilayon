@@ -1,13 +1,12 @@
-import { Bell, ChartBar, CheckCircle, ClipboardText, FileText, Megaphone, Play, UsersThree, Warning } from '@phosphor-icons/react'
+import { Bell, CheckCircle, ClipboardText, FileText, Megaphone, Play, UsersThree, Warning } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, TicketNo } from '../components/ClinicComponents'
-import { censusFor } from '../lib/census'
 import { useT } from '../lib/i18n'
 import { unreadActivity } from '../lib/activity'
-import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel, todayKey } from '../lib/helpers'
+import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel } from '../lib/helpers'
 import { useClinic } from '../store/store'
 import { TicketRow, useNow, useToday } from './QueueBoard'
 
@@ -28,7 +27,6 @@ export default function DoctorQueue() {
   const news = unreadActivity(data, me?.staff_id ?? '')
   // Pending items prepared for this doctor: drafts waiting for a PIN signature.
   const drafts = data.prescriptions.filter((r) => r.status === 'draft' && r.doctor_id === me?.staff_id).length + data.documents.filter((d) => d.status === 'draft' && d.doctor_id === me?.staff_id).length
-  const census = censusFor(data.tickets, todayKey())
   const stats: { to: string; label: string; value: number; hint: string; icon: Icon; alert?: boolean }[] = [
     { to: '/clinic/queue', label: 'Waiting for you', value: mine.length, hint: 'Queue board', icon: UsersThree },
     { to: '/clinic/documents', label: 'Drafts to sign', value: drafts, hint: drafts ? 'Sign with your PIN' : 'Nothing to sign', icon: FileText, alert: drafts > 0 },
@@ -44,67 +42,6 @@ export default function DoctorQueue() {
   return (
     <div>
       <PageTitle title={t('My queue')} sub={`${me?.name} · ${me?.room} · ${services.map((s) => t(s)).join(', ')} · ${seenToday} ${t('seen today')}`} />
-
-      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {stats.map((st) => (
-          <Link key={st.label} to={st.to} className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 sm:p-5">
-            <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${st.alert ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>
-              <st.icon size={24} weight="fill" />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[2rem] font-semibold leading-none tabular">{st.value}</span>
-              <span className="mt-1 block break-words text-[15px] font-medium text-ink">{st.label}</span>
-              <span className="block break-words text-sm text-muted group-hover:text-brand-700">{st.hint}</span>
-            </span>
-          </Link>
-        ))}
-      </div>
-
-      <Link to="/clinic/report" className="mb-5 flex flex-col gap-3 rounded-3xl border border-line bg-surface p-4 shadow-soft transition hover:border-brand-300 sm:flex-row sm:items-center sm:p-5">
-        <span className="flex items-center gap-2 text-base font-semibold sm:w-36">
-          <ChartBar size={22} weight="fill" className="text-brand-600" /> Census
-        </span>
-        <span className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
-          {census.map((c) => (
-            <span key={c.period} className="rounded-2xl bg-canvas px-4 py-2.5">
-              <span className="block text-sm text-muted">{c.period === 'Day' ? 'Today' : `This ${c.period.toLowerCase()}`}</span>
-              <span className="block text-lg font-semibold tabular">
-                {c.visits} <span className="text-sm font-normal text-muted">visits</span>
-              </span>
-              <span className="block text-sm text-muted tabular">{c.patients} patients</span>
-            </span>
-          ))}
-        </span>
-      </Link>
-
-      {news.length > 0 && (
-        <Card className="mb-5 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="flex items-center gap-2 text-lg font-semibold">
-              <Bell size={22} weight="fill" className="text-brand-600" /> {news.length} new {news.length === 1 ? 'change' : 'changes'} since you last looked
-            </p>
-            <div className="flex items-center gap-2">
-              <Link to="/clinic/audit" className="text-[15px] font-semibold text-brand-700 hover:underline">
-                Open audit trail
-              </Link>
-              <Button variant="secondary" onClick={() => void markAuditSeen(Math.max(...news.map((a) => a.logged_at)))}>
-                Mark all as seen
-              </Button>
-            </div>
-          </div>
-          <ul className="mt-3 flex flex-col gap-1.5">
-            {news.slice(0, 5).map((a) => (
-              <li key={a.log_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-canvas px-4 py-2 text-[15px]">
-                <span className="min-w-0">
-                  {a.summary} <span className="text-muted">· {staffById(a.staff_id)?.name ?? 'System'}</span>
-                </span>
-                <span className="text-sm text-muted tabular">{fmtStampOf(a.logged_at)}</span>
-              </li>
-            ))}
-          </ul>
-          {news.length > 5 && <p className="mt-2 text-sm text-muted">and {news.length - 5} more in the audit trail.</p>}
-        </Card>
-      )}
 
       {current.length > 0 && (
         <div className="mb-5 flex flex-col gap-3">
@@ -141,6 +78,21 @@ export default function DoctorQueue() {
                   {t('Waiting')} {fmtMinutes(minutesBetween(next.checked_in_at, now))}
                 </span>
               </p>
+              {next.vitals && Object.values(next.vitals).some(Boolean) && (
+                <p className="mt-2 text-base text-ink-2">
+                  <b className="text-ink">{t('Vital signs')}:</b>{' '}
+                  {[
+                    next.vitals.bp && `BP ${next.vitals.bp}`,
+                    next.vitals.temperature && `${next.vitals.temperature} °C`,
+                    next.vitals.pulse && `PR ${next.vitals.pulse}`,
+                    next.vitals.respiration && `RR ${next.vitals.respiration}`,
+                    next.vitals.height && `${next.vitals.height} cm`,
+                    next.vitals.weight && `${next.vitals.weight} kg`,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+              )}
               {allergies.length > 0 && (
                 <p className="mt-2 flex items-center gap-1.5 text-base font-semibold text-danger">
                   <Warning size={18} weight="fill" /> Allergic to {allergies.map((a) => a.substance).join(', ')}
@@ -168,11 +120,55 @@ export default function DoctorQueue() {
       <h2 className="mb-3 text-xl font-semibold">
         {t('Waiting')} ({mine.length})
       </h2>
-      <ul className="flex flex-col gap-3">
+      <ul className="mb-8 flex flex-col gap-3">
         {mine.map((tk, i) => (
           <TicketRow key={tk.ticket_id} ticket={tk} now={now} position={i + 1} />
         ))}
       </ul>
+
+      <div className="mb-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+        {stats.map((st) => (
+          <Link key={st.label} to={st.to} className="group flex items-center gap-4 rounded-3xl border border-line bg-surface p-4 shadow-soft transition hover:-translate-y-0.5 hover:border-brand-300 sm:p-5">
+            <span className={`grid size-12 shrink-0 place-items-center rounded-2xl ${st.alert ? 'bg-brand-600 text-white' : 'bg-brand-50 text-brand-700'}`}>
+              <st.icon size={24} weight="fill" />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[2rem] font-semibold leading-none tabular">{st.value}</span>
+              <span className="mt-1 block break-words text-[15px] font-medium text-ink">{st.label}</span>
+              <span className="block break-words text-sm text-muted group-hover:text-brand-700">{st.hint}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      {news.length > 0 && (
+        <Card className="mb-5 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-lg font-semibold">
+              <Bell size={22} weight="fill" className="text-brand-600" /> {news.length} new {news.length === 1 ? 'change' : 'changes'} since you last looked
+            </p>
+            <div className="flex items-center gap-2">
+              <Link to="/clinic/audit" className="text-[15px] font-semibold text-brand-700 hover:underline">
+                Open audit trail
+              </Link>
+              <Button variant="secondary" onClick={() => void markAuditSeen(Math.max(...news.map((a) => a.logged_at)))}>
+                Mark all as seen
+              </Button>
+            </div>
+          </div>
+          <ul className="mt-3 flex flex-col gap-1.5">
+            {news.slice(0, 5).map((a) => (
+              <li key={a.log_id} className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl bg-canvas px-4 py-2 text-[15px]">
+                <span className="min-w-0">
+                  {a.summary} <span className="text-muted">· {staffById(a.staff_id)?.name ?? 'System'}</span>
+                </span>
+                <span className="text-sm text-muted tabular">{fmtStampOf(a.logged_at)}</span>
+              </li>
+            ))}
+          </ul>
+          {news.length > 5 && <p className="mt-2 text-sm text-muted">and {news.length - 5} more in the audit trail.</p>}
+        </Card>
+      )}
     </div>
   )
 }

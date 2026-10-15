@@ -287,7 +287,7 @@ export function buildSeed(): ClinicData {
       created_at: created,
       chief_complaint: tpl.complaint,
       treatment_notes: tpl.notes,
-      vitals: tpl.service === 'Dental' ? undefined : { bp: `${between(110, 150)}/${between(70, 95)}`, temperature: `${(36.4 + rand() * 1.6).toFixed(1)}`, pulse: `${between(68, 98)}`, weight: `${between(48, 88)}` },
+      vitals: tpl.service === 'Dental' ? undefined : { bp: `${between(110, 150)}/${between(70, 95)}`, temperature: `${(36.4 + rand() * 1.6).toFixed(1)}`, pulse: `${between(68, 98)}`, respiration: `${between(14, 20)}`, height: `${between(150, 182)}`, weight: `${between(48, 88)}` },
     }
     consultations.push(consult)
     diagnoses.push({ diagnosis_id: id('dx'), consultation_id: consult.consultation_id, ...tpl.diagnosis })
