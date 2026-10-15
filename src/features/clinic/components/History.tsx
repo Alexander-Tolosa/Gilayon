@@ -17,7 +17,7 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
   const { data, staffById } = useClinic()
   const consults = data.consultations.filter((c) => c.patient_id === patientId).sort((a, b) => b.created_at - a.created_at)
   if (!consults.length)
-    return <p className="rounded-2xl bg-canvas p-5 text-base text-ink-2">No digital consultations yet. Older visits are in the paper folder; see Old paper records.</p>
+    return <p className="rounded-2xl bg-canvas p-5 text-base text-ink-2">{t('No digital consultations yet. Older visits are in the paper folder; see Old paper records.')}</p>
   return (
     <ol className="flex flex-col gap-3">
       {consults.map((c) => {
@@ -32,7 +32,7 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-lg font-semibold">
-                  {c.correction_of && <span className="mr-2 rounded-full bg-brand-600 px-2.5 py-0.5 text-sm font-semibold text-white">Correction</span>}
+                  {c.correction_of && <span className="mr-2 rounded-full bg-brand-600 px-2.5 py-0.5 text-sm font-semibold text-white">{t('Correction')}</span>}
                   {c.chief_complaint}
                 </p>
                 <p className="text-[15px] text-muted">
@@ -102,7 +102,7 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
                   <li key={l.lab_id} className="flex flex-wrap items-center gap-2 text-[15px]">
                     <Flask size={18} className="text-brand-600" />
                     <span className="font-medium">{l.test_name}</span>
-                    {l.status === 'resulted' ? <span className="text-ink-2">{l.result}</span> : <Badge tone="warn">Waiting for result</Badge>}
+                    {l.status === 'resulted' ? <span className="text-ink-2">{l.result}</span> : <Badge tone="warn">{t('Waiting for result')}</Badge>}
                   </li>
                 ))}
               </ul>

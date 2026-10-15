@@ -162,7 +162,7 @@ export default function DoctorQueue() {
         ) : (
           <p className="p-8 text-center text-xl text-ink-2">{t('No one is waiting')}</p>
         )}
-        {!online && <p className="border-t border-line bg-danger-soft px-6 py-3 text-base text-danger">Offline: calling patients needs the clinic server. You can still open records you opened recently.</p>}
+        {!online && <p className="border-t border-line bg-danger-soft px-6 py-3 text-base text-danger">{t('Offline: calling patients needs the clinic server. You can still open records you opened recently.')}</p>}
       </Card>
 
       <h2 className="mb-3 text-xl font-semibold">

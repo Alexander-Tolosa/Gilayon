@@ -55,7 +55,7 @@ export default function AuditTrail() {
     <div>
       <PageTitle
         title={t('Audit trail')}
-        sub="Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge."
+        sub={t('Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge.')}
         actions={
           <>
             <Button variant="secondary" size="lg" icon={<Checks size={20} />} disabled={unread.size === 0} onClick={() => void markAuditSeen(Math.max(...data.audit.map((a) => a.logged_at)))}>
@@ -93,15 +93,15 @@ export default function AuditTrail() {
         ))}
       </div>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by patient, document no. or action" className="h-12 text-base sm:max-w-md" />
-        <select value={staff} onChange={(e) => setStaff(e.target.value)} aria-label="Staff" className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-base">
-          <option value="all">All staff</option>
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Search by patient, document no. or action')} className="h-12 text-base sm:max-w-md" />
+        <select value={staff} onChange={(e) => setStaff(e.target.value)} aria-label={t('Staff')} className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-base">
+          <option value="all">{t('All staff')}</option>
           {data.staff.map((s) => (
             <option key={s.staff_id} value={s.staff_id}>
               {s.name}
             </option>
           ))}
-          <option value="system">System</option>
+          <option value="system">{t('System')}</option>
         </select>
       </div>
       <Card className="overflow-hidden">
@@ -138,7 +138,7 @@ export default function AuditTrail() {
             </Button>
           </div>
         )}
-        {rows.length === 0 && <p className="p-8 text-center text-lg text-ink-2">No entries.</p>}
+        {rows.length === 0 && <p className="p-8 text-center text-lg text-ink-2">{t('No entries.')}</p>}
         {rows.length <= limit && (
           <div className="flex flex-col items-center gap-1 border-t border-line p-4 text-center">
             {olderDone ? (
@@ -162,7 +162,7 @@ export default function AuditTrail() {
                 >
                   {busy === 'older' ? 'Loading…' : 'Load older entries from the server'}
                 </Button>
-                <p className="text-sm text-muted">Filters and search apply to the entries loaded so far.</p>
+                <p className="text-sm text-muted">{t('Filters and search apply to the entries loaded so far.')}</p>
               </>
             )}
           </div>

@@ -44,7 +44,7 @@ export default function Settings() {
         </Card>
 
         <Card className="p-6">
-          <p className="text-lg font-semibold">My signature</p>
+          <p className="text-lg font-semibold">{t('My signature')}</p>
           <p className="text-[15px] text-muted">Applied to documents you sign with your PIN, next to your license and PTR numbers.</p>
           <div className="mt-4 rounded-2xl bg-canvas p-4">
             <p className="text-sm text-muted">Current</p>
@@ -66,10 +66,10 @@ export default function Settings() {
               toast({ tone: 'ok', title: 'PIN changed' })
             }}
           >
-            <Field label="Current PIN">
+            <Field label={t('Current PIN')}>
               <Input type="password" inputMode="numeric" maxLength={4} value={pin.current} onChange={(e) => setPin({ ...pin, current: e.target.value })} className="h-12 text-base" />
             </Field>
-            <Field label="New PIN">
+            <Field label={t('New PIN')}>
               <Input type="password" inputMode="numeric" maxLength={4} value={pin.next} onChange={(e) => setPin({ ...pin, next: e.target.value })} className="h-12 text-base" />
             </Field>
             <Button type="submit" size="lg" icon={<LockKey size={18} />}>
@@ -79,8 +79,8 @@ export default function Settings() {
         </Card>
 
         <Card className="p-6">
-          <p className="text-lg font-semibold">My password</p>
-          <p className="mb-4 text-[15px] text-muted">Used to sign in. Your signing PIN above is separate.</p>
+          <p className="text-lg font-semibold">{t('My password')}</p>
+          <p className="mb-4 text-[15px] text-muted">{t('Used to sign in. Your signing PIN above is separate.')}</p>
           <ChangePasswordForm />
         </Card>
 
@@ -127,7 +127,7 @@ export default function Settings() {
           </>
         }
       >
-        <p className="text-base text-ink-2">You will stay signed in.</p>
+        <p className="text-base text-ink-2">{t('You will stay signed in.')}</p>
       </Modal>
     </div>
   )
