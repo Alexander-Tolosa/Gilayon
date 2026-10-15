@@ -45,7 +45,7 @@ describe('creating a backup', () => {
   it('writes one verified, encrypted file with every table and the scanned pages', async () => {
     expect(first.ok).toBe(true)
     expect(existsSync(path.join(BK, first.file))).toBe(true)
-    expect(first.file).toMatch(/^himsog-\d{8}-\d{6}\.hbk$/)
+    expect(first.file).toMatch(/^gilayon-\d{8}-\d{6}\.hbk$/)
     expect(first.tables.patient).toBe(snapCounts.patients)
     expect(first.tables.document).toBe(snapCounts.documents)
     expect(first.scans).toBe(1)
@@ -115,7 +115,18 @@ describe('keeping backups tidy', () => {
     const dir = tmp('keep')
     for (let d = 1; d <= 5; d++) await createBackup(db, cfg({ dir, keep: 3 }), { date: new Date(2026, 1, d, 2, 0, 0) })
     const names = (await listBackups(dir)).map((f) => f.name)
-    expect(names).toEqual(['himsog-20260205-020000.hbk', 'himsog-20260204-020000.hbk', 'himsog-20260203-020000.hbk'])
+    expect(names).toEqual(['gilayon-20260205-020000.hbk', 'gilayon-20260204-020000.hbk', 'gilayon-20260203-020000.hbk'])
+  })
+
+  it('still lists and prunes archives made under the old himsog- name, newest first by time', async () => {
+    const db = await getDb()
+    const dir = tmp('legacy')
+    writeFileSync(path.join(dir, 'himsog-20260101-020000.hbk'), 'old')
+    writeFileSync(path.join(dir, 'himsog-20260102-020000.hbk'), 'old')
+    await createBackup(db, cfg({ dir, keep: 3 }), { date: new Date(2026, 0, 3, 2, 0, 0) })
+    await createBackup(db, cfg({ dir, keep: 3 }), { date: new Date(2026, 0, 4, 2, 0, 0) })
+    const names = (await listBackups(dir)).map((f) => f.name)
+    expect(names).toEqual(['gilayon-20260104-020000.hbk', 'gilayon-20260103-020000.hbk', 'himsog-20260102-020000.hbk'])
   })
 
   it('copies to the off-site folder, and says so when that copy fails', async () => {

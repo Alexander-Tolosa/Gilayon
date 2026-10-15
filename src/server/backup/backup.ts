@@ -67,7 +67,9 @@ export function configProblem(c: BackupConfig): string | null {
   return null
 }
 
-const NAME = /^himsog-\d{8}-\d{6}\.hbk$/
+// New backups are named gilayon-*; archives made before the rename (himsog-*) are still listed, verified,
+// restored and counted for retention, so a running install keeps its history.
+const NAME = /^(?:gilayon|himsog)-(\d{8}-\d{6})\.hbk$/
 const stamp = (d = new Date()) => {
   const p = (n: number, w = 2) => String(n).padStart(w, '0')
   return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`
@@ -77,7 +79,9 @@ export async function listBackups(dir: string): Promise<BackupFile[]> {
   try {
     const names = (await fsp.readdir(dir)).filter((n) => NAME.test(n))
     const out = await Promise.all(names.map(async (name) => ({ name, bytes: (await fsp.stat(path.join(dir, name))).size, modified: (await fsp.stat(path.join(dir, name))).mtimeMs })))
-    return out.sort((a, b) => b.name.localeCompare(a.name))
+    // Newest first by timestamp, whichever prefix a file has.
+    const when = (n: string) => NAME.exec(n)?.[1] ?? ''
+    return out.sort((a, b) => when(b.name).localeCompare(when(a.name)) || b.name.localeCompare(a.name))
   } catch {
     return []
   }
@@ -123,7 +127,7 @@ export async function createBackup(db: Db, cfg: BackupConfig = backupConfig(), o
   const problem = configProblem(cfg)
   if (problem) throw new Error(problem)
   const at = opts.date?.getTime() ?? nowMs()
-  const name = `himsog-${stamp(opts.date)}.hbk`
+  const name = `gilayon-${stamp(opts.date)}.hbk`
   const partial = path.join(cfg.dir, `${name}.partial`)
   const final = path.join(cfg.dir, name)
   let w: ArchiveWriter | undefined
@@ -137,7 +141,7 @@ export async function createBackup(db: Db, cfg: BackupConfig = backupConfig(), o
     const scansDir = path.join(cfg.uploadsDir, 'scans')
     const scanFiles = await fsp.readdir(scansDir).catch(() => [] as string[])
     for (const f of scanFiles.sort()) await w.addFile(`uploads/scans/${f}`, path.join(scansDir, f))
-    await w.finish({ created_at: at, encrypted: !!cfg.passphrase, app: 'himsog', tables })
+    await w.finish({ created_at: at, encrypted: !!cfg.passphrase, app: 'gilayon', tables })
     // Read it back before trusting it.
     const check = await readArchive(partial, cfg.passphrase)
     if (check.problems.length) throw new Error(`The new backup did not verify: ${check.problems.join('; ')}`)

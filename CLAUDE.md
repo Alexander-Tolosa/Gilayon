@@ -42,7 +42,7 @@ Migrations run automatically at startup (`src/server/db.ts`); never edit an appl
 ## Conventions that are easy to get wrong
 
 - Tests share one process and DB: `vitest.config.ts` sets `fileParallelism: false`; each file sets `process.env.PGLITE_DIR = 'memory://'` before importing server code and seeds itself.
-- Several identifiers still say `himsog` on purpose (`HIMSOG_AUTO_SEED`, `HIMSOG_ALLOW_RESET`, `HIMSOG_HOSTNAMES`, `certs/himsog-ca.*`, `himsog-*` storage keys, `himsog-` backup prefix, `himsog_*` trigger names). Renaming them breaks running installs; do it only with a fallback that still reads the old name.
+- Several identifiers still say `himsog` on purpose (`HIMSOG_AUTO_SEED`, `HIMSOG_ALLOW_RESET`, `HIMSOG_HOSTNAMES`, `certs/himsog-ca.*`, `himsog-*` storage keys, `himsog_*` trigger names; backups are now `gilayon-*.hbk` but old `himsog-*.hbk` are still read). Renaming them breaks running installs; do it only with a fallback that still reads the old name.
 - Never commit `certs/`, `*.key`, `*.pem`, `.env`, `.data/`, `uploads/`, `backups/`, `*.hbk`, `*.csv`. `BACKUP_PASSPHRASE` must never be lost or logged.
 - Demo scaffolding (seeded staff with `demo-password`, "Try the demo" chips, "synthetic demo data" footers) is still present and must be removed before real data; see `docs/REMAINING-WORK.md`.
 - `.agents/`, `.claude/`, `.gstack/`, `.impeccable/` and `skills-lock.json` are agent tooling, not app code.
