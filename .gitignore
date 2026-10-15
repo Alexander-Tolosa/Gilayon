@@ -97,3 +97,6 @@ certs/
 # Playwright end-to-end test output
 /test-results/
 /playwright-report/
+
+# Archify diagram outputs (generated; regenerate with the archify skill)
+.archify/
