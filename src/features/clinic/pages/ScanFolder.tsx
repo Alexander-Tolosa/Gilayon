@@ -1,13 +1,13 @@
 import { Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link } from 'react-router-dom'
-import { Badge, Button, Card, Field, Input, Tabs, useToast } from '../../../shared/components/ui'
+import { Badge, Button, Card, Field, IconButton, Input, Select, Tabs, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
 import { CameraCapture } from '../components/CameraCapture'
 import type { PendingScan, RecognitionMetrics, ScanField, ScanReading } from '../api-types'
-import { compressImage, fmtDay } from '../lib/helpers'
+import { compressImage, fmtDay, todayKey } from '../lib/helpers'
 import { useClinic } from '../store/store'
 
 /*
@@ -22,12 +22,12 @@ const SAMPLES = [
   { file: 'sample-villanueva-photo', label: 'Villanueva (tilted phone photo)' },
 ]
 
-const GROUPS: { key: ScanField['group']; title: string }[] = [
-  { key: 'identity', title: 'Patient details' },
-  { key: 'allergy', title: 'Allergies' },
-  { key: 'family', title: 'Family history' },
-  { key: 'medicines', title: 'Regular medicines' },
-  { key: 'visit', title: 'Last visits' },
+const GROUPS: { key: ScanField['group']; title: string; one: string }[] = [
+  { key: 'identity', title: 'Patient details', one: 'Detail' },
+  { key: 'allergy', title: 'Allergies', one: 'Allergy' },
+  { key: 'family', title: 'Family history', one: 'Family history' },
+  { key: 'medicines', title: 'Regular medicines', one: 'Regular medicines' },
+  { key: 'visit', title: 'Last visits', one: 'Visit' },
 ]
 const EXTRA_KEYS: Record<string, string> = { allergy: 'allergy_', family: 'family_', visit: 'visit_' }
 
@@ -147,6 +147,18 @@ function Scanner({ onDone }: { onDone: () => void }) {
     const res = await fetch(`/forms/${file}.png`)
     await read(await compressImage(new File([await res.blob()], `${file}.png`, { type: 'image/png' }), 2000, 0.85))
   }
+
+  /* What the clinic has typed before, offered while correcting a line. */
+  const suggestions = useMemo(() => {
+    const uniq = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))].sort().slice(0, 60)
+    return {
+      allergy: uniq(data.allergies.map((a) => `${a.substance} - ${a.reaction} - ${a.severity.toUpperCase()}`)),
+      family: uniq(data.familyHistory.map((f) => `${f.relative.toUpperCase()} - ${f.condition.toUpperCase()}`)),
+      visit: uniq(data.consultations.map((c) => c.chief_complaint.toUpperCase())),
+      medicines: [] as string[],
+      identity: [] as string[],
+    } satisfies Record<ScanField['group'], string[]>
+  }, [data.allergies, data.familyHistory, data.consultations])
 
   const hits = useMemo(() => (q.trim().length > 1 ? search(q, 6).filter((h) => h.patient) : []), [q, search])
   const chosen = patient(patientId)
@@ -404,10 +416,32 @@ function Scanner({ onDone }: { onDone: () => void }) {
                     <div className="mt-2 flex flex-col gap-3">
                       {fs.length === 0 && added.length === 0 && <p className="text-sm text-muted">None read from the form.</p>}
                       {fs.map((f) => (
-                        <FieldRow key={f.key} label={f.label} field={f} value={values[f.key] ?? ''} onChange={(v) => setValues((s) => ({ ...s, [f.key]: v }))} />
+                        <FieldRow
+                          key={f.key}
+                          label={f.label}
+                          field={f}
+                          value={values[f.key] ?? ''}
+                          suggest={suggestions[f.group]}
+                          onChange={(v) => setValues((s) => ({ ...s, [f.key]: v }))}
+                          // Clearing a line the machine read is a correction, so it is kept and counted as one.
+                          onRemove={EXTRA_KEYS[g.key] && values[f.key] ? () => setValues((s) => ({ ...s, [f.key]: '' })) : undefined}
+                        />
                       ))}
-                      {added.map((k) => (
-                        <FieldRow key={k} label="Added by you" value={values[k]} onChange={(v) => setValues((s) => ({ ...s, [k]: v }))} />
+                      {added.map((k, i) => (
+                        <FieldRow
+                          key={k}
+                          label={`${g.one} ${fs.length + i + 1}, added by you`}
+                          group={g.key}
+                          value={values[k]}
+                          suggest={suggestions[g.key]}
+                          onChange={(v) => setValues((s) => ({ ...s, [k]: v }))}
+                          onRemove={() =>
+                            setValues((s) => {
+                              const { [k]: _gone, ...rest } = s
+                              return rest
+                            })
+                          }
+                        />
                       ))}
                     </div>
                     {extraRow(g.key)}
@@ -431,17 +465,91 @@ function Scanner({ onDone }: { onDone: () => void }) {
   )
 }
 
-function FieldRow({ label, field, value, onChange }: { label: string; field?: ScanField; value: string; onChange: (v: string) => void }) {
+/* Typing a correction should be quicker than typing the whole thing: each field offers what it can. */
+const SEXES = ['Female', 'Male']
+const CIVIL = ['Single', 'Married', 'Widowed', 'Separated']
+const HINTS: Record<string, { placeholder?: string; hint?: string; mode?: 'numeric' }> = {
+  folder: { placeholder: 'F-2004-0181', hint: 'The number on the paper folder.' },
+  full_name: { placeholder: 'Given name, middle name, surname' },
+  contact: { placeholder: '0917 482 1093', hint: 'Mobile as 09XX XXX XXXX, or +63 917 482 1093.', mode: 'numeric' },
+  philhealth_pin: { placeholder: '12-345678901-2', hint: 'Twelve digits.', mode: 'numeric' },
+  medicines: { placeholder: 'AMLODIPINE 5MG ONCE DAILY, …' },
+}
+const GROUP_HINTS: Record<string, { placeholder: string; hint: string }> = {
+  allergy: { placeholder: 'PENICILLIN - RASH - MODERATE', hint: 'Substance - reaction - severity.' },
+  family: { placeholder: 'MOTHER - HYPERTENSION', hint: 'Relative - condition.' },
+  visit: { placeholder: '2025-11-04 - BACK PAIN', hint: 'Date - complaint.' },
+}
+
+function FieldRow({
+  label,
+  field,
+  group,
+  value,
+  suggest,
+  onChange,
+  onRemove,
+}: {
+  label: string
+  field?: ScanField
+  group?: ScanField['group']
+  value: string
+  suggest?: string[]
+  onChange: (v: string) => void
+  onRemove?: () => void
+}) {
+  const key = field?.key ?? ''
+  const kind = field?.group ?? group
   const flagged = field?.review
+  // Flag a field only while it still holds exactly what the machine read: once corrected, it is settled.
+  const unchecked = flagged && value === field?.value
+  const listId = useId()
+  const hint = HINTS[key] ?? (kind && kind !== 'identity' ? GROUP_HINTS[kind] : undefined)
+  const box = cn('h-12 flex-1 text-base', unchecked && 'border-warn bg-warn-soft')
+  const options = key === 'sex' ? SEXES : key === 'civil_status' ? CIVIL : null
+
   return (
-    <Field label={label} className="w-full">
+    <Field label={label} hint={hint?.hint} className="w-full">
       <div className="flex items-center gap-3">
-        <Input value={value} onChange={(e) => onChange(e.target.value)} invalid={flagged && value === field?.value} className={cn('h-12 flex-1 text-base', flagged && value === field?.value && 'border-warn bg-warn-soft')} />
+        {options ? (
+          <Select value={options.includes(value) ? value : ''} onChange={(e) => onChange(e.target.value)} className={box}>
+            <option value="">Not on the form</option>
+            {options.map((o) => (
+              <option key={o}>{o}</option>
+            ))}
+          </Select>
+        ) : key === 'birthdate' ? (
+          <Input type="date" max={todayKey()} value={/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''} onChange={(e) => onChange(e.target.value)} className={box} />
+        ) : (
+          <>
+            <Input
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              invalid={unchecked}
+              placeholder={hint?.placeholder}
+              inputMode={HINTS[key]?.mode}
+              list={suggest?.length ? listId : undefined}
+              className={box}
+            />
+            {suggest?.length ? (
+              <datalist id={listId}>
+                {suggest.map((s) => (
+                  <option key={s} value={s} />
+                ))}
+              </datalist>
+            ) : null}
+          </>
+        )}
         {field && (
-          <span className={cn('w-24 shrink-0 text-right text-sm tabular', tone(field.confidence, field.review))} title={field.raw ? `OCR read: ${field.raw}` : 'Not found on the form'}>
+          <span className={cn('w-20 shrink-0 text-right text-sm tabular', tone(field.confidence, field.review))} title={field.raw ? `OCR read: ${field.raw}` : 'Not found on the form'}>
             {field.review ? 'Check · ' : ''}
             {field.confidence}%
           </span>
+        )}
+        {onRemove && (
+          <IconButton label={`Remove ${label}`} onClick={onRemove} className="shrink-0 text-muted hover:text-danger">
+            <Trash size={18} />
+          </IconButton>
         )}
       </div>
       {field?.note && value === field.value && <p className="mt-1 text-sm text-brand-700">{field.note}</p>}

@@ -309,9 +309,9 @@ test.describe('scanning an old folder', () => {
     // The patient was found from the form itself, and the fields came out of the page.
     await expect(page.getByText('Maria Lourdes Villanueva').first()).toBeVisible()
     await expect(page.getByText(/Matched by name and birthdate/)).toBeVisible()
-    const birthdate = page.getByRole('textbox', { name: 'Birthdate' })
-    await expect(birthdate).toHaveValue('1968-03-18')
-    await expect(page.getByRole('textbox', { name: 'Allergy 1' })).toHaveValue(/PENICILLIN/)
+    await expect(page.getByLabel('Birthdate', { exact: true })).toHaveValue('1968-03-18')
+    await expect(page.getByLabel('Sex', { exact: true })).toHaveValue('Female')
+    await expect(page.getByLabel('Allergy 1', { exact: true })).toHaveValue(/PENICILLIN/)
 
     // Nothing reaches the record until a person says so.
     await page.getByRole('button', { name: /I checked every field/ }).click()
@@ -324,16 +324,25 @@ test.describe('scanning an old folder', () => {
     await expect(page.getByText(/%$/).first()).toBeVisible()
   })
 
-  test('a correction is kept, and the camera explains itself when there is none', async ({ page, browserName }) => {
-    test.skip(browserName !== 'chromium', 'camera flags are set for chromium only')
+  test('a correction is kept, and a line can be added or taken away', async ({ page }) => {
     await signIn(page, 'desk')
     await page.goto('/clinic/scan')
     await page.getByRole('button', { name: 'Dela Cruz (2 allergies)' }).click()
     await expect(page.getByText(/Read in \d/)).toBeVisible({ timeout: 60_000 })
 
-    const contact = page.getByRole('textbox', { name: 'Contact no.' })
-    await contact.fill('0919 554 2299')
+    await page.getByLabel('Contact no.', { exact: true }).fill('0919 554 2299')
     await expect(page.getByText('1 corrected so far')).toBeVisible()
+
+    // A line the machine missed can be added, and taken away again.
+    await page.getByRole('button', { name: '+ Add a line the machine missed' }).first().click()
+    const added = page.getByLabel('Allergy 3, added by you', { exact: true })
+    await expect(added).toBeVisible()
+    await page.getByRole('button', { name: 'Remove Allergy 3, added by you' }).click()
+    await expect(added).toBeHidden()
+
+    // Clearing a line the machine read counts as a correction rather than disappearing silently.
+    await page.getByRole('button', { name: 'Remove Allergy 2' }).click()
+    await expect(page.getByText('2 corrected so far')).toBeVisible()
 
     await page.getByRole('button', { name: /I checked every field/ }).click()
     await expect(page.getByText('Saved to the record')).toBeVisible({ timeout: 30_000 })
