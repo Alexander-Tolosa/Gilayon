@@ -1,4 +1,4 @@
-import { ArrowDown, DownloadSimple, Checks, FileCsv } from '@phosphor-icons/react'
+import { ArrowDown, DownloadSimple, FileCsv } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Button, Card, Chip, Input, useToast } from '../../../shared/components/ui'
@@ -28,7 +28,7 @@ const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok',
 export default function AuditTrail() {
   const t = useT()
   const toast = useToast()
-  const { data, staffById, me, markAuditSeen, fetchAuditPage, exportAudit, online } = useClinic()
+  const { data, staffById, me, fetchAuditPage, exportAudit, online } = useClinic()
   // The snapshot carries the newest entries; older pages are fetched from the server on request.
   const [older, setOlder] = useState<AuditLog[]>([])
   const [olderDone, setOlderDone] = useState(false)
@@ -57,32 +57,30 @@ export default function AuditTrail() {
         title={t('Audit trail')}
         sub={t('Who created, edited, signed or voided each record, and when. Reviewed by the doctor in charge.')}
         actions={
-          <>
-            <Button variant="secondary" size="lg" icon={<Checks size={20} />} disabled={unread.size === 0} onClick={() => void markAuditSeen(Math.max(...data.audit.map((a) => a.logged_at)))}>
-              {unread.size ? `Mark ${unread.size} as seen` : 'All seen'}
+          // The two exports sit side by side on one row, the same height (they may wrap only on a phone).
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={<DownloadSimple size={20} />}
+              onClick={() => downloadCSV('gilayon-audit-trail-view.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
+            >
+              Export this view
             </Button>
-          <Button
-            variant="secondary"
-            size="lg"
-            icon={<DownloadSimple size={20} />}
-            onClick={() => downloadCSV('gilayon-audit-trail-view.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
-          >
-            Export this view
-          </Button>
-          <Button
-            size="lg"
-            icon={<FileCsv size={20} />}
-            disabled={!online || busy !== null}
-            onClick={async () => {
-              setBusy('export')
-              const problem = await exportAudit()
-              setBusy(null)
-              toast(problem ? { tone: 'warn', title: problem } : { tone: 'ok', title: 'Full audit trail downloaded', body: 'The export is recorded in the audit trail.' })
-            }}
-          >
-            {busy === 'export' ? 'Preparing…' : 'Export full log'}
-          </Button>
-          </>
+            <Button
+              size="lg"
+              icon={<FileCsv size={20} />}
+              disabled={!online || busy !== null}
+              onClick={async () => {
+                setBusy('export')
+                const problem = await exportAudit()
+                setBusy(null)
+                toast(problem ? { tone: 'warn', title: problem } : { tone: 'ok', title: 'Full audit trail downloaded', body: 'The export is recorded in the audit trail.' })
+              }}
+            >
+              {busy === 'export' ? 'Preparing…' : 'Export full log'}
+            </Button>
+          </div>
         }
       />
       <div className="scrollbar-none mb-3 flex gap-2 overflow-x-auto">

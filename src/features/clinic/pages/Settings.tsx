@@ -10,6 +10,9 @@ import { SecurityCard } from '../components/SecurityCard'
 import { ChangePasswordForm, StaffManager } from '../components/StaffAdmin'
 import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
+import type { CategoryKey } from '../types'
+
+const LANE_ORDER: CategoryKey[] = ['urgent', 'pregnant', 'pwd', 'senior', 'regular']
 
 /** Doctor settings: priority lanes, letterhead, staff, the signature and PIN used to sign, and (demo server only) the demo reset. */
 export default function Settings() {
@@ -28,7 +31,8 @@ export default function Settings() {
           <p className="text-lg font-semibold">{t('Priority lane ranks')}</p>
           <p className="text-[15px] text-muted">{t("Lower rank is called first. Within the same rank, first come, first served. These are the team's suggestion; the clinic should confirm them.")}</p>
           <ul className="mt-4 flex flex-col gap-2">
-            {data.categories.map((c) => (
+            {/* Fixed lane order: the server returns rows in no set order, and an edited row could jump under the cursor. */}
+            {[...data.categories].sort((x, y) => LANE_ORDER.indexOf(x.category_id) - LANE_ORDER.indexOf(y.category_id)).map((c) => (
               <li key={c.category_id} className="flex items-center justify-between rounded-2xl bg-canvas px-4 py-3">
                 <LaneBadge category={c.category_id} />
                 <div className="flex items-center gap-2">
