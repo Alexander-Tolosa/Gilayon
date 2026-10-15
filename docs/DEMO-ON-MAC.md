@@ -92,6 +92,22 @@ A 3B model uses roughly 3 GB of memory while it is working. On an M-series MacBo
 
 To turn it off again for a run: `OLLAMA_DISABLED=1 npm run start:https`.
 
+Measured on an M5 MacBook with 16 GB (60 synthetic forms): this text model made a form take 6 s instead of 1.7 s and changed no field, so it is the first thing to drop if memory or time is tight.
+
+### The handwriting reader (optional, for forms filled in by hand)
+
+A second, separate model that looks at the picture itself. It is used only when someone presses **Read handwriting** on the scan screen, after the normal scan.
+
+```bash
+ollama pull qwen2.5vl:3b        # about 3.2 GB, needs the internet, so do it beforehand
+```
+
+- **Memory:** about 5 GB while it is loaded, on top of the app. On a 16 GB laptop, close other programs, and press the button once during the rehearsal so the model is already loaded on the day.
+- **Time:** about 15 seconds a page (the first read after a restart also loads the model). The screen says it is reading.
+- **What it changes:** where Tesseract was unsure, the model's value is proposed and marked **Check**, with a note saying what Tesseract read. Where Tesseract was sure of a value that has a format (a date, a phone number, a PIN), it keeps it and flags the disagreement. Nothing is saved until the nurse confirms every field.
+- **If the model is missing,** the button is greyed out and says `ollama pull qwen2.5vl:3b`.
+- Turn it off with `OLLAMA_DISABLED=1`, or point it at a different model with `OLLAMA_VISION_MODEL`.
+
 ## 6. The evening before
 
 - [ ] Run through the whole demo once on the Wi-Fi you will use on the day.

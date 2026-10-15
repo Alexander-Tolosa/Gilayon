@@ -1,4 +1,4 @@
-import { ArrowRight, Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
+import { ArrowRight, Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, PencilLine, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link, useLocation } from 'react-router-dom'
@@ -135,6 +135,22 @@ function Scanner({ onDone }: { onDone: () => void }) {
     setValues(Object.fromEntries(out.reading.fields.map((f) => [f.key, f.value])))
     setPatientId(out.reading.match?.patient_id ?? '')
     shownAt.current = clock()
+  }
+
+  /** Asks the local vision model to read the same picture, for handwriting the OCR could not read. It replaces the first reading. */
+  const readHandwriting = async () => {
+    if (!image || !reading) return
+    setBusy(true)
+    setError('')
+    const out = await scanFolderForm(image, { handwriting: true, replaces: reading.event_id })
+    setBusy(false)
+    if (out.error || !out.reading) {
+      setError(out.error ?? 'The handwriting could not be read.')
+      return
+    }
+    setReading(out.reading)
+    setValues(Object.fromEntries(out.reading.fields.map((f) => [f.key, f.value])))
+    setPatientId((p) => p || (out.reading?.match?.patient_id ?? ''))
   }
 
   const onFile = async (files: FileList | null) => {
@@ -382,6 +398,22 @@ function Scanner({ onDone }: { onDone: () => void }) {
                 {flagged > 0 && <Badge tone="warn" icon={<Warning size={14} />}>{flagged} to check</Badge>}
               </div>
               {!reading.llm.available && <p className="mt-2 text-sm text-muted">Language model: {reading.llm.reason}</p>}
+              {!reading.parse_engine.includes('image reader') && !fromQueue && (
+                <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="max-w-prose text-sm text-ink-2">
+                    {busy
+                      ? 'Reading the handwriting on this PC. This takes about half a minute and needs no internet.'
+                      : changed > 0
+                        ? 'Handwriting can only be re-read before you correct anything, so your corrections are not lost.'
+                        : reading.vision.available
+                          ? `Hard to read? ${reading.vision.model} can look at the picture itself. It reads handwriting better, takes about 30 seconds, and every value it changes is marked for you to check.`
+                          : `Handwriting reader: ${reading.vision.reason}`}
+                  </p>
+                  <Button variant="secondary" size="md" className="shrink-0" icon={<PencilLine size={18} />} disabled={busy || changed > 0 || !reading.vision.available} onClick={() => void readHandwriting()}>
+                    {busy ? 'Reading…' : 'Read handwriting'}
+                  </Button>
+                </div>
+              )}
             </Card>
 
             <Card className="p-5">

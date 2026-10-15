@@ -21,7 +21,7 @@ export type ParsedField = {
   confidence: number
   /** True when the value fails its format check or needed the language model. */
   review: boolean
-  source: 'rules' | 'llm' | 'registry'
+  source: 'rules' | 'llm' | 'vision' | 'registry'
   /** Set when the value was changed after reading, and why, so the person verifying can see it. */
   note?: string
 }
@@ -235,6 +235,8 @@ export function parseReading(r: { lines: OcrLine[]; alt: OcrLine[] }): ParsedFie
 
 export type LlmStatus = { available: boolean; model: string; reason?: string }
 const base = () => (process.env.OLLAMA_URL ?? 'http://127.0.0.1:11434').replace(/\/$/, '')
+/** Where Ollama listens; the image reader (vision.ts) talks to the same server. */
+export const ollamaUrl = base
 const model = () => process.env.OLLAMA_MODEL ?? 'llama3.2:3b'
 
 export async function llmStatus(): Promise<LlmStatus> {
@@ -268,6 +270,9 @@ const schema = {
   },
   required: ['folder', 'full_name', 'birthdate', 'sex', 'civil_status', 'contact', 'philhealth_pin', 'allergies', 'family_history', 'medicines', 'visits'],
 }
+
+/** The fields both language readers are asked for, as JSON. */
+export const formSchema = schema
 
 const SYSTEM =
   "You read OCR text from a clinic's old-patient folder form and return JSON. Copy values exactly as written; fix only obvious OCR slips in digits. " +
@@ -324,5 +329,71 @@ export function mergeLlm(fields: ParsedField[], data: Record<string, unknown>): 
   if (med && !/^none$/i.test(med) && !out.some((f) => f.key === 'medicines')) {
     out.push({ key: 'medicines', label: 'Regular medicines', group: 'medicines', raw: '', value: med, confidence: 60, review: true, source: 'llm' })
   }
+  return out
+}
+
+/* ---------------------------------------------------------------- optional image reader (vision model) */
+
+/** Rule values the OCR was this sure of, and that pass their format check, are not replaced by the image reader. */
+const TRUSTED_CONFIDENCE = 85
+const VISION_CONFIDENCE = 70
+/** Any CJK or Hangul character is a slip: the form is English and Filipino only. */
+const FOREIGN = /[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/
+
+/** Same dash and spacing habits as the rule reader, so values compare and display alike. */
+const tidy = (v: string) => clean(v).replace(/\s+[\u2013\u2014~]\s+/g, ' - ')
+
+/**
+ * Folds in what a local vision model read straight from the picture. It reads handwriting far better than
+ * the OCR does, and it can also be wrong, so it never silently wins: where it disagrees with a value the
+ * rules read cleanly, the rule value stays and is flagged; where the rules were unsure or found nothing, the
+ * image reader's value is proposed, always marked for checking, with what the rules saw in the note.
+ * A value that fails its format check, or contains characters that are not on the form, is ignored.
+ */
+export function mergeVision(fields: ParsedField[], data: Record<string, unknown>, model: string): ParsedField[] {
+  const str = (v: unknown) => (typeof v === 'string' ? tidy(v) : '')
+  const same = (a: string, b: string) => alnum(a).toLowerCase() === alnum(b).toLowerCase()
+  // When the rules cannot find the "LAST VISITS" heading they file the visit lines under family history or
+  // allergies. A line the image reader saw as a visit does not belong in those lists, so the misfiled copy goes.
+  const visits = (Array.isArray(data.visits) ? (data.visits as unknown[]) : []).map(str).filter((v) => !isEmpty(v))
+  const out = fields.filter((f) => !((f.group === 'family' || f.group === 'allergy') && visits.some((v) => same(v, f.value)))).map((f) => ({ ...f }))
+  const propose = (key: string, label: string, group: ParsedField['group'], value: string, ok: (v: string) => boolean) => {
+    if (!value || isEmpty(value)) return
+    const f = out.find((x) => x.key === key)
+    if (f?.value && same(f.value, value)) return
+    if (FOREIGN.test(value)) {
+      if (f?.value) f.note = `The image reader (${model}) returned characters that are not on the form, so it was ignored.`
+      return
+    }
+    // Medicines are free text with no format check, so the rules cannot vouch for them however sure the OCR was
+    // ("5MG" read as "sMG" scores high): there the image reader's value is proposed and flagged instead.
+    if (f?.value && !f.review && f.confidence >= TRUSTED_CONFIDENCE && group !== 'medicines') {
+      f.review = true
+      f.note = `The image reader (${model}) read "${value}". Check which one matches the paper.`
+      return
+    }
+    if (!ok(value)) return
+    const next: ParsedField = { key, label, group, raw: f?.raw ?? '', value, confidence: VISION_CONFIDENCE, review: true, source: 'vision', ...(f?.value ? { note: `The rule reader read "${f.value}".` } : {}) }
+    if (f) Object.assign(f, next)
+    else out.push(next)
+  }
+  for (const spec of IDENTITY) {
+    const raw = str(data[spec.key])
+    if (raw) propose(spec.key, spec.label, 'identity', spec.fix ? spec.fix(raw) : raw, spec.ok)
+  }
+  // "substance - reaction" and "relative - condition" lines; a line that starts with a date is a visit that landed in the wrong list.
+  const dashed = (v: string) => v.split(/\s+-\s+/).length >= 2 && !/^\d{4}-\d{2}-\d{2}/.test(v)
+  const lists: ['allergy' | 'family' | 'visit', string, string, (v: string) => boolean][] = [
+    ['allergy', 'Allergy', 'allergies', dashed],
+    ['family', 'Family history', 'family_history', dashed],
+    ['visit', 'Visit', 'visits', (v) => /^\d{4}-\d{2}-\d{2}\s+-\s+\S/.test(v)],
+  ]
+  for (const [name, label, dataKey, ok] of lists) {
+    const items = Array.isArray(data[dataKey]) ? (data[dataKey] as unknown[]).map(str).filter((x) => !isEmpty(x)) : []
+    items.forEach((v, i) => propose(`${name}_${i + 1}`, `${label} ${i + 1}`, name, v, ok))
+  }
+  // "NONE" is not added to a form that had no medicines field, but it does correct a garbled "NC NE".
+  const med = str(data.medicines)
+  if (med && (!/^none$/i.test(med) || out.some((f) => f.key === 'medicines' && f.value))) propose('medicines', 'Regular medicines', 'medicines', med, () => true)
   return out
 }

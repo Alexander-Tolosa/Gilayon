@@ -5,8 +5,9 @@ import { getDb, type Q } from '../db'
 import { notifyChanged } from '../events'
 import { decodeImage, readScan, removeScan, storeScan } from '../files'
 import { ocrImage, readability } from '../recognition/ocr'
-import { llmStatus, mergeLlm, parseReading, parseWithLlm, type ParsedField } from '../recognition/parse'
+import { llmStatus, mergeLlm, mergeVision, parseReading, parseWithLlm, type ParsedField } from '../recognition/parse'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
+import { readWithVision, visionStatus } from '../recognition/vision'
 import { addAllergy, addFamilyHistory, completeRecord, uploadScan } from './records'
 
 /*
@@ -56,15 +57,21 @@ async function vocabulary(q: Q) {
   return { ...BASE_VOCABULARY, substances: upper([...BASE_VOCABULARY.substances, ...al.map((a) => a.s)]), conditions: upper([...BASE_VOCABULARY.conditions, ...fh.map((f) => f.c)]) }
 }
 
-async function readBytes(q: Q, bytes: Buffer) {
+/** `handwriting` also asks the local vision model to read the picture, for pages the OCR cannot read well. */
+async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = {}) {
   let ocr = await ocrImage(bytes)
+  let flipped = false
   // Some cameras hand over a mirrored picture. It still produces rows, but they are nonsense and the
   // engine is barely sure of any of them, so a poor score is worth the cost of reading it the other way round.
   if (readability(ocr) < 60) {
     const mirrored = await ocrImage(bytes, { flip: true })
-    if (readability(mirrored) > readability(ocr)) ocr = mirrored
+    if (readability(mirrored) > readability(ocr)) {
+      ocr = mirrored
+      flipped = true
+    }
   }
-  if (ocr.lines.length < 4) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
+  // Pure handwriting can leave the OCR with almost nothing, which is exactly when the image reader is needed.
+  if (ocr.lines.length < 4 && !opts.handwriting) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
   const t0 = Date.now()
   let fields = parseReading(ocr)
   let parse_engine = 'Rule reader (local)'
@@ -72,6 +79,11 @@ async function readBytes(q: Q, bytes: Buffer) {
   if (llm) {
     fields = mergeLlm(fields, llm.data)
     parse_engine = `Rule reader + ${llm.model} (Ollama, local)`
+  }
+  if (opts.handwriting) {
+    const v = await readWithVision(bytes, { flip: flipped })
+    fields = mergeVision(fields, v.data, v.model)
+    parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
   }
   // Layer 2: correct near-misses against the clinic's own records.
   fields = snapToKnown(fields, await knownPatients(q), await vocabulary(q)).fields
@@ -81,11 +93,16 @@ async function readBytes(q: Q, bytes: Buffer) {
 async function reading(q: Q, ev: { event_id: string; fields: unknown; ocr_ms: number; parse_ms: number; ocr_engine: string; parse_engine: string }) {
   const fields = ev.fields as ParsedField[]
   const f = Object.fromEntries(fields.map((x) => [x.key, x.value]))
-  return { event_id: ev.event_id, fields, ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, llm: await llmStatus(), ...(await findPatient(q, f)) }
+  return { event_id: ev.event_id, fields, ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, llm: await llmStatus(), vision: await visionStatus(), ...(await findPatient(q, f)) }
 }
 
-export async function scanForm(q: Q, actor: Actor, file: string) {
-  const r = await readBytes(q, decodeImage(file).bytes)
+/** `replaces` is the draft from this person's first reading of the same page, removed once the second succeeds. */
+export async function scanForm(q: Q, actor: Actor, file: string, opts: { handwriting?: boolean; replaces?: string } = {}) {
+  const r = await readBytes(q, decodeImage(file).bytes, { handwriting: opts.handwriting })
+  if (opts.replaces) {
+    const [old] = await q.select().from(t.recognitionEvent).where(eq(t.recognitionEvent.event_id, opts.replaces))
+    if (old && old.created_by === actor.staff_id && old.status === 'draft' && !old.image_file) await q.delete(t.recognitionEvent).where(eq(t.recognitionEvent.event_id, opts.replaces))
+  }
   const event_id = uuid()
   await q.insert(t.recognitionEvent).values({ event_id, status: 'draft', ocr_engine: r.ocr_engine, parse_engine: r.parse_engine, ocr_ms: r.ocr_ms, parse_ms: r.parse_ms, fields: r.fields, created_by: actor.staff_id, created_at: nowMs() })
   return reading(q, { event_id, ...r })
