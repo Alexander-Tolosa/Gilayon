@@ -252,10 +252,11 @@ const schema = {
     family_history: { type: 'array', items: { type: 'string' } },
     medicines: { type: 'string' },
     visits: { type: 'array', items: { type: 'string' } },
-    /** Lines the form's own fields have no room for. Shown to the person scanning, never filed automatically. */
-    other_text: { type: 'array', items: { type: 'string' } },
+    /** The whole page written out. Shown to the person scanning to read and copy; never filed automatically. */
+    page_text: { type: 'array', items: { type: 'string' } },
   },
-  required: ['folder', 'full_name', 'birthdate', 'sex', 'civil_status', 'contact', 'philhealth_pin', 'allergies', 'family_history', 'medicines', 'visits'],
+  // page_text is required too: left optional, the model skips it on a form whose other fields it could fill.
+  required: ['folder', 'full_name', 'birthdate', 'sex', 'civil_status', 'contact', 'philhealth_pin', 'allergies', 'family_history', 'medicines', 'visits', 'page_text'],
 }
 
 /** The fields the image reader is asked for, as JSON. */

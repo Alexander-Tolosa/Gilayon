@@ -89,13 +89,13 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
   const t0 = Date.now()
   let fields = parseReading(ocr)
   let parse_engine = 'Rule reader (local)'
-  /** Lines this form has no field for. Shown to the person scanning so the page is not lost; never filed on its own. */
+  /** The whole page, written out. Shown to the person scanning so nothing on the paper is lost; never filed on its own. */
   let other: string[] = []
   if (opts.handwriting || auto) {
     try {
       const v = await readWithVision(bytes, { flip: flipped })
       fields = mergeVision(fields, v.data, v.model)
-      other = (Array.isArray(v.data.other_text) ? (v.data.other_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter(hasAnAnswer).slice(0, 40)
+      other = (Array.isArray(v.data.page_text) ? (v.data.page_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter(hasAnAnswer).slice(0, 60)
       parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
     } catch (e) {
       // An automatic second reading is a bonus: if it fails, the OCR reading still stands (and the nurse can press Read handwriting to retry).

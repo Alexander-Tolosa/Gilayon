@@ -753,9 +753,10 @@ function Accuracy() {
 }
 
 /**
- * What the image reader saw on the page that this form has no field for: a page from another clinic, a
- * second form, anything written in the margin. It is never saved on its own, because no one has checked it
- * field by field; it is here so the paper is not lost, to be read against the page and copied where it belongs.
+ * The whole page as the image reader read it, the lines that filled the fields above included. The fields
+ * only cover what this clinic's form asks for, so a page from another clinic, a second form or a note in the
+ * margin would otherwise be lost. It is never saved on its own, because no one has checked it line by line:
+ * it is here to be read against the paper and copied wherever it is needed.
  */
 function OtherLines({ lines }: { lines: string[] }) {
   const toast = useToast()
@@ -773,9 +774,9 @@ function OtherLines({ lines }: { lines: string[] }) {
     <div className="mt-6 rounded-2xl border border-line bg-canvas p-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="text-base font-semibold">Also written on this page</p>
+          <p className="text-base font-semibold">Everything on this page</p>
           <p className="mt-0.5 max-w-prose text-sm text-ink-2">
-            This form has no field for these, so they are not saved. Check them against the paper and copy them where they belong.
+            The whole form as the machine read it, for anything the fields above do not cover. Check it against the paper before you copy it. It is not saved.
           </p>
         </div>
         <Button variant="secondary" size="md" icon={<Copy size={18} />} onClick={() => void copy()}>
