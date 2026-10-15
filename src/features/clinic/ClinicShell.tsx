@@ -20,8 +20,8 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../../shared/components/Logo'
 import { Avatar, Modal, useDialogFocus } from '../../shared/components/ui'
 import { cn } from '../../shared/lib/utils'
-import { LanguageSwitch, StatusBadge, TextSizeSwitch } from './components/ClinicComponents'
-import { applyTextSize, savedTextSize } from './lib/textsize'
+import { LanguageSwitch, StatusBadge, ZoomControl } from './components/ClinicComponents'
+import { applyZoom, clearZoom, savedZoom } from './lib/textsize'
 import { useT } from './lib/i18n'
 import { unreadActivity } from './lib/activity'
 import { todayKey } from './lib/helpers'
@@ -37,10 +37,10 @@ type Item = { to: string; label: string; icon: Icon; badge?: number }
 export function useClinicScale() {
   useEffect(() => {
     document.documentElement.dataset.ui = 'clinic'
-    applyTextSize(savedTextSize())
+    applyZoom(savedZoom())
     return () => {
       delete document.documentElement.dataset.ui
-      delete document.documentElement.dataset.text
+      clearZoom()
     }
   }, [])
 }
@@ -88,6 +88,13 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
           <p className="text-[13px] text-muted">HMO-Clinic records</p>
         </div>
       </a>
+      {/* On a phone the top bar has no room for zoom, so it sits at the top of the menu instead. */}
+      {onNavigate && (
+        <div className="px-5 pb-4 sm:hidden">
+          <p className="mb-1.5 text-sm font-semibold text-faint">{t('Zoom')}</p>
+          <ZoomControl />
+        </div>
+      )}
       <p className="px-6 pb-2 text-sm font-semibold text-faint">
         {role === 'doctor' ? t('Doctor') : role === 'nurse' ? t('Nurse') : t('Receptionist')}
       </p>
@@ -194,7 +201,9 @@ export function ClinicShell() {
               <ListIcon size={22} />
             </button>
             <div className="ml-auto flex items-center gap-2">
-              <TextSizeSwitch />
+              <div className="hidden sm:block">
+                <ZoomControl />
+              </div>
               <LanguageSwitch />
               <StatusBadge />
             </div>

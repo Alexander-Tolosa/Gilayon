@@ -1,4 +1,4 @@
-import { CloudSlash, Lock, ShieldCheck, WifiHigh, WifiSlash, Desktop, ArrowsClockwise } from '@phosphor-icons/react'
+import { CloudSlash, Lock, ShieldCheck, WifiHigh, WifiSlash, Desktop, ArrowsClockwise, MagnifyingGlassMinus, MagnifyingGlassPlus } from '@phosphor-icons/react'
 import '@fontsource/allura'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -7,7 +7,7 @@ import { cn } from '../../../shared/lib/utils'
 import { authedBlobUrl } from '../lib/api'
 import { fil, setLang, useLang, useT } from '../lib/i18n'
 import { LANE_STYLE, ageOf, fmtStampOf, ticketLabel } from '../lib/helpers'
-import { TEXT_KEY, TEXT_SIZES, applyTextSize, savedTextSize, type TextSize } from '../lib/textsize'
+import { ZOOM_EVENT, ZOOM_MAX, ZOOM_MIN, applyZoom, saveZoom, savedZoom, stepZoom } from '../lib/textsize'
 import { useClinic, type SignResult } from '../store/store'
 import type { CategoryKey, NetworkMode, QueueTicket, Staff } from '../types'
 
@@ -156,27 +156,42 @@ export function LanguageSwitch({ className, showNames }: { className?: string; s
 }
 
 /** A / A+ / A++ on every clinic screen, for senior staff (concept: large text, big buttons). */
-export function TextSizeSwitch({ className }: { className?: string }) {
+/**
+ * Zoom on every clinic screen: magnifier −, the current size, magnifier +. 100% is the clinic's normal
+ * size; tapping the percentage goes back to it. Big enough to tap on a phone, shown at every width.
+ */
+export function ZoomControl({ className }: { className?: string }) {
   const t = useT()
-  const [size, setSize] = useState<TextSize>(savedTextSize)
-  const pick = (s: TextSize) => {
-    setSize(s)
-    applyTextSize(s)
-    try {
-      localStorage.setItem(TEXT_KEY, s)
-    } catch {
-      /* storage blocked: the choice lasts until the page closes */
-    }
+  const [zoom, setZoom] = useState(savedZoom)
+  // The top bar and the phone menu each show a copy; a change in one updates the other.
+  useEffect(() => {
+    const on = (e: Event) => setZoom((e as CustomEvent<number>).detail)
+    window.addEventListener(ZOOM_EVENT, on)
+    return () => window.removeEventListener(ZOOM_EVENT, on)
+  }, [])
+  const set = (z: number) => {
+    applyZoom(z)
+    saveZoom(z)
+    window.dispatchEvent(new CustomEvent(ZOOM_EVENT, { detail: z }))
   }
-  // The same letter at three growing sizes says "small, bigger, biggest" without a label to read.
-  const glyph = { normal: 'text-[15px]', large: 'text-[20px]', larger: 'text-[26px]' } as const
+  const seg = 'grid h-11 w-11 shrink-0 place-items-center text-ink transition hover:bg-mist focus-visible:z-10 disabled:pointer-events-none disabled:opacity-35'
   return (
-    <div className={cn('hidden items-center rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label={t('Text size')}>
-      {TEXT_SIZES.map((s) => (
-        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('grid min-h-11 min-w-11 place-items-center rounded-full px-2 font-semibold leading-none transition', glyph[s.key], size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
-          A
-        </button>
-      ))}
+    <div className={cn('inline-flex w-fit shrink-0 overflow-hidden rounded-xl border border-line-strong bg-surface shadow-xs', className)} role="group" aria-label={t('Zoom')}>
+      <button type="button" onClick={() => set(stepZoom(zoom, -1))} disabled={zoom <= ZOOM_MIN} aria-label={t('Zoom out')} title={t('Zoom out')} className={seg}>
+        <MagnifyingGlassMinus size={22} weight="bold" />
+      </button>
+      <button
+        type="button"
+        onClick={() => set(100)}
+        aria-label={`${zoom}%. ${t('Reset zoom')}`}
+        title={t('Reset zoom')}
+        className="grid h-11 min-w-[3.75rem] place-items-center border-x border-line-strong bg-canvas px-2 text-[15px] font-semibold tabular text-ink transition hover:bg-mist focus-visible:z-10"
+      >
+        <span aria-live="polite">{zoom}%</span>
+      </button>
+      <button type="button" onClick={() => set(stepZoom(zoom, 1))} disabled={zoom >= ZOOM_MAX} aria-label={t('Zoom in')} title={t('Zoom in')} className={seg}>
+        <MagnifyingGlassPlus size={22} weight="bold" />
+      </button>
     </div>
   )
 }
