@@ -101,7 +101,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
   return (
     <button onClick={onPick} className="grid w-full grid-cols-1 items-center gap-3 rounded-3xl border border-line bg-surface p-5 text-left transition hover:border-brand-300 hover:shadow-soft sm:grid-cols-[1.5fr_1fr_1.3fr_auto]">
       <div className="min-w-0">
-        <p className="truncate text-xl font-semibold">{hit.person.full_name}</p>
+        <p className="break-words text-xl font-semibold">{hit.person.full_name}</p>
         <p className="text-[15px] text-ink-2">
           <AgeSex birthdate={hit.person.birthdate} sex={hit.person.sex} />
         </p>
@@ -114,7 +114,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
         {hit.employee ? (
           <>
             <p className="font-mono text-[17px] font-semibold text-brand-800">{hit.employee.employee_no}</p>
-            <p className="truncate text-[15px] text-muted">{hit.employee.office}</p>
+            <p className="break-words text-[15px] text-muted">{hit.employee.office}</p>
           </>
         ) : (
           <>

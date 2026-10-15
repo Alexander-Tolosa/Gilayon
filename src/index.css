@@ -20,8 +20,8 @@
 
   --color-ink: #0b1a38;
   --color-ink-2: #34445f;
-  --color-muted: #5f6f8a;
-  --color-faint: #8a98b1;
+  --color-muted: #566680;
+  --color-faint: #5c6b85;
 
   --color-brand-50: #eef4ff;
   --color-brand-100: #dce7ff;
@@ -37,11 +37,11 @@
 
   --color-sky-soft: #8cc8fb;
 
-  --color-ok: #0f9d68;
+  --color-ok: #0b7a51;
   --color-ok-soft: #e4f7ee;
-  --color-warn: #b7700b;
+  --color-warn: #8f5708;
   --color-warn-soft: #fff3dc;
-  --color-danger: #d43c43;
+  --color-danger: #c0282f;
   --color-danger-soft: #fdeaea;
 
   --radius-3xl: 1.25rem;
@@ -102,7 +102,6 @@
   :focus-visible {
     outline: 2px solid var(--color-brand-500);
     outline-offset: 2px;
-    border-radius: 10px;
   }
   button {
     cursor: pointer;

@@ -1,7 +1,7 @@
 import { ArrowLeft, Flag, LockKey, PencilSimple, Plus, Printer, Warning, X } from '@phosphor-icons/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Badge, Button, Card, Chip, Field, Input, KeyValue, Modal, Select, Tabs, Textarea, useToast } from '../../../shared/components/ui'
+import { Badge, Button, Card, Chip, Field, Input, KeyValue, Modal, Select, Tabs, Textarea, useDialogFocus, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { AgeSex, ScanImage } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
@@ -414,14 +414,30 @@ function ScanGrid({ patientId }: { patientId: string }) {
         ))}
       </ul>
       {current && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-brand-950/70 p-6" onClick={() => setOpen(null)}>
+        <ScanLightbox onClose={() => setOpen(null)}>
           <button className="absolute right-6 top-6 grid size-12 place-items-center rounded-full bg-white" aria-label="Close">
             <X size={22} />
           </button>
           <ScanImage file={current.file} className="max-h-[85dvh] w-auto max-w-full rounded-xl bg-[#f4efe2]" />
-        </div>
+        </ScanLightbox>
       )}
     </>
+  )
+}
+
+/** Full-screen scan viewer: Escape or a click closes it, Tab stays on the close button, focus returns to the thumbnail. */
+function ScanLightbox({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const panel = useRef<HTMLDivElement>(null)
+  useDialogFocus(panel, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div ref={panel} role="dialog" aria-modal="true" aria-label="Scanned page" className="fixed inset-0 z-50 grid place-items-center bg-brand-950/70 p-6" onClick={onClose}>
+      {children}
+    </div>
   )
 }
 

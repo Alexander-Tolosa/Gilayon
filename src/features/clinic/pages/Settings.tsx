@@ -33,7 +33,7 @@ export default function Settings() {
                 <LaneBadge category={c.category_id} />
                 <div className="flex items-center gap-2">
                   {[1, 2, 3].map((r) => (
-                    <button key={r} onClick={() => updateCategoryRank(c.category_id, r)} aria-pressed={c.rank === r} className={`grid size-11 place-items-center rounded-xl text-lg font-semibold transition ${c.rank === r ? 'bg-brand-600 text-white' : 'bg-surface text-ink-2 ring-1 ring-line hover:ring-brand-300'}`}>
+                    <button key={r} type="button" onClick={() => updateCategoryRank(c.category_id, r)} aria-pressed={c.rank === r} aria-label={`Priority ${r} for ${c.category_id}`} className={`grid size-11 place-items-center rounded-xl text-lg font-semibold transition ${c.rank === r ? 'bg-brand-600 text-white' : 'bg-surface text-ink-2 ring-1 ring-line hover:ring-brand-300'}`}>
                       {r}
                     </button>
                   ))}

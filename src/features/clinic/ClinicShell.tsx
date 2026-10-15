@@ -15,10 +15,10 @@ import {
 import { Key } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../../shared/components/Logo'
-import { Avatar, Modal } from '../../shared/components/ui'
+import { Avatar, Modal, useDialogFocus } from '../../shared/components/ui'
 import { cn } from '../../shared/lib/utils'
 import { LanguageSwitch, StatusBadge, TextSizeSwitch } from './components/ClinicComponents'
 import { applyTextSize, savedTextSize } from './lib/textsize'
@@ -133,6 +133,28 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
   )
 }
 
+/** Phone/tablet menu: Escape closes it, Tab stays inside, focus returns to the menu button. */
+function MobileDrawer({ onClose, role }: { onClose: () => void; role: StaffRole }) {
+  const panel = useRef<HTMLElement>(null)
+  useDialogFocus(panel, true)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+      <motion.div aria-hidden="true" className="absolute inset-0 bg-brand-950/30" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
+      <motion.aside ref={panel} tabIndex={-1} initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }} className="absolute inset-y-0 left-0 w-[290px] bg-surface shadow-lift outline-none">
+        <button onClick={onClose} aria-label="Close menu" className="absolute right-3 top-5 grid size-11 place-items-center rounded-full border border-line">
+          <X size={18} />
+        </button>
+        <Sidebar role={role} onNavigate={onClose} />
+      </motion.aside>
+    </div>
+  )
+}
+
 export function ClinicShell() {
   useClinicScale()
   const { me } = useClinic()
@@ -147,21 +169,16 @@ export function ClinicShell() {
 
   return (
     <div className="min-h-[100dvh] bg-canvas text-ink">
+      <a href="#main" className="sr-only z-[90] rounded-full bg-brand-700 px-5 py-3 text-base font-semibold text-white focus:not-sr-only focus:fixed focus:left-4 focus:top-4">
+        Skip to content
+      </a>
       <ForcePasswordChange />
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[272px] border-r border-line bg-surface lg:block">
         <Sidebar role={me.role} />
       </aside>
       <AnimatePresence>
         {drawer && (
-          <div className="fixed inset-0 z-50 lg:hidden">
-            <motion.div className="absolute inset-0 bg-brand-950/30" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDrawer(false)} />
-            <motion.aside initial={{ x: '-100%' }} animate={{ x: 0 }} exit={{ x: '-100%' }} transition={{ type: 'spring', stiffness: 380, damping: 38 }} className="absolute inset-y-0 left-0 w-[290px] bg-surface shadow-lift">
-              <button onClick={() => setDrawer(false)} aria-label="Close menu" className="absolute right-3 top-5 grid size-10 place-items-center rounded-full border border-line">
-                <X size={18} />
-              </button>
-              <Sidebar role={me.role} onNavigate={() => setDrawer(false)} />
-            </motion.aside>
-          </div>
+          <MobileDrawer onClose={() => setDrawer(false)} role={me.role} />
         )}
       </AnimatePresence>
       <div className="lg:pl-[272px]">
@@ -177,7 +194,7 @@ export function ClinicShell() {
             </div>
           </div>
         </header>
-        <main className="mx-auto max-w-[1440px] px-4 pb-16 pt-6 sm:px-6 lg:px-8">
+        <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-4 pb-16 pt-6 outline-none sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>

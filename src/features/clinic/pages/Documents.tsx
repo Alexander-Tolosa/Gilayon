@@ -63,7 +63,7 @@ export default function Documents() {
                     {r.no && <span className="font-mono text-base text-danger">{r.no}</span>}
                     <DocStatusBadge status={r.status} />
                   </p>
-                  <p className="truncate text-base text-ink-2">
+                  <p className="break-words text-base text-ink-2">
                     <Link to={`/clinic/patients/${r.patientId}`} className="font-semibold text-ink hover:underline">
                       {p?.full_name}
                     </Link>{' '}
