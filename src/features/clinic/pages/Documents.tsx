@@ -26,11 +26,12 @@ export default function Documents() {
 
   const rows = useMemo<Row[]>(() => {
     const rx: Row[] = data.prescriptions.map((r) => ({ kind: 'rx', id: r.prescription_id, patientId: r.patient_id, status: r.status, no: r.document_no, title: t('Prescription'), detail: r.items.map((i) => `${i.drug_name} ${i.dose}`).join(', '), when: r.issued_at ?? r.created_at, doctorId: r.doctor_id, voidReason: r.void_reason, replaces: r.replaces }))
-    const mc: Row[] = data.documents.map((d) => ({ kind: 'doc', id: d.document_id, patientId: d.patient_id, status: d.status, no: d.document_no, title: t('Medical certificate'), detail: `${d.purpose}${d.rest_days ? `, ${d.rest_days} day${d.rest_days > 1 ? 's' : ''} rest` : ''}`, when: d.issued_at ?? d.created_at, doctorId: d.doctor_id, voidReason: d.void_reason, replaces: d.replaces }))
+    const mc: Row[] = data.documents.map((d) => ({ kind: 'doc', id: d.document_id, patientId: d.patient_id, status: d.status, no: d.document_no, title: t(d.doc_type), detail: `${d.purpose}${d.rest_days ? `, ${d.rest_days} day${d.rest_days > 1 ? 's' : ''} rest` : ''}`, when: d.issued_at ?? d.created_at, doctorId: d.doctor_id, voidReason: d.void_reason, replaces: d.replaces }))
     return [...rx, ...mc].sort((a, b) => b.when - a.when)
   }, [data.prescriptions, data.documents, t])
 
   const visible = rows.filter((r) => r.status === tab).filter((r) => !q || `${personOfPatient(r.patientId)?.full_name} ${r.no ?? ''} ${r.detail}`.toLowerCase().includes(q.toLowerCase()))
+  const stamped = new Set(data.releases.map((x) => `${x.kind}:${x.document_id}`))
   const counts = { draft: rows.filter((r) => r.status === 'draft').length, signed: rows.filter((r) => r.status === 'signed').length, voided: rows.filter((r) => r.status === 'voided').length }
 
   return (
@@ -62,6 +63,7 @@ export default function Documents() {
                     {r.title}
                     {r.no && <span className="font-mono text-base text-danger">{r.no}</span>}
                     <DocStatusBadge status={r.status} />
+                    {r.status === 'signed' && stamped.has(`${r.kind}:${r.id}`) && <span className="rounded-full bg-ok-soft px-3 py-1 text-sm font-semibold text-ok">{t('Stamped')}</span>}
                   </p>
                   <p className="break-words text-base text-ink-2">
                     <Link to={`/clinic/patients/${r.patientId}`} className="font-semibold text-ink hover:underline">

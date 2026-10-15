@@ -463,9 +463,14 @@ function LabsTab({ patientId }: { patientId: string }) {
               </span>
             </div>
             {l.status === 'resulted' ? (
-              <p className="mt-1 text-base text-ink-2">
-                {l.result} <span className="text-sm text-muted">· {l.result_date && fmtDay(l.result_date)}</span>
-              </p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-base text-ink-2">
+                  {l.result} <span className="text-sm text-muted">· {l.result_date && fmtDay(l.result_date)}</span>
+                </p>
+                <Button size="sm" variant="secondary" icon={<Printer size={16} />} onClick={() => window.open(`/print/lab/${l.lab_id}`, '_blank')}>
+                  Print result
+                </Button>
+              </div>
             ) : (
               <div className="mt-2 flex gap-2">
                 <Input value={draft[l.lab_id] ?? ''} onChange={(e) => setDraft({ ...draft, [l.lab_id]: e.target.value })} placeholder="Enter the result" className="h-12 text-base" />

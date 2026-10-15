@@ -159,7 +159,7 @@ export type DocumentRow = {
   consultation_id?: string
   doctor_id: string
   signed_by?: string
-  doc_type: 'Medical certificate'
+  doc_type: 'Medical certificate' | 'Dental report'
   purpose: string
   findings: string
   rest_days?: number
@@ -171,6 +171,16 @@ export type DocumentRow = {
   signature?: string
   void_reason?: string
   replaces?: string
+}
+
+/** A signed document was stamped and handed to the patient at the front desk. */
+export type DocumentRelease = {
+  release_id: string
+  kind: 'rx' | 'doc'
+  document_id: string
+  patient_id: string
+  released_by: string
+  released_at: number
 }
 
 export type ScanKind = 'Chart' | 'Prescription' | 'Lab result' | 'Certificate'
@@ -210,7 +220,7 @@ export type Staff = {
   must_change_password?: boolean
 }
 
-export type AuditAction = 'create' | 'edit' | 'sign' | 'void' | 'verify' | 'check-in' | 'call' | 'import' | 'upload' | 'sync' | 'flag' | 'status' | 'link' | 'backup' | 'export'
+export type AuditAction = 'create' | 'edit' | 'sign' | 'void' | 'verify' | 'check-in' | 'call' | 'import' | 'upload' | 'sync' | 'flag' | 'status' | 'link' | 'backup' | 'export' | 'release'
 
 export type AuditLog = {
   log_id: string

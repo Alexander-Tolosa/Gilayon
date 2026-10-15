@@ -1,4 +1,4 @@
-import { Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
+import { ArrowRight, Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link, useLocation } from 'react-router-dom'
@@ -58,7 +58,7 @@ function Scanner({ onDone }: { onDone: () => void }) {
   const input = useRef<HTMLInputElement>(null)
   const routed = useLocation()
   // Handed over from a patient's "Scan with AI": already read, so it opens straight on verifying.
-  const [handed] = useState(() => (routed.state ?? null) as { image?: string; reading?: ScanReading; patientId?: string } | null)
+  const [handed] = useState(() => (routed.state ?? null) as { image?: string; reading?: ScanReading; patientId?: string; returnTo?: string } | null)
   const [image, setImage] = useState<string | null>(handed?.image ?? null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -231,7 +231,12 @@ function Scanner({ onDone }: { onDone: () => void }) {
           {saved.correct} of {saved.total} fields were read correctly before your corrections. {saved.added} allergy or family-history entries were added to {chosenName ?? 'the patient'}'s record, and the scanned page is filed under Old paper records.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button size="lg" to={`/clinic/patients/${saved.patient_id}`}>
+          {handed?.returnTo && (
+            <Button size="lg" to={handed.returnTo} iconRight={<ArrowRight size={20} weight="bold" />}>
+              Back to check-in
+            </Button>
+          )}
+          <Button size="lg" variant={handed?.returnTo ? 'secondary' : 'primary'} to={`/clinic/patients/${saved.patient_id}`}>
             Open the record
           </Button>
           <Button size="lg" variant="secondary" onClick={reset}>

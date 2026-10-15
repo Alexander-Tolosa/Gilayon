@@ -194,7 +194,7 @@ export const document = pgTable('document', {
   consultation_id: text(),
   doctor_id: text().notNull(),
   signed_by: text(),
-  doc_type: text().$type<'Medical certificate'>().notNull(),
+  doc_type: text().$type<'Medical certificate' | 'Dental report'>().notNull(),
   purpose: text().notNull(),
   findings: text().notNull(),
   rest_days: integer(),
@@ -207,6 +207,23 @@ export const document = pgTable('document', {
   void_reason: text(),
   replaces: text(),
 })
+
+/**
+ * Handing a signed document to the patient with the clinic stamp. A separate append-only table, so the
+ * signed prescription or document row itself is never touched. One release per document.
+ */
+export const documentRelease = pgTable(
+  'document_release',
+  {
+    release_id: text().primaryKey(),
+    kind: text().$type<'rx' | 'doc'>().notNull(),
+    document_id: text().notNull(),
+    patient_id: text().notNull().references(() => patient.patient_id),
+    released_by: text().notNull(),
+    released_at: ms('released_at').notNull(),
+  },
+  (t) => [unique('document_release_one').on(t.kind, t.document_id)],
+)
 
 export const scannedPage = pgTable('scanned_page', {
   page_id: text().primaryKey(),

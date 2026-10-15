@@ -57,7 +57,7 @@ export async function saveConsultation(q: Q, actor: Actor, rawInput: ConsultInpu
       patient_id: input.patient_id,
       consultation_id: cid,
       doctor_id: actor.staff_id,
-      doc_type: 'Medical certificate',
+      doc_type: c.doc_type ?? 'Medical certificate',
       purpose: c.purpose,
       findings: c.findings,
       rest_days: c.rest_days ?? null,
@@ -105,9 +105,10 @@ export async function signDocuments(q: Q, actor: Actor, refs: { kind: Kind; id: 
       const [row] = await q.select().from(t.document).where(eq(t.document.document_id, ref.id))
       if (!row || row.status !== 'draft') continue
       if (row.doctor_id !== actor.staff_id) throw new HttpError(403, 'You can only sign documents you wrote.')
-      const document_no = `MC-${year}-${String(await nextCounter(q, 'mc')).padStart(6, '0')}`
+      const dental = row.doc_type === 'Dental report'
+      const document_no = `${dental ? 'DR' : 'MC'}-${year}-${String(await nextCounter(q, dental ? 'dr' : 'mc')).padStart(6, '0')}`
       await q.update(t.document).set({ status: 'signed', signed_by: actor.staff_id, issued_at, document_no, signature }).where(eq(t.document.document_id, ref.id))
-      await audit(q, actor.staff_id, { action: 'sign', table: 'document', record: ref.id, summary: `Signed medical certificate ${document_no}` })
+      await audit(q, actor.staff_id, { action: 'sign', table: 'document', record: ref.id, summary: `Signed ${dental ? 'dental report' : 'medical certificate'} ${document_no}` })
     }
   }
   return 'ok' as const
@@ -126,9 +127,9 @@ export async function voidDocument(q: Q, actor: Actor, kind: Kind, id: string, r
   } else {
     const [d] = await q.select().from(t.document).where(eq(t.document.document_id, id))
     if (!d) throw new HttpError(404, 'Document not found')
-    if (d.status === 'voided') throw new HttpError(409, `${d.document_no ?? 'This certificate'} is already void.`)
+    if (d.status === 'voided') throw new HttpError(409, `${d.document_no ?? `This ${d.doc_type.toLowerCase()}`} is already void.`)
     await q.update(t.document).set({ status: 'voided', void_reason: reason }).where(eq(t.document.document_id, id))
-    await audit(q, actor.staff_id, { action: 'void', table: 'document', record: id, summary: `Voided ${d.document_no ?? 'draft certificate'}: ${reason}` })
+    await audit(q, actor.staff_id, { action: 'void', table: 'document', record: id, summary: `Voided ${d.document_no ?? `draft ${d.doc_type.toLowerCase()}`}: ${reason}` })
   }
 }
 
@@ -158,7 +159,7 @@ export async function reissueDocument(q: Q, actor: Actor, kind: Kind, id: string
     const [d] = await q.select().from(t.document).where(eq(t.document.document_id, id))
     if (!d) throw new HttpError(404, 'Document not found')
     const [taken] = await q.select({ id: t.document.document_id }).from(t.document).where(eq(t.document.replaces, id))
-    assertReplaceable(d.status, taken?.id, d.document_no ?? 'This certificate')
+    assertReplaceable(d.status, taken?.id, d.document_no ?? `This ${d.doc_type.toLowerCase()}`)
     await q.insert(t.document).values({
       document_id: newId,
       patient_id: d.patient_id,
@@ -229,3 +230,30 @@ export async function addLabResult(q: Q, actor: Actor, labId: string, result: st
 }
 
 
+
+/**
+ * The front desk stamps a signed document and hands it to the patient. This only records that it
+ * happened: the signed row is untouched. Marking the same document twice changes nothing.
+ */
+export async function releaseDocument(q: Q, actor: Actor, kind: Kind, id: string) {
+  let patient_id: string
+  let label: string
+  if (kind === 'rx') {
+    const [r] = await q.select().from(t.prescription).where(eq(t.prescription.prescription_id, id))
+    if (!r) throw new HttpError(404, 'Prescription not found')
+    if (r.status !== 'signed') throw new HttpError(409, 'Only a signed document can be stamped and released.')
+    patient_id = r.patient_id
+    label = `prescription ${r.document_no}`
+  } else {
+    const [d] = await q.select().from(t.document).where(eq(t.document.document_id, id))
+    if (!d) throw new HttpError(404, 'Document not found')
+    if (d.status !== 'signed') throw new HttpError(409, 'Only a signed document can be stamped and released.')
+    patient_id = d.patient_id
+    label = `${d.doc_type.toLowerCase()} ${d.document_no}`
+  }
+  const [have] = await q.select({ id: t.documentRelease.release_id }).from(t.documentRelease).where(and(eq(t.documentRelease.kind, kind), eq(t.documentRelease.document_id, id)))
+  if (have) return 'already' as const
+  await q.insert(t.documentRelease).values({ release_id: uuid(), kind, document_id: id, patient_id, released_by: actor.staff_id, released_at: nowMs() })
+  await audit(q, actor.staff_id, { action: 'release', table: 'document_release', record: id, summary: `Stamped and gave ${label} to ${await patientName(q, patient_id)}` })
+  return 'released' as const
+}

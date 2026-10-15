@@ -6,6 +6,7 @@ import type {
   AuditLog,
   Consultation,
   Diagnosis,
+  DocumentRelease,
   DocumentRow,
   Employee,
   FamilyHistory,
@@ -68,7 +69,7 @@ export async function lastBackupAt(q: Q) {
 async function temporaryPasswordSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
   const [self] = await q.select().from(t.staff).where(eq(t.staff.staff_id, actor.staff_id))
   return {
-    persons: [], employees: [], patients: [], relationships: [], familyHistory: [], allergies: [], categories: [], tickets: [], consultations: [], diagnoses: [], labs: [], prescriptions: [], documents: [], scans: [], audit: [],
+    persons: [], employees: [], patients: [], relationships: [], familyHistory: [], allergies: [], categories: [], tickets: [], consultations: [], diagnoses: [], labs: [], prescriptions: [], documents: [], releases: [], scans: [], audit: [],
     staff: self ? [staffForSignedIn(self)] : [],
     offsite: { pending: 0, lastAt: 0 },
     merged: {},
@@ -84,7 +85,7 @@ async function temporaryPasswordSnapshot(q: Q, actor: Actor): Promise<Snapshot> 
 export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
   if (actor.must_change_password) return temporaryPasswordSnapshot(q, actor)
   const doctor = actor.role === 'doctor'
-  const [persons, employees, patients, relationships, familyHistory, allergies, categories, tickets, consultations, diagnoses, labs, rx, rxItems, documents, scans, staff, audit, imp, backupAt, clinic] =
+  const [persons, employees, patients, relationships, familyHistory, allergies, categories, tickets, consultations, diagnoses, labs, rx, rxItems, documents, releases, scans, staff, audit, imp, backupAt, clinic] =
     await Promise.all([
       q.select().from(t.person),
       q.select().from(t.employee),
@@ -100,6 +101,7 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
       q.select().from(t.prescription),
       q.select().from(t.prescriptionItem),
       q.select().from(t.document),
+      q.select().from(t.documentRelease),
       q.select().from(t.scannedPage),
       q.select().from(t.staff),
       doctor ? q.select().from(t.auditLog).orderBy(desc(t.auditLog.logged_at)).limit(AUDIT_LIMIT) : Promise.resolve([]),
@@ -167,6 +169,7 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     labs: labs.map((r) => ({ ...strip<LabOrder>(r), patient_id: canon(r.patient_id) })),
     prescriptions: rx.map((r) => ({ ...strip<Prescription>(r), patient_id: canon(r.patient_id), items: itemsByRx.get(r.prescription_id) ?? [] })),
     documents: documents.map((r) => ({ ...strip<DocumentRow>(r), patient_id: canon(r.patient_id) })),
+    releases: releases.map((r) => ({ ...r, patient_id: canon(r.patient_id) })) as DocumentRelease[],
     // Files on the server are served through /api/scans/<id>/file (signed-in staff only).
     scans: scans.map((r) => ({ ...r, patient_id: canon(r.patient_id), file: r.file.startsWith('disk:') ? `/api/scans/${r.page_id}/file` : r.file })) as ScannedPage[],
     staff: staff.map(staffForSignedIn),

@@ -24,6 +24,7 @@ export default function PrintPage() {
       </div>
       {kind === 'rx' && <RxPrint id={id} />}
       {kind === 'mc' && <CertificatePrint id={id} />}
+      {kind === 'lab' && <LabPrint id={id} />}
       {kind === 'summary' && <SummaryPrint id={id} />}
       {kind === 'ticket' && <TicketPrint id={id} />}
       {kind === 'report' && <ReportPrint day={id} />}
@@ -121,11 +122,37 @@ function CertificatePrint({ id }: { id: string }) {
   const [y, m, dd] = date.split('-').map(Number)
   const start = new Date(y, m - 1, dd)
   const end = new Date(start.getTime() + Math.max(0, (doc.rest_days ?? 1) - 1) * 86_400_000)
+  const dental = doc.doc_type === 'Dental report'
   return (
     <Letterhead watermark={doc.status === 'voided' ? 'Void' : doc.status === 'draft' ? 'Not signed' : undefined} footer={footer(doc.document_no, data.demo, data.clinic.name)}>
-      <p className="mt-6 text-center text-[14pt] font-bold uppercase tracking-[0.2em]">Medical Certificate</p>
+      <p className="mt-6 text-center text-[14pt] font-bold uppercase tracking-[0.2em]">{dental ? 'Dental Report' : 'Medical Certificate'}</p>
       <p className="mt-2 text-right">{fmtDay(date)}</p>
       <p className="mt-6 leading-relaxed">To whom it may concern:</p>
+      {dental ? (
+        <>
+          <p className="mt-3 text-justify leading-relaxed">
+            This is a dental report for <b>{p.full_name}</b>, {ageOf(p.birthdate)} years old, {p.sex.toLowerCase()}
+            {emp ? `, ${emp.position} of the ${emp.office}` : ''}, who was seen at the HMO-Clinic dental room on {fmtDay(date)}.
+          </p>
+          <p className="mt-4">
+            <b>Procedure:</b> {doc.purpose}
+          </p>
+          <p className="mt-1">
+            <b>Findings (teeth and condition):</b> {doc.findings}
+          </p>
+          {dx.length > 0 && (
+            <p className="mt-1">
+              <b>Diagnosis:</b> {dx.map((d) => `${d.description} (${d.icd10_code})`).join('; ')}
+            </p>
+          )}
+          {doc.remarks && (
+            <p className="mt-1">
+              <b>Recommendations:</b> {doc.remarks}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
       <p className="mt-3 text-justify leading-relaxed">
         This is to certify that <b>{p.full_name}</b>, {ageOf(p.birthdate)} years old, {p.sex.toLowerCase()},{' '}
         {emp ? (
@@ -160,8 +187,56 @@ function CertificatePrint({ id }: { id: string }) {
         </p>
       )}
       <p className="mt-4">This certificate is issued upon the request of the patient for: {doc.purpose.toLowerCase()}.</p>
+        </>
+      )}
       {doc.status === 'voided' && <p className="mt-4 rounded border border-red-700 px-3 py-2 font-bold text-red-700">VOIDED: {doc.void_reason}</p>}
       <SignatureBlock staff={staff} signed={doc.status !== 'draft'} documentNo={doc.document_no} issuedAt={doc.issued_at} />
+    </Letterhead>
+  )
+}
+
+/**
+ * A lab result slip for the patient: the results entered for one lab request (with its siblings from the
+ * same consultation). It names the requesting doctor but carries no signature: nobody signed it.
+ */
+function LabPrint({ id }: { id: string }) {
+  const { data, staffById } = useClinic()
+  const lab = data.labs.find((l) => l.lab_id === id)
+  if (!lab) return <Missing />
+  const group = data.labs.filter((l) => l.patient_id === lab.patient_id && l.status === 'resulted' && (lab.consultation_id ? l.consultation_id === lab.consultation_id : l.lab_id === lab.lab_id))
+  const doctor = staffById(lab.requested_by)
+  const date = lab.result_date ?? todayKey(new Date(lab.requested_at))
+  return (
+    <Letterhead watermark={lab.status !== 'resulted' ? 'No result yet' : undefined} footer={footer(undefined, data.demo, data.clinic.name)}>
+      <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.2em]">Laboratory Result</p>
+      <PatientLine patientId={lab.patient_id} date={date} />
+      <table className="mt-6 w-full text-[11pt]">
+        <thead>
+          <tr className="border-b border-black/40 text-left text-[9.5pt] uppercase tracking-wide text-black/60">
+            <th className="py-1">Test</th>
+            <th className="py-1">Result</th>
+            <th className="py-1">Date</th>
+          </tr>
+        </thead>
+        <tbody>
+          {(group.length ? group : [lab]).map((l) => (
+            <tr key={l.lab_id} className="border-b border-black/10 align-top">
+              <td className="py-2 font-semibold">{l.test_name}</td>
+              <td className="py-2">{l.status === 'resulted' ? l.result : 'Waiting for result'}</td>
+              <td className="py-2">{l.result_date ? fmtDay(l.result_date) : '—'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-10 text-[9.5pt] text-black/70">This is a result slip. It is not a signed medical document.</p>
+      {doctor && (
+        <div className="mt-6 text-[9.5pt]">
+          <p>
+            Requested by <b>{doctor.name}</b>
+          </p>
+          <p>PRC License No. {doctor.license_no}</p>
+        </div>
+      )}
     </Letterhead>
   )
 }

@@ -51,6 +51,8 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
 | Scan old folder | `/clinic/scan`: a photographed intake form is read on the server PC with local Tesseract OCR and a rule parser, optionally helped by a local Ollama model (`OLLAMA_MODEL`, `OLLAMA_URL`; without it the rules do the parsing). Nothing reaches a record until a nurse or doctor verifies the fields. A PC that cannot reach the server keeps the photo in its outbox, and it waits under **Photos waiting** after sync. `recognition_event` keeps what was read next to what was confirmed and feeds the **Accuracy and speed** tab. Measured on 60 synthetic forms: 93% of fields, about 3 to 4 seconds a page; see [`docs/ACCURACY.md`](docs/ACCURACY.md). Real handwriting will score lower. |
+| To stamp | `/clinic/stamp` (receptionist and nurse): signed documents from today come back to the front desk. Print, stamp, hand to the patient, then **Stamped, given to patient**. The mark is a separate append-only `document_release` record (the signed document is never touched), appears in the audit trail and as a *Stamped* tag in the doctor's Documents. |
+| Dental report and lab result | A dental report is a signed document type alongside the medical certificate (numbered `DR-YYYY-######`, same void and reissue rules). A resulted lab test prints as a result slip from the patient record. The slip names the requesting doctor but is not signed. |
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
 Not built yet: a multi-process event bus (the server is a single process, as on the clinic PC).
@@ -140,6 +142,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | `/clinic/doctor` | Doctor's queue (doctor only) |
 | `/clinic/consult/:patientId` | One-screen consultation, Rx, labs, certificate, AI recap (doctor only) |
 | `/clinic/scan` | Scan old folder: photograph, read, verify, save; photos waiting; accuracy tab |
+| `/clinic/stamp` | To stamp: signed documents to print, stamp and hand over (receptionist, nurse) |
 | `/clinic/documents` | Not yet signed / signed / voided (doctor only) |
 | `/clinic/report` | Printable daily report (doctor only) |
 | `/clinic/audit` | Audit trail with CSV export (doctor only) |

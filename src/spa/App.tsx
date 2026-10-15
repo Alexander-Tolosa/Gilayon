@@ -17,6 +17,7 @@ const PatientRecord = lazy(() => import('../features/clinic/pages/PatientRecord'
 const DoctorQueue = lazy(() => import('../features/clinic/pages/DoctorQueue'))
 const Consult = lazy(() => import('../features/clinic/pages/Consult'))
 const Documents = lazy(() => import('../features/clinic/pages/Documents'))
+const ToStamp = lazy(() => import('../features/clinic/pages/ToStamp'))
 const ScanFolder = lazy(() => import('../features/clinic/pages/ScanFolder'))
 const DailyReport = lazy(() => import('../features/clinic/pages/DailyReport'))
 const AuditTrail = lazy(() => import('../features/clinic/pages/AuditTrail'))
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="checkin" element={<CheckIn />} />
           <Route path="queue" element={<QueueBoard />} />
           <Route path="scan" element={<ScanFolder />} />
+          <Route path="stamp" element={<ToStamp />} />
           <Route path="patients" element={<Patients />} />
           <Route path="patients/duplicates" element={<Duplicates />} />
           <Route path="patients/:id" element={<PatientRecord />} />
