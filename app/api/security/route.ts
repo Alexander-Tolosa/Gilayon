@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 /** Certificate state for the Settings screen: names, days left, and the CA fingerprint to compare on each PC. */
 export const GET = route({ roles: ['doctor'], read: true }, async () => {
-  const dir = path.resolve(process.env.TLS_DIR ?? './certs')
+  const dir = path.resolve(/*turbopackIgnore: true*/ process.env.TLS_DIR ?? './certs')
   const cert = await inspectCertificates(dir)
   let fingerprint: string | null = null
   try {

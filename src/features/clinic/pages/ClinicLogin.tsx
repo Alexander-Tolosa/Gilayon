@@ -21,7 +21,9 @@ export default function ClinicLogin() {
   const [role, setRole] = useState<StaffRole>(initialRole)
   const accounts = data.staff.filter((s) => s.role === role && s.active !== false)
   const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
-  const [password, setPassword] = useState(process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_DEMO ? '' : 'demo-password')
+  // Only the demo server fills in the shared demo password; a real clinic server never does.
+  const [typed, setPassword] = useState<string | null>(null)
+  const password = typed ?? (data.demo ? 'demo-password' : '')
   const [error, setError] = useState('')
   const navigate = useNavigate()
 
@@ -103,7 +105,7 @@ export default function ClinicLogin() {
             Sign in
           </Button>
           <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-            <LockKey size={16} className="shrink-0" /> Demo accounts are filled in. Sign-in details are kept apart from license numbers.
+            <LockKey size={16} className="shrink-0" /> {data.demo ? 'Demo accounts are filled in. ' : ''}Sign-in details are kept apart from license numbers.
           </p>
         </form>
         <div className="flex flex-col items-center gap-2 border-t border-line pt-3 text-sm text-muted sm:flex-row sm:justify-between">

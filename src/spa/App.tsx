@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
+import { LogoMark } from '../shared/components/Logo'
 import { Button } from '../shared/components/ui'
 import Landing from '../features/landing/Landing'
 const AuthPage = lazy(() => import('../features/auth/AuthPage'))
@@ -33,10 +34,9 @@ function ScrollToTop() {
 function RouteFallback() {
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-canvas" aria-busy="true" aria-label="Loading">
-      <span className="relative inline-grid size-10 place-items-center rounded-[12px] bg-brand-600 shadow-brand">
-        <span className="absolute inset-0 animate-pulse-ring rounded-[12px] bg-brand-400" />
-        <span className="absolute h-[52%] w-[16%] rounded-full bg-white" />
-        <span className="absolute h-[16%] w-[52%] rounded-full bg-white" />
+      <span className="relative inline-grid size-12 place-items-center">
+        <span className="absolute inset-[6%] animate-pulse-ring rounded-[22%] bg-brand-400" />
+        <LogoMark className="relative size-12" alt="" />
       </span>
     </div>
   )

@@ -57,10 +57,12 @@ export function route<S extends ZodType | undefined = undefined>(opts: Opts<S>, 
         body = parsed.data
       }
       const a = { db, actor: actor as Actor, body, params, req } as unknown as Args<S>
-      if (opts.read) return json(await fn({ ...a, tx: db as unknown as Tx }))
+      // A handler may return its own Response (a file download); anything else is sent as JSON.
+      const send = (out: unknown) => (out instanceof Response ? out : json(out ?? { ok: true }))
+      if (opts.read) return send(await fn({ ...a, tx: db as unknown as Tx }))
       const result = await db.transaction(async (tx) => fn({ ...a, tx }))
       notifyChanged()
-      return json(result ?? { ok: true })
+      return send(result)
     } catch (e) {
       if (e instanceof HttpError) return json({ error: e.message }, e.status)
       const code = (e as { cause?: { code?: string } })?.cause?.code ?? (e as { code?: string })?.code

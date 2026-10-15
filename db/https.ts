@@ -5,13 +5,14 @@
     npm run https:renew                                                  new server certificate, same CA, same names
     npm run https:status                                                 what is installed and how long it lasts
 
-  With no --host the machine's own name and network addresses are used. Set HIMSOG_HOSTNAMES
+  With no --host the machine's own name and network addresses are used. Set GILAYON_HOSTNAMES (or the old HIMSOG_HOSTNAMES)
   (comma separated) to make them permanent.
 */
 import { X509Certificate } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { setting } from '../src/server/env'
 import { FILES, inspectCertificates, setupCertificates } from '../src/server/tls/certs'
 
 try {
@@ -59,7 +60,7 @@ Keep ${path.join(dir, FILES.caKey)} on this server only: whoever holds it can im
 
 async function main() {
   if (cmd === 'setup' || cmd === 'renew') {
-    let hosts = [...flags('host'), ...(process.env.HIMSOG_HOSTNAMES ?? '').split(',')].map((h) => h.trim()).filter(Boolean)
+    let hosts = [...flags('host'), ...(setting('HOSTNAMES') ?? '').split(',')].map((h) => h.trim()).filter(Boolean)
     if (cmd === 'renew' && !hosts.length) {
       const now = await inspectCertificates(dir)
       if (!now.present) throw new Error('No certificate to renew. Run: npm run https:setup')

@@ -3,8 +3,8 @@
   network or the clinic server is down. Records themselves live on the clinic server;
   this only caches the screens. Network first for pages, cache first for built assets. /api/ is never cached.
 */
-const CACHE = 'himsog-shell-v3'
-const SHELL = ['/', '/clinic', '/waiting', '/manifest.webmanifest', '/favicon.svg', '/icon-192.png', '/icon-512.png']
+const CACHE = 'himsog-shell-v4'
+const SHELL = ['/', '/clinic', '/waiting', '/manifest.webmanifest', '/favicon.svg', '/logo.png', '/icon-192.png', '/icon-512.png', '/icon-maskable.png']
 
 // Cache the page shell, each main screen's HTML (the payload names the route, so one shell is not
 // enough), and every script/style the HTML names, including those only listed in its data payload.

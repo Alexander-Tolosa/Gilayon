@@ -79,6 +79,13 @@
   html[data-ui='clinic'] {
     font-size: 112.5%;
   }
+  /* The A / A+ / A++ switch on clinic screens, for staff who need bigger text still. */
+  html[data-ui='clinic'][data-text='large'] {
+    font-size: 125%;
+  }
+  html[data-ui='clinic'][data-text='larger'] {
+    font-size: 140%;
+  }
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

@@ -20,7 +20,8 @@ import { Navigate, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { LogoMark } from '../../shared/components/Logo'
 import { Avatar, Modal } from '../../shared/components/ui'
 import { cn } from '../../shared/lib/utils'
-import { LanguageSwitch, StatusBadge } from './components/ClinicComponents'
+import { LanguageSwitch, StatusBadge, TextSizeSwitch } from './components/ClinicComponents'
+import { applyTextSize, savedTextSize } from './lib/textsize'
 import { useT } from './lib/i18n'
 import { unreadActivity } from './lib/activity'
 import { todayKey } from './lib/helpers'
@@ -34,8 +35,10 @@ type Item = { to: string; label: string; icon: Icon; badge?: number }
 export function useClinicScale() {
   useEffect(() => {
     document.documentElement.dataset.ui = 'clinic'
+    applyTextSize(savedTextSize())
     return () => {
       delete document.documentElement.dataset.ui
+      delete document.documentElement.dataset.text
     }
   }, [])
 }
@@ -82,7 +85,8 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
       <p className="px-6 pb-2 text-sm font-semibold text-faint">
         {role === 'doctor' ? t('Doctor') : role === 'nurse' ? t('Nurse') : t('Receptionist')}
       </p>
-      <nav className="flex flex-col gap-1.5 px-3">
+      {/* The menu scrolls on short screens or with larger text, so the account card below always stays in view. */}
+      <nav className="flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-3 pb-2">
         {nav.map((item) => (
           <NavLink
             key={item.to}
@@ -104,19 +108,25 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
           <span className="flex-1">{t('Waiting screen')}</span>
         </a>
       </nav>
-      <div className="mt-auto p-3">
-        <div className="flex items-center gap-3 rounded-3xl border border-line bg-canvas p-3">
-          <Avatar name={me?.name ?? ''} size="md" />
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] font-semibold">{me?.name}</p>
-            <p className="truncate text-[13px] text-muted">{me?.title}</p>
+      <div className="shrink-0 border-t border-line p-3">
+        <div className="rounded-3xl border border-line bg-canvas p-3">
+          {/* Name and role wrap instead of being cut off, so a long name or title is always readable. */}
+          <div className="flex items-center gap-3">
+            <Avatar name={me?.name ?? ''} size="md" className="shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="break-words text-[15px] font-semibold leading-snug text-ink">{me?.name}</p>
+              <p className="mt-0.5 break-words text-[13px] leading-snug text-muted">{me?.title}</p>
+            </div>
           </div>
-          <button onClick={() => setPw(true)} aria-label="Change password" title="Change password" className="grid size-11 place-items-center rounded-full border border-line bg-surface text-ink-2 hover:text-brand-700">
-            <Key size={20} />
-          </button>
-          <button onClick={signOut} aria-label={t('Sign out')} title={t('Sign out')} className="grid size-11 place-items-center rounded-full border border-line bg-surface text-ink-2 hover:text-danger">
-            <SignOut size={20} />
-          </button>
+          {/* Side by side when both labels fit; a longer label (Filipino) moves to its own row instead of breaking. */}
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            <button onClick={() => setPw(true)} title="Change password" className="flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-2 text-[14px] font-medium text-ink-2 transition hover:border-brand-300 hover:text-brand-700">
+              <Key size={18} className="shrink-0" /> Password
+            </button>
+            <button onClick={signOut} title={t('Sign out')} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-2 text-[14px] font-medium text-ink-2 transition hover:border-danger/40 hover:text-danger">
+              <SignOut size={18} className="shrink-0" /> {t('Sign out')}
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -161,6 +171,7 @@ export function ClinicShell() {
               <ListIcon size={22} />
             </button>
             <div className="ml-auto flex items-center gap-2">
+              <TextSizeSwitch />
               <LanguageSwitch />
               <StatusBadge />
             </div>

@@ -12,7 +12,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx db/migrate.ts",
     "db:seed": "tsx db/seed.ts",
+    "admin": "tsx db/admin.ts",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "deps:check": "npm outdated; npm audit --omit=dev",
     "backup": "tsx db/backup.ts backup",
     "backup:list": "tsx db/backup.ts list",
     "backup:verify": "tsx db/backup.ts verify",
@@ -43,6 +46,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^24.13.3",
     "@types/react": "^19.2.18",

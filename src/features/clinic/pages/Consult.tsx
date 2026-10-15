@@ -518,7 +518,7 @@ function Recap({ patientId, onDraft, onClose }: { patientId: string; onDraft: (t
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-sm text-muted">Demo note: this preview is generated from the record by rules, standing in for the local model. It never suggests a diagnosis or treatment and cannot change the record. Review before use.</p>
+      <p className="mt-3 text-sm text-muted">{data.demo ? 'Demo note: this' : 'This'} preview is generated from the record by rules, standing in for the local model. It never suggests a diagnosis or treatment and cannot change the record. Review before use.</p>
       <Button size="sm" variant="soft" className="mt-3" onClick={() => onDraft(lines.slice(0, 4).map((l) => l.text).join(' '))}>
         Use as certificate findings draft
       </Button>

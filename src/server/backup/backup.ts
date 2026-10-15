@@ -50,12 +50,12 @@ export type BackupConfig = {
 
 export function backupConfig(env: NodeJS.ProcessEnv = process.env): BackupConfig {
   return {
-    dir: path.resolve(env.BACKUP_DIR ?? './backups'),
-    offsiteDir: env.BACKUP_OFFSITE_DIR ? path.resolve(env.BACKUP_OFFSITE_DIR) : undefined,
+    dir: path.resolve(/*turbopackIgnore: true*/ env.BACKUP_DIR ?? './backups'),
+    offsiteDir: env.BACKUP_OFFSITE_DIR ? path.resolve(/*turbopackIgnore: true*/ env.BACKUP_OFFSITE_DIR) : undefined,
     passphrase: env.BACKUP_PASSPHRASE || undefined,
     keep: Math.max(3, Number(env.BACKUP_KEEP ?? 14) || 14),
     allowPlain: env.BACKUP_ALLOW_UNENCRYPTED === '1',
-    uploadsDir: path.resolve(env.UPLOADS_DIR ?? './uploads'),
+    uploadsDir: path.resolve(/*turbopackIgnore: true*/ env.UPLOADS_DIR ?? './uploads'),
   }
 }
 

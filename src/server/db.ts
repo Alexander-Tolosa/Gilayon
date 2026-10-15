@@ -7,6 +7,7 @@ import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
 import postgres from 'postgres'
 import { count } from 'drizzle-orm'
 import * as schema from '../../db/schema'
+import { setting } from './env'
 
 /*
   One database handle for the whole server. With DATABASE_URL it talks to PostgreSQL (the clinic
@@ -36,7 +37,7 @@ async function open(): Promise<Db> {
   await (await import('./files')).moveScansToDisk(db)
   // The embedded database is for demos and development: fill an empty one with the synthetic clinic.
   // (Never done on a real DATABASE_URL, where an empty database means "not set up yet".)
-  if (process.env.HIMSOG_AUTO_SEED !== '0' && process.env.PGLITE_DIR !== 'memory://') {
+  if (setting('AUTO_SEED') !== '0' && process.env.PGLITE_DIR !== 'memory://') {
     const [{ n }] = await db.select({ n: count() }).from(schema.staff)
     if (n === 0) await (await import('../../db/seed')).seed(db)
   }

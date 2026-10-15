@@ -22,7 +22,7 @@ export const CA_DAYS = 3650
 export const FILES = { caCert: 'himsog-ca.crt', caKey: 'himsog-ca.key', cert: 'server.crt', key: 'server.key' } as const
 
 export type CertFolder = { dir: string }
-const p = (dir: string, f: string) => path.join(dir, f)
+const p = (dir: string, f: string) => path.join(/*turbopackIgnore: true*/ dir, f)
 
 const pem = (label: string, der: ArrayBuffer) => {
   const b64 = Buffer.from(der).toString('base64').match(/.{1,64}/g)!.join('\n')

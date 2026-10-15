@@ -4,13 +4,14 @@ import { Button, Card, Field, Input, Modal, useToast } from '../../../shared/com
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, Signature } from '../components/ClinicComponents'
 import { BackupCard } from '../components/BackupCard'
+import { ClinicProfileCard } from '../components/ClinicProfileCard'
 import { HrImportCard } from '../components/HrImport'
 import { SecurityCard } from '../components/SecurityCard'
 import { ChangePasswordForm, StaffManager } from '../components/StaffAdmin'
 import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
 
-/** Doctor settings: priority lanes, staff, the signature and PIN used to sign, and the demo reset. */
+/** Doctor settings: priority lanes, letterhead, staff, the signature and PIN used to sign, and (demo server only) the demo reset. */
 export default function Settings() {
   const t = useT()
   const toast = useToast()
@@ -21,7 +22,7 @@ export default function Settings() {
 
   return (
     <div>
-      <PageTitle title={t('Settings')} sub="Doctor in charge: priority lanes, staff, and how you sign." />
+      <PageTitle title={t('Settings')} sub="Doctor in charge: priority lanes, letterhead, staff, and how you sign." />
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card className="p-6">
           <p className="text-lg font-semibold">{t('Priority lane')} ranks</p>
@@ -83,6 +84,8 @@ export default function Settings() {
           <ChangePasswordForm />
         </Card>
 
+        <ClinicProfileCard />
+
         <StaffManager />
 
         <HrImportCard />
@@ -91,13 +94,15 @@ export default function Settings() {
 
         <BackupCard />
 
-        <Card className="p-6">
-          <p className="text-lg font-semibold">Demo data</p>
-          <p className="text-[15px] text-muted">Everything here is synthetic. Reset before each run-through to get a clean queue for today.</p>
-          <Button variant="danger" size="lg" className="mt-4" icon={<ArrowCounterClockwise size={18} />} onClick={() => setReset(true)}>
-            Reset demo data
-          </Button>
-        </Card>
+        {data.demo && (
+          <Card className="p-6">
+            <p className="text-lg font-semibold">Demo data</p>
+            <p className="text-[15px] text-muted">Everything here is synthetic. Reset before each run-through to get a clean queue for today.</p>
+            <Button variant="danger" size="lg" className="mt-4" icon={<ArrowCounterClockwise size={18} />} onClick={() => setReset(true)}>
+              Reset demo data
+            </Button>
+          </Card>
+        )}
       </div>
       <Modal
         open={reset}

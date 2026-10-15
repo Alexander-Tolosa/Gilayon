@@ -14,6 +14,8 @@ npm run lint         # oxlint src app db  (kept at 0 warnings; overrides live in
 npm test             # vitest run, all of tests/*.test.ts
 npx vitest run tests/idle.test.ts            # one file
 npx vitest run tests/backend.test.ts -t "name"   # one test
+npm run test:e2e     # Playwright: builds, serves on :3100 with a throwaway PGlite, drives Chromium (e2e/)
+npm run admin -- create-doctor --name "Dr. X" --license 123   # first account on an empty database (db/admin.ts)
 npm run db:generate  # drizzle-kit: new SQL migration after editing db/schema.ts
 npm run db:seed      # load demo clinic into an empty DB (stop dev server first if embedded)
 npm run start:https  # node server.mjs, TLS from the clinic CA (see README HTTPS section)

@@ -21,8 +21,11 @@ import type {
 } from '../features/clinic/types'
 import type { Q } from './db'
 import { strip, type Actor } from './core'
+import { isDemoServer } from './env'
+import { getClinicProfile } from './services/clinic'
 
-const AUDIT_LIMIT = 3000
+/** The newest audit entries sent with every snapshot. Older ones are paged in by GET /api/audit. */
+export const AUDIT_LIMIT = 3000
 
 /** dup -> final survivor for every merged patient (follows chains, tolerates a loop). */
 export function mergeMap(patients: { patient_id: string; merged_into: string | null }[]) {
@@ -59,7 +62,7 @@ export async function lastBackupAt(q: Q) {
 
 export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
   const doctor = actor.role === 'doctor'
-  const [persons, employees, patients, relationships, familyHistory, allergies, categories, tickets, consultations, diagnoses, labs, rx, rxItems, documents, scans, staff, audit, imp, backupAt] =
+  const [persons, employees, patients, relationships, familyHistory, allergies, categories, tickets, consultations, diagnoses, labs, rx, rxItems, documents, scans, staff, audit, imp, backupAt, clinic] =
     await Promise.all([
       q.select().from(t.person),
       q.select().from(t.employee),
@@ -80,6 +83,7 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
       doctor ? q.select().from(t.auditLog).orderBy(desc(t.auditLog.logged_at)).limit(AUDIT_LIMIT) : Promise.resolve([]),
       q.select().from(t.meta).where(eq(t.meta.key, 'last_import')),
       lastBackupAt(q),
+      getClinicProfile(q),
     ])
   const itemsByRx = new Map<string, Prescription['items']>()
   for (const i of rxItems) {
@@ -151,12 +155,14 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
     mergedRecords,
     notDuplicates: (nd?.value as string[] | undefined) ?? [],
     lastImport: (imp[0]?.value as Snapshot['lastImport'] | undefined) ?? { at: 0, count: 0, source: '' },
+    clinic,
+    demo: isDemoServer(),
   }
 }
 
 /** Public waiting screen: queue numbers and lanes only. No names, reasons or patient ids. */
 export async function loadPublicQueue(q: Q) {
-  const [tickets, categories, staff] = await Promise.all([q.select().from(t.queueTicket), q.select().from(t.priorityCategory), q.select().from(t.staff).where(eq(t.staff.active, true))])
+  const [tickets, categories, staff, clinic] = await Promise.all([q.select().from(t.queueTicket), q.select().from(t.priorityCategory), q.select().from(t.staff).where(eq(t.staff.active, true)), getClinicProfile(q)])
   return {
     tickets: tickets.map((r) => ({
       ...strip<QueueTicket>(r),
@@ -168,5 +174,8 @@ export async function loadPublicQueue(q: Q) {
     })),
     categories: categories as PriorityCategory[],
     staff: staff.map(publicStaff),
+    // The letterhead and the demo flag are not secret: the sign-in page and waiting screen use them.
+    clinic,
+    demo: isDemoServer(),
   }
 }

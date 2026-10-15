@@ -1,14 +1,14 @@
-import { DownloadSimple, Checks } from '@phosphor-icons/react'
+import { ArrowDown, DownloadSimple, Checks, FileCsv } from '@phosphor-icons/react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Chip, Input } from '../../../shared/components/ui'
+import { Button, Card, Chip, Input, useToast } from '../../../shared/components/ui'
 import { cn, downloadCSV } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
 import { useT } from '../lib/i18n'
 import { unreadActivity } from '../lib/activity'
 import { fmtStampOf } from '../lib/helpers'
 import { useClinic } from '../store/store'
-import type { AuditAction } from '../types'
+import type { AuditAction, AuditLog } from '../types'
 
 const GROUPS: { key: string; label: string; actions: AuditAction[] }[] = [
   { key: 'all', label: 'Everything', actions: [] },
@@ -20,13 +20,23 @@ const GROUPS: { key: string; label: string; actions: AuditAction[] }[] = [
   { key: 'flag', label: 'Flags', actions: ['flag'] },
   { key: 'sync', label: 'Offline sync', actions: ['sync'] },
   { key: 'backup', label: 'Backups', actions: ['backup'] },
+  { key: 'export', label: 'Exports', actions: ['export'] },
 ]
 
-const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok', void: 'bg-danger-soft text-danger', flag: 'bg-warn-soft text-warn', edit: 'bg-brand-50 text-brand-800', sync: 'bg-mist text-ink-2' }
+const TONE: Partial<Record<AuditAction, string>> = { sign: 'bg-ok-soft text-ok', void: 'bg-danger-soft text-danger', flag: 'bg-warn-soft text-warn', edit: 'bg-brand-50 text-brand-800', sync: 'bg-mist text-ink-2', export: 'bg-warn-soft text-warn' }
 
 export default function AuditTrail() {
   const t = useT()
-  const { data, staffById, me, markAuditSeen } = useClinic()
+  const toast = useToast()
+  const { data, staffById, me, markAuditSeen, fetchAuditPage, exportAudit, online } = useClinic()
+  // The snapshot carries the newest entries; older pages are fetched from the server on request.
+  const [older, setOlder] = useState<AuditLog[]>([])
+  const [olderDone, setOlderDone] = useState(false)
+  const [busy, setBusy] = useState<'older' | 'export' | null>(null)
+  const all = useMemo(() => {
+    const seen = new Set(data.audit.map((a) => a.log_id))
+    return [...data.audit, ...older.filter((a) => !seen.has(a.log_id))]
+  }, [data.audit, older])
   const unread = useMemo(() => new Set(unreadActivity(data, me?.staff_id ?? '').map((a) => a.log_id)), [data, me])
   const [group, setGroup] = useState('all')
   const [staff, setStaff] = useState('all')
@@ -34,11 +44,11 @@ export default function AuditTrail() {
   const [limit, setLimit] = useState(60)
   const rows = useMemo(() => {
     const g = GROUPS.find((x) => x.key === group)!
-    return data.audit
+    return all
       .filter((a) => !g.actions.length || g.actions.includes(a.action))
       .filter((a) => staff === 'all' || a.staff_id === staff)
       .filter((a) => !q || a.summary.toLowerCase().includes(q.toLowerCase()))
-  }, [data.audit, group, staff, q])
+  }, [all, group, staff, q])
   const patientIds = new Set(data.patients.map((p) => p.patient_id))
 
   return (
@@ -55,9 +65,22 @@ export default function AuditTrail() {
             variant="secondary"
             size="lg"
             icon={<DownloadSimple size={20} />}
-            onClick={() => downloadCSV('gilayon-audit-trail.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
+            onClick={() => downloadCSV('gilayon-audit-trail-view.csv', rows.map((a) => ({ when: new Date(a.logged_at).toISOString(), staff: staffById(a.staff_id)?.name ?? 'System', action: a.action, table: a.table_name, record_id: a.record_id, summary: a.summary, detail: a.detail ?? '' })))}
           >
-            Export CSV
+            Export this view
+          </Button>
+          <Button
+            size="lg"
+            icon={<FileCsv size={20} />}
+            disabled={!online || busy !== null}
+            onClick={async () => {
+              setBusy('export')
+              const problem = await exportAudit()
+              setBusy(null)
+              toast(problem ? { tone: 'warn', title: problem } : { tone: 'ok', title: 'Full audit trail downloaded', body: 'The export is recorded in the audit trail.' })
+            }}
+          >
+            {busy === 'export' ? 'Preparing…' : 'Export full log'}
           </Button>
           </>
         }
@@ -116,6 +139,34 @@ export default function AuditTrail() {
           </div>
         )}
         {rows.length === 0 && <p className="p-8 text-center text-lg text-ink-2">No entries.</p>}
+        {rows.length <= limit && (
+          <div className="flex flex-col items-center gap-1 border-t border-line p-4 text-center">
+            {olderDone ? (
+              <p className="text-[15px] text-muted">That is the whole audit trail.</p>
+            ) : (
+              <>
+                <Button
+                  variant="secondary"
+                  icon={<ArrowDown size={18} />}
+                  disabled={!online || busy !== null}
+                  onClick={async () => {
+                    setBusy('older')
+                    const last = all.reduce<AuditLog | undefined>((m, a) => (!m || a.logged_at < m.logged_at || (a.logged_at === m.logged_at && a.log_id < m.log_id) ? a : m), undefined)
+                    const page = await fetchAuditPage(last && { at: last.logged_at, id: last.log_id })
+                    setBusy(null)
+                    if (!page) return
+                    setOlder((o) => [...o, ...page.rows])
+                    setOlderDone(!page.more)
+                    setLimit((l) => l + page.rows.length)
+                  }}
+                >
+                  {busy === 'older' ? 'Loading…' : 'Load older entries from the server'}
+                </Button>
+                <p className="text-sm text-muted">Filters and search apply to the entries loaded so far.</p>
+              </>
+            )}
+          </div>
+        )}
       </Card>
     </div>
   )

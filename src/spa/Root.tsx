@@ -3,6 +3,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { CLINIC_ERROR_EVENT, ClinicProvider, useClinic } from '../features/clinic/store/store'
 import { StoreProvider } from '../features/portal/store/store'
+import { LogoMark } from '../shared/components/Logo'
 import { ToastProvider, useToast } from '../shared/components/ui'
 import { registerServiceWorker } from '../shared/lib/pwa'
 
@@ -23,10 +24,9 @@ function ReadyGate({ children }: { children: ReactNode }) {
   if (ready) return <>{children}</>
   return (
     <div className="grid min-h-[100dvh] place-items-center bg-canvas" aria-busy="true" aria-label="Loading">
-      <span className="relative inline-grid size-10 place-items-center rounded-[12px] bg-brand-600 shadow-brand">
-        <span className="absolute inset-0 animate-pulse-ring rounded-[12px] bg-brand-400" />
-        <span className="absolute h-[52%] w-[16%] rounded-full bg-white" />
-        <span className="absolute h-[16%] w-[52%] rounded-full bg-white" />
+      <span className="relative inline-grid size-12 place-items-center">
+        <span className="absolute inset-[6%] animate-pulse-ring rounded-[22%] bg-brand-400" />
+        <LogoMark className="relative size-12" alt="" />
       </span>
     </div>
   )

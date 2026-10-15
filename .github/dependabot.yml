@@ -1,0 +1,13 @@
+# Dependency routine: once a week Dependabot opens one grouped pull request for npm updates, plus
+# separate ones for security fixes. A person reviews and merges each (see README, "Dependencies").
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]

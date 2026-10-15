@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { BackupStatus, ConsultInput, SecurityStatus, Snapshot } from '../api-types'
+import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type SecurityStatus, type Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import type { HrImportResult, RawHrRow } from '../lib/hrlist'
@@ -63,6 +63,8 @@ const EMPTY: Snapshot = {
   mergedRecords: [],
   notDuplicates: [],
   lastImport: { at: 0, count: 0, source: '' },
+  clinic: DEFAULT_CLINIC,
+  demo: false,
 }
 
 const ss = {
@@ -205,6 +207,11 @@ type Api = {
   unmergePatient: (patientId: string, reason: string) => Promise<string | null>
   markNotDuplicate: (a: string, b: string) => Promise<string | null>
   markAuditSeen: (upTo: number) => Promise<void>
+  /** Older audit entries than the given row (newest first), beyond what the snapshot carries. */
+  fetchAuditPage: (before?: { at: number; id: string }) => Promise<AuditPage | null>
+  /** Downloads the whole audit trail as CSV. Returns an error message, or null when it worked. */
+  exportAudit: () => Promise<string | null>
+  setClinicProfile: (profile: ClinicProfile) => Promise<string | null>
   fetchBackups: () => Promise<BackupStatus | null>
   fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
@@ -262,7 +269,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         setConnected(true)
         return snap
       }
-      const pub = await api<Pick<Snapshot, 'tickets' | 'categories' | 'staff'>>('/api/public/queue')
+      const pub = await api<Pick<Snapshot, 'tickets' | 'categories' | 'staff' | 'clinic' | 'demo'>>('/api/public/queue')
       const snap = { ...EMPTY, ...pub }
       setShared(snap)
       setReady(true)
@@ -691,6 +698,38 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       unmergePatient: (patientId, reason) => call(`/api/patients/${patientId}/unmerge`, { reason }),
       markNotDuplicate: (a, b) => call('/api/patients/not-duplicate', { a, b }),
       markAuditSeen: async (upTo) => void (await call('/api/audit/seen', { up_to: upTo })),
+      fetchAuditPage: async (before) => {
+        const q = new URLSearchParams({ limit: '200' })
+        if (before) {
+          q.set('before', String(before.at))
+          q.set('before_id', before.id)
+        }
+        try {
+          return await api<AuditPage>(`/api/audit?${q}`, { token: tokenRef.current })
+        } catch (e) {
+          tell(e instanceof ApiError ? e.message : 'Could not load older entries.')
+          return null
+        }
+      },
+      exportAudit: async () => {
+        let res: Response
+        try {
+          res = await fetch('/api/audit/export', { method: 'POST', headers: { Authorization: `Bearer ${tokenRef.current}` }, cache: 'no-store' })
+        } catch {
+          return 'The clinic server cannot be reached.'
+        }
+        if (!res.ok) return ((await res.json().catch(() => ({}))) as { error?: string }).error ?? 'The export failed.'
+        const name = /filename="([^"]+)"/.exec(res.headers.get('Content-Disposition') ?? '')?.[1] ?? 'gilayon-audit-trail.csv'
+        const url = URL.createObjectURL(await res.blob())
+        const a = document.createElement('a')
+        a.href = url
+        a.download = name
+        a.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+        await refresh()
+        return null
+      },
+      setClinicProfile: (profile) => call('/api/settings/clinic', profile, 'PUT'),
       fetchSecurity: async () => {
         try {
           return await api<SecurityStatus>('/api/security', { token: tokenRef.current })

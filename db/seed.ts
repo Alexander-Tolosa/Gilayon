@@ -52,7 +52,10 @@ export async function seed(db: Db) {
         pin_hash: s.role === 'doctor' ? pin_hash : null,
       })),
     )
-    if (keep.length) await tx.insert(t.session).values(keep)
+    // Only sessions of the seeded staff survive: an account created since the last reset no longer exists.
+    const seeded = new Set(STAFF.map((s) => s.staff_id))
+    const survivors = keep.filter((k) => seeded.has(k.staff_id))
+    if (survivors.length) await tx.insert(t.session).values(survivors)
     await tx.insert(t.priorityCategory).values(d.categories)
     await chunked(d.persons, 500, (p) => tx.insert(t.person).values(p))
     await chunked(d.employees, 500, (p) => tx.insert(t.employee).values(p))

@@ -67,10 +67,13 @@ function PatientLine({ patientId, date }: { patientId: string; date: string }) {
   )
 }
 
-const footer = (no?: string) => (
+/** Right-hand footer text. "Synthetic demo data" only on the demo server, never on a real clinic's prints. */
+const brand = (demo: boolean) => (demo ? 'Gilayon · synthetic demo data' : 'Gilayon')
+
+const footer = (no: string | undefined, demo: boolean, clinic: string) => (
   <div className="flex justify-between">
-    <span>{no ? `Document no. ${no}. Verify with the HMO-Clinic.` : 'Draft, not valid without a signature and document number.'}</span>
-    <span>Gilayon · synthetic demo data</span>
+    <span>{no ? `Document no. ${no}. Verify with the ${clinic}.` : 'Draft, not valid without a signature and document number.'}</span>
+    <span>{brand(demo)}</span>
   </div>
 )
 
@@ -82,7 +85,7 @@ function RxPrint({ id }: { id: string }) {
   const consult = d.consultations.find((c) => c.consultation_id === rx.consultation_id)
   const allergies = d.allergies.filter((a) => a.patient_id === rx.patient_id)
   return (
-    <Letterhead watermark={rx.status === 'voided' ? 'Void' : rx.status === 'draft' ? 'Not signed' : undefined} footer={footer(rx.document_no)}>
+    <Letterhead watermark={rx.status === 'voided' ? 'Void' : rx.status === 'draft' ? 'Not signed' : undefined} footer={footer(rx.document_no, data.demo, data.clinic.name)}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.2em]">Prescription</p>
       <PatientLine patientId={rx.patient_id} date={consult?.consult_date ?? todayKey()} />
       {allergies.length > 0 && <p className="mt-2 text-[10pt] font-bold text-red-700">Allergies: {allergies.map((a) => a.substance).join(', ')}</p>}
@@ -119,7 +122,7 @@ function CertificatePrint({ id }: { id: string }) {
   const start = new Date(y, m - 1, dd)
   const end = new Date(start.getTime() + Math.max(0, (doc.rest_days ?? 1) - 1) * 86_400_000)
   return (
-    <Letterhead watermark={doc.status === 'voided' ? 'Void' : doc.status === 'draft' ? 'Not signed' : undefined} footer={footer(doc.document_no)}>
+    <Letterhead watermark={doc.status === 'voided' ? 'Void' : doc.status === 'draft' ? 'Not signed' : undefined} footer={footer(doc.document_no, data.demo, data.clinic.name)}>
       <p className="mt-6 text-center text-[14pt] font-bold uppercase tracking-[0.2em]">Medical Certificate</p>
       <p className="mt-2 text-right">{fmtDay(date)}</p>
       <p className="mt-6 leading-relaxed">To whom it may concern:</p>
@@ -186,7 +189,7 @@ function SummaryPrint({ id }: { id: string }) {
   const fh = data.familyHistory.filter((h) => h.patient_id === id)
   const labs = data.labs.filter((l) => l.patient_id === id && l.status === 'resulted').slice(-4)
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(printedAt)}. Bring this sheet to your next visit.</span><span>Gilayon · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Printed {fmtStampOf(printedAt)}. Bring this sheet to your next visit.</span><span>{brand(data.demo)}</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Patient summary · {fil('Buod')}</p>
       <PatientLine patientId={id} date={todayKey()} />
       <Section title="Allergies">{allergies.length ? allergies.map((a) => `${a.substance} (${a.reaction}, ${a.severity.toLowerCase()})`).join('; ') : 'None known.'}</Section>
@@ -246,8 +249,8 @@ function TicketPrint({ id }: { id: string }) {
   const lane = { urgent: 'Urgent', pregnant: 'Pregnant', pwd: 'PWD', senior: 'Senior', regular: 'Regular' }[t.category_id]
   return (
     <div className="print-page mx-auto w-[80mm] bg-white p-5 text-center text-black shadow-lift print:shadow-none">
-      <p className="text-[11pt] font-bold uppercase">HMO-Clinic</p>
-      <p className="text-[8pt]">Province of Iloilo</p>
+      <p className="text-[11pt] font-bold uppercase">{data.clinic.name}</p>
+      {data.clinic.address && <p className="text-[8pt]">{data.clinic.address}</p>}
       <p className="mt-4 text-[9pt] uppercase tracking-widest">{both('Queue number')}</p>
       <p className="text-[44pt] font-bold leading-none tabular">{ticketLabel(t)}</p>
       <p className="mt-2 text-[10pt] font-bold">
@@ -263,10 +266,11 @@ function TicketPrint({ id }: { id: string }) {
 }
 
 function ReportPrint({ day }: { day: string }) {
+  const { data } = useClinic()
   const r = useDailyReport(day)
   const [generatedAt] = useState(() => Date.now())
   return (
-    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(generatedAt)} from the clinic records.</span><span>Gilayon · synthetic demo data</span></div>}>
+    <Letterhead footer={<div className="flex justify-between"><span>Generated {fmtStampOf(generatedAt)} from the clinic records.</span><span>{brand(data.demo)}</span></div>}>
       <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.15em]">Daily report · {fmtDay(day)}</p>
       <table className="mt-5 w-full border-collapse text-[10.5pt]">
         <tbody>

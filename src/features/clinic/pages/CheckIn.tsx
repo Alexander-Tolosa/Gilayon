@@ -135,7 +135,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
 
 function SearchStep({ onPick, onNotListed }: { onPick: (personId: string) => void; onNotListed: () => void }) {
   const t = useT()
-  const { search, online, recent, personOfPatient } = useClinic()
+  const { data, search, online, recent, personOfPatient } = useClinic()
   const [q, setQ] = useState('')
   const hits = useMemo(() => search(q, 8), [q, search])
   return (
@@ -154,14 +154,17 @@ function SearchStep({ onPick, onNotListed }: { onPick: (personId: string) => voi
       {!online && <p className="rounded-2xl bg-danger-soft px-5 py-3 text-base text-danger">This computer is offline, so search only covers recently opened records. Queue numbers need the clinic server.</p>}
       {!q && (
         <Card className="p-6">
-          <p className="text-lg font-semibold">Try the demo</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {['Maria Lourdes Villanueva', 'IPG-2004-0318', 'jose dlacruz', 'Carlo Sorongon', 'Kristine Villanueva'].map((s) => (
-              <Chip key={s} onClick={() => setQ(s)} className="h-11 text-base">
-                {s}
-              </Chip>
-            ))}
-          </div>
+          {/* Sample searches exist only on the demo server; a real clinic sees the search tips alone. */}
+          <p className="text-lg font-semibold">{data.demo ? 'Try the demo' : 'Find a patient'}</p>
+          {data.demo && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {['Maria Lourdes Villanueva', 'IPG-2004-0318', 'jose dlacruz', 'Carlo Sorongon', 'Kristine Villanueva'].map((s) => (
+                <Chip key={s} onClick={() => setQ(s)} className="h-11 text-base">
+                  {s}
+                </Chip>
+              ))}
+            </div>
+          )}
           <p className="mt-3 text-[15px] text-muted">Search tolerates typos and shows birthdate and employee ID side by side, so people with similar names are easy to tell apart.</p>
           {recent.length > 0 && (
             <>
@@ -279,7 +282,7 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
 
 function VerifyStep({ personId, onBack, onOk }: { personId: string; onBack: () => void; onOk: () => void }) {
   const t = useT()
-  const { person, employeeOfPerson, patientOfPerson, verify, flagForHR, principalOf } = useClinic()
+  const { data, person, employeeOfPerson, patientOfPerson, verify, flagForHR, principalOf } = useClinic()
   const toast = useToast()
   const p = person(personId)!
   const emp = employeeOfPerson(personId)
@@ -342,9 +345,11 @@ function VerifyStep({ personId, onBack, onOk }: { personId: string; onBack: () =
           <Button size="lg" className="h-14 px-8 text-lg" onClick={run} disabled={!name || !birth || !empNo} icon={<ShieldCheck size={22} weight="fill" />}>
             {t('Verify')}
           </Button>
-          <button onClick={fillFromId} className="inline-flex items-center gap-1.5 rounded-full px-4 py-3 text-base font-medium text-brand-700 hover:bg-brand-50">
-            <Sparkle size={18} weight="fill" /> Demo: fill from ID
-          </button>
+          {data.demo && (
+            <button onClick={fillFromId} className="inline-flex items-center gap-1.5 rounded-full px-4 py-3 text-base font-medium text-brand-700 hover:bg-brand-50">
+              <Sparkle size={18} weight="fill" /> Demo: fill from ID
+            </button>
+          )}
         </div>
       </Card>
       <div className="flex flex-col gap-4">

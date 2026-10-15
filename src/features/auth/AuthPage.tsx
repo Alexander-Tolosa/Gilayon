@@ -87,7 +87,7 @@ function AsidePanel() {
     <aside className="relative hidden overflow-hidden bg-brand-600 px-12 py-10 text-white lg:flex lg:flex-col xl:px-14">
       <div className="pointer-events-none absolute inset-0 opacity-25 [background-image:radial-gradient(rgb(255_255_255/0.5)_1px,transparent_1px)] [background-size:22px_22px]" />
       <div className="relative">
-        <Logo light markClassName="rounded-lg ring-2 ring-white/70" />
+        <Logo light markClassName="[filter:drop-shadow(0_0_1px_#fff)_drop-shadow(0_0_1px_#fff)]" />
       </div>
       <div className="relative my-auto max-w-md">
         <p className="text-[34px] font-semibold leading-tight tracking-[-0.03em]">One record for every visit, from check-in to signed documents.</p>

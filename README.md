@@ -15,9 +15,22 @@ npm run typecheck
 npm run lint
 npm test           # backend integration tests (embedded PostgreSQL, nothing to install)
 npx vitest run tests/idle.test.ts   # one test file
+npm run test:e2e   # browser tests: builds, serves on :3100 with a throwaway database, drives Chromium
+npm run deps:check # outdated packages and known vulnerabilities in what ships
 ```
 
 With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.data/` and fills it with the synthetic demo clinic on first start. For a real clinic server, copy `.env.example` to `.env` and set `DATABASE_URL` to a PostgreSQL database; migrations run automatically. `npm run db:seed` loads the demo data into an empty database (stop the dev server first when using the embedded one).
+
+### Setting up a real clinic server
+
+1. Copy `.env.example` to `.env`, set `DATABASE_URL` (or `GILAYON_AUTO_SEED=0` for the embedded database) and `BACKUP_PASSPHRASE`. The demo helpers switch off by themselves.
+2. Create the first doctor, then stop and start the server (with the embedded database only one process can open it):
+   ```bash
+   npm run admin -- create-doctor --name "Dr. Juan Dela Cruz" --license 0123456 --ptr "1234567 · Jan 5, 2027 · Iloilo"
+   ```
+   Without `--password` a temporary password is printed once. The doctor chooses their own at first sign-in, then sets a signing PIN in **Settings**.
+3. In **Settings → Clinic letterhead**, enter the clinic's name, address, contact, license number and logo. They print on every prescription, certificate, summary, report and queue slip.
+4. Add the rest of the staff in **Settings → Clinic staff**. If the database was ever seeded, `npm run admin -- disable-demo` deactivates the demo accounts (never deletes them). `npm run admin -- list` shows every account.
 
 ## Backend
 
@@ -32,7 +45,7 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | HR employee list | **Settings > Import HR list** (doctor): choose a CSV, match its columns (common header names are recognised), confirm the date order, see exactly what would happen, then import. Every row is validated again on the server; bad rows are skipped with their line numbers. New employees get a record, names, offices and positions are updated, and a different birthdate or sex is never applied: it is reported and flagged on the patient for HR. Nobody is ever removed, and re-importing a list changes nothing. New employees who look like an existing record without an employee ID are pointed at Possible duplicates. |
 | Duplicate patients | Staff review pairs with the same birthdate and sex and a similar name (**Patients > Review possible duplicates**, or the warning on a record) and merge them with a reason. Nothing is moved or deleted: the older record is marked `merged_into` the survivor, screens show both histories together, signed documents keep the record they were issued under, and writes aimed at the old record land on the survivor. Two people on the HR list under different employee numbers can never be merged. A doctor can undo a merge from the surviving record. |
 | Signed records | Never edited. A database trigger rejects any change to a signed prescription or certificate other than voiding it with a reason. Consultations are append-only. |
-| Audit log | Written in the same transaction as every change; the database refuses deletes. Each doctor has their own "seen up to" mark: the My queue screen lists other people's notable changes since then (new patients, edits, scans, flags, voids, merges, offline syncs, backups), the Audit trail shows a count, and **Mark all as seen** moves the mark forward. |
+| Audit log | Written in the same transaction as every change; the database refuses deletes. Each doctor has their own "seen up to" mark: the My queue screen lists other people's notable changes since then (new patients, edits, scans, flags, voids, merges, offline syncs, backups), the Audit trail shows a count, and **Mark all as seen** moves the mark forward. Every screen gets the newest 3,000 entries; **Load older entries** pages further back from the server (`GET /api/audit`), and **Export full log** downloads the whole trail as CSV (the export is itself logged). |
 | Transport | `npm run start:https` terminates TLS 1.2+ with a certificate from the clinic's own CA. See [HTTPS](#https-and-running-as-a-service). |
 | Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
@@ -57,7 +70,8 @@ npm run https:renew                                               # new server c
 - **Keep `certs/himsog-ca.key` on the server only.** Whoever holds it can impersonate the clinic server. `certs/` is git-ignored. If you lose it you can make a new CA, but every PC must trust the new one.
 - **Renew before it expires.** Server certificates last 825 days (the longest Apple devices accept). Settings shows the days left and warns 30 days ahead. Renewing keeps the same CA, so PCs need no change.
 - **Settings > Secure connection** warns on any screen opened over plain `http://` from another PC.
-- The server also sends `Strict-Transport-Security`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` headers.
+- The server also sends `Strict-Transport-Security`, `Content-Security-Policy` (scripts, styles, fonts and API calls only from this server; see `next.config.ts`), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` headers.
+- **Dependencies:** Dependabot (`.github/dependabot.yml`) opens one grouped update pull request every Monday, plus security fixes as they appear. The doctor in charge or the IT contact reviews and merges them after `npm test` and `npm run test:e2e` pass; `npm run deps:check` shows the same picture locally.
 
 To start with Windows and restart if it stops, run `deploy\windows\install-service.ps1` in an administrator PowerShell on the server PC (it registers a startup task running `node server.mjs` as SYSTEM and opens the two ports on private networks); `uninstall-service.ps1` removes it. **These Windows scripts have not been run on a real Windows machine yet:** try them on the clinic PC and check `Get-ScheduledTaskInfo -TaskName "Gilayon Server"`.
 
@@ -82,11 +96,12 @@ To rebuild a server after a disk failure: install the app, set `DATABASE_URL`, `
 
 ## Demo accounts
 
-With `NEXT_PUBLIC_DEMO=1` (see `.env.example`) the demo password is pre-filled on `/clinic/login`; without it the field starts empty. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
+On the demo server (the embedded database filled with the synthetic clinic) the demo password is pre-filled on `/clinic/login`, check-in offers sample searches, and prints say "synthetic demo data". With `DATABASE_URL` set, or `GILAYON_AUTO_SEED=0`, all of that is hidden; `NEXT_PUBLIC_DEMO=1` or `0` forces it either way. **Every name, employee ID and record is synthetic.** Don't enter real patient data.
 
 | Role | Who | Can do |
 | --- | --- | --- |
 | Front desk | Cristina Bañas, Joel Parreño | Check in, queue board, patient registry. Can't sign or edit consultation notes. |
+| Nurse | Nurse Maricris Alinsug, Nurse Joy Sorongon | Same access and menu as the front desk (concept document). |
 | Doctor | Dr. Ramon Sollesta (Room 1), Dr. Liza Magbanua, Dr. Analyn Hechanova (Dental) | Call patients, consult, sign, void and reissue documents, daily report, audit trail, settings |
 | Patient | No login | Waiting screen (`/waiting`) and printouts |
 
@@ -97,7 +112,7 @@ Demo anchors in the seed:
 - **Jose Dela Cruz / Jose De la Cruz**: shows the duplicate-patient warning.
 - **Carlo Sorongon** (IPG-2026-0071): a new hire with no record yet.
 
-The seed is relative to the day it was created. To start over, go to **Settings → Reset demo data** (disabled on production builds unless `HIMSOG_ALLOW_RESET=1`).
+The seed is relative to the day it was created. To start over, go to **Settings → Reset demo data**. It exists only on the demo server in development, or wherever `GILAYON_ALLOW_RESET=1` is set; a real clinic database is never wiped by a button.
 
 ## Five-minute demo script (concept §11)
 

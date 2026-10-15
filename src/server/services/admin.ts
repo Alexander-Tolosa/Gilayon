@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { and, eq, ne } from 'drizzle-orm'
 import * as t from '../../../db/schema'
+import { STAFF as DEMO_STAFF } from '../../features/clinic/data/seed'
 import { endSessions, hashSecret, passwordProblem, verifyPin } from '../auth'
 import { audit, HttpError, uuid, type Actor } from '../core'
 import type { Q } from '../db'
@@ -66,6 +67,39 @@ export async function createStaff(q: Q, actor: Actor, input: NewStaff) {
   })
   await audit(q, actor.staff_id, { action: 'create', table: 'staff', record: staff_id, summary: `Created ${input.role} account for ${input.name.trim()}` })
   return staff_id
+}
+
+/** Changes made from the server's command line, not by a signed-in person. */
+export const SYSTEM_ACTOR: Actor = { staff_id: 'system', name: 'System', role: 'doctor' }
+
+/**
+ * Day one on a real database: nobody can sign in until a doctor exists, and only a doctor can add staff.
+ * Creates that first doctor with a temporary password. Refused once any active doctor exists.
+ */
+export async function createFirstDoctor(q: Q, input: Omit<NewStaff, 'role'>) {
+  const [any] = await q.select({ id: t.staff.staff_id }).from(t.staff).where(and(eq(t.staff.role, 'doctor'), eq(t.staff.active, true))).limit(1)
+  if (any) throw new HttpError(409, 'An active doctor account already exists. Add more staff from Settings > Staff accounts.')
+  return createStaff(q, SYSTEM_ACTOR, { ...input, role: 'doctor' })
+}
+
+/**
+ * Before real records go in: deactivates the seeded demo accounts that share the demo password.
+ * Never deletes them (the audit trail still names them) and refuses to leave the clinic without a doctor.
+ */
+export async function disableDemoAccounts(q: Q) {
+  const ids = DEMO_STAFF.map((s) => s.staff_id)
+  const rows = (await q.select().from(t.staff)).filter((r) => r.active)
+  const demo = rows.filter((r) => ids.includes(r.staff_id))
+  if (!demo.length) return []
+  if (!rows.some((r) => r.role === 'doctor' && !ids.includes(r.staff_id))) {
+    throw new HttpError(409, 'Create a real doctor account first (npm run admin -- create-doctor), or nobody could sign in.')
+  }
+  for (const r of demo) {
+    await q.update(t.staff).set({ active: false }).where(eq(t.staff.staff_id, r.staff_id))
+    await endSessions(q, r.staff_id)
+    await audit(q, SYSTEM_ACTOR.staff_id, { action: 'edit', table: 'staff', record: r.staff_id, summary: `Deactivated demo account of ${r.name}` })
+  }
+  return demo.map((r) => r.name)
 }
 
 type StaffPatch = Partial<Pick<NewStaff, 'name' | 'title' | 'license_no' | 'ptr_no' | 'services' | 'room' | 'role'>>

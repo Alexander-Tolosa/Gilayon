@@ -509,7 +509,7 @@ function Footer() {
       <div className="mx-auto max-w-7xl px-4 pb-10 pt-16 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-10 border-b border-white/20 pb-10 sm:grid-cols-2 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <Logo light markClassName="rounded-lg ring-2 ring-white/70" />
+            <Logo light markClassName="[filter:drop-shadow(0_0_1px_#fff)_drop-shadow(0_0_1px_#fff)]" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-brand-100">Digital records for the HMO-Clinic: medical, dental and laboratory visits of IPG employees and their dependents.</p>
             <div className="mt-5 flex items-center gap-2 text-[13px] text-brand-100">
               <Desktop size={16} weight="fill" className="text-white" /> Runs on the clinic's own computers

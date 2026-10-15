@@ -93,3 +93,7 @@ uploads/
 certs/
 *.key
 *.pem
+
+# Playwright end-to-end test output
+/test-results/
+/playwright-report/

@@ -1,4 +1,5 @@
 import type { ClinicData } from './data/seed'
+import type { AuditLog } from './types'
 
 /** What GET /api/state returns: the clinic records the signed-in staff member may see. */
 export type Snapshot = Omit<ClinicData, 'counters'> & {
@@ -11,7 +12,39 @@ export type Snapshot = Omit<ClinicData, 'counters'> & {
   mergedRecords: MergedRecord[]
   /** Pairs staff said are NOT the same person ("idA|idB", ids sorted), so they stop being suggested. */
   notDuplicates: string[]
+  /** Letterhead details printed on every document. */
+  clinic: ClinicProfile
+  /** True on the demo server (embedded database filled with synthetic data). Hides demo helpers on a real server. */
+  demo: boolean
 }
+
+/** The clinic's own details for the letterhead. Set by a doctor in Settings. */
+export type ClinicProfile = {
+  /** Line above the clinic name, e.g. the government unit. */
+  header: string
+  name: string
+  office: string
+  address: string
+  contact: string
+  /** The clinic's own licence or accreditation number (DOH/PhilHealth), if any. */
+  license_no: string
+  /** Small logo as a data URL; empty for the default mark. */
+  logo: string
+}
+
+/** What prints until the clinic enters its own details. */
+export const DEFAULT_CLINIC: ClinicProfile = {
+  header: 'Republic of the Philippines · Province of Iloilo',
+  name: 'HMO-Clinic',
+  office: 'Office of the Hospital Management Officer',
+  address: 'Provincial Capitol, Iloilo City',
+  contact: '',
+  license_no: '',
+  logo: '',
+}
+
+/** GET /api/audit: one page of the full audit log, newest first. */
+export type AuditPage = { rows: AuditLog[]; more: boolean }
 
 export type MergedRecord = { patient_id: string; into: string; full_name: string; patient_no: string; merged_at?: number; merged_by?: string }
 

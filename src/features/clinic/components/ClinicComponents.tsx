@@ -7,6 +7,7 @@ import { cn } from '../../../shared/lib/utils'
 import { authedBlobUrl } from '../lib/api'
 import { fil, setLang, useLang, useT } from '../lib/i18n'
 import { LANE_STYLE, ageOf, fmtStampOf, ticketLabel } from '../lib/helpers'
+import { TEXT_KEY, TEXT_SIZES, applyTextSize, savedTextSize, type TextSize } from '../lib/textsize'
 import { useClinic } from '../store/store'
 import type { CategoryKey, NetworkMode, QueueTicket, Staff } from '../types'
 
@@ -75,6 +76,29 @@ export function LanguageSwitch({ className }: { className?: string }) {
       {(['en', 'fil'] as const).map((l) => (
         <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('h-9 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
           {l === 'en' ? 'EN' : 'FIL'}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** A / A+ / A++ on every clinic screen, for senior staff (concept: large text, big buttons). */
+export function TextSizeSwitch({ className }: { className?: string }) {
+  const [size, setSize] = useState<TextSize>(savedTextSize)
+  const pick = (s: TextSize) => {
+    setSize(s)
+    applyTextSize(s)
+    try {
+      localStorage.setItem(TEXT_KEY, s)
+    } catch {
+      /* storage blocked: the choice lasts until the page closes */
+    }
+  }
+  return (
+    <div className={cn('hidden rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label="Text size">
+      {TEXT_SIZES.map((s) => (
+        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('h-9 min-w-10 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+          {s.label}
         </button>
       ))}
     </div>
@@ -184,20 +208,24 @@ export function PinModal({ open, onClose, onSubmit, title, children }: { open: b
 
 /* ------------------------------ Letterhead print --------------------------- */
 
-/** Letterhead used on prescriptions, certificates, summaries and the daily report. */
+/** Letterhead used on prescriptions, certificates, summaries and the daily report. Details come from Settings. */
 export function Letterhead({ children, footer, watermark }: { children: ReactNode; footer?: ReactNode; watermark?: string }) {
+  const { clinic } = useClinic().data
+  const contact = [clinic.contact, clinic.license_no && `License No. ${clinic.license_no}`].filter(Boolean).join(' · ')
   return (
     <div className="print-page relative mx-auto w-full max-w-[210mm] overflow-hidden bg-white px-[14mm] py-[12mm] text-[11pt] leading-snug text-black shadow-lift print:shadow-none">
       {watermark && <div className="pointer-events-none absolute inset-0 grid place-items-center text-[64pt] font-bold uppercase tracking-widest text-black/[0.06] [transform:rotate(-24deg)]">{watermark}</div>}
       <header className="flex items-center gap-4 border-b-2 border-brand-700 pb-3">
-        <span className="relative inline-grid size-14 place-items-center rounded-2xl bg-brand-600">
-          <span className="absolute h-[52%] w-[16%] rounded-full bg-white" />
-          <span className="absolute h-[16%] w-[52%] rounded-full bg-white" />
-        </span>
+        {clinic.logo ? (
+          <img src={clinic.logo} alt="" className="size-14 object-contain" />
+        ) : (
+          <img src="/logo.png" alt="" className="size-14 object-contain" />
+        )}
         <div className="flex-1 text-center">
-          <p className="text-[9pt] uppercase tracking-[0.18em]">Republic of the Philippines · Province of Iloilo</p>
-          <p className="text-[14pt] font-bold uppercase text-brand-800">HMO-Clinic</p>
-          <p className="text-[9pt]">Office of the Hospital Management Officer · Provincial Capitol, Iloilo City</p>
+          {clinic.header && <p className="text-[9pt] uppercase tracking-[0.18em]">{clinic.header}</p>}
+          <p className="text-[14pt] font-bold uppercase text-brand-800">{clinic.name}</p>
+          <p className="text-[9pt]">{[clinic.office, clinic.address].filter(Boolean).join(' · ')}</p>
+          {contact && <p className="text-[9pt]">{contact}</p>}
         </div>
         <span className="w-14" />
       </header>
