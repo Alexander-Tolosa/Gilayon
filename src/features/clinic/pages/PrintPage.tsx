@@ -142,7 +142,7 @@ function CertificatePrint({ id }: { id: string }) {
           </p>
           {dx.length > 0 && (
             <p className="mt-1">
-              <b>Diagnosis:</b> {dx.map((d) => `${d.description} (${d.icd10_code})`).join('; ')}
+              <b>Diagnosis:</b> {dx.map((d) => (d.icd10_code ? `${d.description} (${d.icd10_code})` : d.description)).join('; ')}
             </p>
           )}
           {doc.remarks && (
@@ -169,7 +169,7 @@ function CertificatePrint({ id }: { id: string }) {
       </p>
       {dx.length > 0 && (
         <p className="mt-1">
-          <b>Diagnosis:</b> {dx.map((d) => `${d.description} (${d.icd10_code})`).join('; ')}
+          <b>Diagnosis:</b> {dx.map((d) => (d.icd10_code ? `${d.description} (${d.icd10_code})` : d.description)).join('; ')}
         </p>
       )}
       {doc.rest_days ? (

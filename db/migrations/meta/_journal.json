@@ -57,6 +57,13 @@
       "when": 1792055301404,
       "tag": "0007_document_release",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792067197839,
+      "tag": "0008_ticket_vitals",
+      "breakpoints": true
     }
   ]
 }

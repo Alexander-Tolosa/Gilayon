@@ -1,0 +1,1 @@
+ALTER TABLE "queue_ticket" ADD COLUMN "vitals" jsonb;

@@ -20,7 +20,7 @@ export function useDailyReport(day: string) {
     const complaints = new Map<string, number>()
     for (const c of consults) complaints.set(c.chief_complaint, (complaints.get(c.chief_complaint) ?? 0) + 1)
     const diagnoses = new Map<string, number>()
-    for (const d of data.diagnoses.filter((x) => consults.some((c) => c.consultation_id === x.consultation_id))) diagnoses.set(`${d.icd10_code} ${d.description}`, (diagnoses.get(`${d.icd10_code} ${d.description}`) ?? 0) + 1)
+    for (const d of data.diagnoses.filter((x) => consults.some((c) => c.consultation_id === x.consultation_id))) diagnoses.set(`${d.icd10_code} ${d.description}`.trim(), (diagnoses.get(`${d.icd10_code} ${d.description}`.trim()) ?? 0) + 1)
     const inDay = (ts?: number) => !!ts && todayKeyOf(ts) === day
     const rxIssued = data.prescriptions.filter((r) => r.status !== 'draft' && inDay(r.issued_at)).length
     const mcIssued = data.documents.filter((d) => d.status !== 'draft' && inDay(d.issued_at)).length

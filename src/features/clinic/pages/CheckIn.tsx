@@ -9,8 +9,8 @@ import { AgeSex, LaneBadge, TicketNo } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
 import { ageOf, fmtDay, rankOf, rankTickets, todayKey } from '../lib/helpers'
 import { useClinic, type IdChecked, type SearchHit } from '../store/store'
-import type { CategoryKey, CivilStatus, PaperStatus, QueueTicket, ServiceType } from '../types'
-import { DependentForm, ScanUploader, UnlistedForm } from '../components/ClinicForms'
+import type { CategoryKey, CivilStatus, PaperStatus, QueueTicket, ServiceType, Vitals } from '../types'
+import { DependentForm, ScanUploader, UnlistedForm, VitalsFields } from '../components/ClinicForms'
 
 type Step = 'search' | 'check' | 'record' | 'priority' | 'done' | 'notlisted'
 
@@ -31,12 +31,15 @@ export default function CheckIn() {
   const [step, setStep] = useState<Step>(resumed ? 'record' : 'search')
   const [personId, setPersonId] = useState<string | null>(resumed?.person_id ?? null)
   const [ticket, setTicket] = useState<QueueTicket | null>(null)
+  // Vital signs taken at the desk belong to this visit, not the patient record: they travel with the queue number.
+  const [vitals, setVitals] = useState<Vitals>({})
   const patientId = personId ? patientOfPerson(personId)?.patient_id : undefined
 
   const restart = () => {
     setStep('search')
     setPersonId(null)
     setTicket(null)
+    setVitals({})
   }
 
   const idx = STEPS.findIndex((s) => s.key === step)
@@ -70,6 +73,7 @@ export default function CheckIn() {
           {step === 'search' && (
             <SearchStep
               onPick={(id) => {
+                setVitals({}) // readings typed for someone else must not follow this patient
                 setPersonId(id)
                 setStep('check')
               }}
@@ -77,6 +81,8 @@ export default function CheckIn() {
           )}
           {step === 'notlisted' && (
             <NotListed
+              vitals={vitals}
+              onVitals={setVitals}
               onBack={() => setStep('search')}
               onCreated={(pid) => {
                 setPersonId(pid)
@@ -85,10 +91,11 @@ export default function CheckIn() {
             />
           )}
           {step === 'check' && personId && <CheckStep personId={personId} onBack={restart} onNext={() => setStep('record')} />}
-          {step === 'record' && patientId && <RecordStep patientId={patientId} onBack={() => setStep('check')} onNext={() => setStep('priority')} />}
+          {step === 'record' && patientId && <RecordStep patientId={patientId} vitals={vitals} onVitals={setVitals} onBack={() => setStep('check')} onNext={() => setStep('priority')} />}
           {step === 'priority' && patientId && (
             <PriorityStep
               patientId={patientId}
+              vitals={vitals}
               onBack={() => setStep('record')}
               onPaper={() => setStep('check')}
               onIssued={(tk) => {
@@ -229,7 +236,7 @@ function SearchStep({ onPick }: { onPick: (personId: string) => void }) {
 
 /* ------------------------------- Not listed -------------------------------- */
 
-function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (personId: string) => void }) {
+function NotListed({ vitals, onVitals, onBack, onCreated }: { vitals: Vitals; onVitals: (v: Vitals) => void; onBack: () => void; onCreated: (personId: string) => void }) {
   const t = useT()
   const { search, flagForHR, personOfPatient } = useClinic()
   const toast = useToast()
@@ -258,6 +265,8 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
             <p className="mt-1 text-base text-ink-2">{t('For a past patient known only from the paper cabinet, or a walk-in. Employee details are optional.')}</p>
             <div className="mt-5">
               <UnlistedForm
+                vitals={vitals}
+                onVitals={onVitals}
                 onCancel={onBack}
                 onDone={(_pid, personId) => onCreated(personId)}
               />
@@ -294,6 +303,8 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
             </p>
             <DependentForm
               principalPatientId={principal}
+              vitals={vitals}
+              onVitals={onVitals}
               onCancel={() => setPrincipal(null)}
               onDone={(pid) => {
                 const per = personOfPatient(pid)
@@ -547,7 +558,7 @@ function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () 
 
 /* ------------------------------ Record step -------------------------------- */
 
-function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: () => void; onNext: () => void }) {
+function RecordStep({ patientId, vitals, onVitals, onBack, onNext }: { patientId: string; vitals: Vitals; onVitals: (v: Vitals) => void; onBack: () => void; onNext: () => void }) {
   const t = useT()
   const { data, patient, personOfPatient, employeeOfPerson, isReturning, completeRecord, touch } = useClinic()
   const pt = patient(patientId)!
@@ -634,6 +645,7 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
               </p>
             </div>
           </div>
+          <VitalsFields vitals={vitals} onChange={onVitals} />
           {pt.paper_status === 'on_file' && (
             <div className="mt-5">
               <p className="mb-2 text-lg font-semibold">Scan the paper folder into the system now (you can skip this)</p>
@@ -670,6 +682,7 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
               <Input value={form.pwd_id} onChange={(e) => setForm({ ...form, pwd_id: e.target.value })} className="h-12 text-base" />
             </Field>
           </div>
+          <VitalsFields vitals={vitals} onChange={onVitals} />
           {emp && (
             <div className="mt-5">
               <p className="text-lg font-semibold">{t('Relatives')}</p>
@@ -717,7 +730,7 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
 
 const REASONS = ['Consultation', 'Follow-up', 'Blood pressure check', 'Medical certificate', 'Toothache', 'Dental cleaning', 'Laboratory tests']
 
-function PriorityStep({ patientId, onBack, onPaper, onIssued }: { patientId: string; onBack: () => void; onPaper: () => void; onIssued: (t: QueueTicket) => void }) {
+function PriorityStep({ patientId, vitals, onBack, onPaper, onIssued }: { patientId: string; vitals: Vitals; onBack: () => void; onPaper: () => void; onIssued: (t: QueueTicket) => void }) {
   const t = useT()
   const { data, patient, personOfPatient, issueTicket, online } = useClinic()
   const toast = useToast()
@@ -797,7 +810,7 @@ function PriorityStep({ patientId, onBack, onPaper, onIssued }: { patientId: str
           className="h-16 text-xl"
           disabled={!online || !pt.paper_status}
           onClick={async () => {
-            const tk = await issueTicket(patientId, cats, service, reason)
+            const tk = await issueTicket(patientId, cats, service, reason, vitals)
             if (tk) onIssued(tk)
             else toast({ tone: 'warn', title: 'Needs the clinic server' })
           }}

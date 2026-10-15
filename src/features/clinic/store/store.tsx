@@ -24,6 +24,7 @@ import type {
   Sex,
   Staff,
   TicketStatus,
+  Vitals,
 } from '../types'
 
 /*
@@ -196,7 +197,7 @@ type Api = {
   createDependent: (principalPatientId: string, input: NewPersonInput, type: RelationshipType, mdr: boolean, confirmed?: boolean) => Promise<Patient | null>
   /** Registers someone who is not in the system yet. A 409 with `duplicate` means a likely duplicate person. */
   registerUnlisted: (input: UnlistedInput, confirmed?: boolean) => Promise<{ patient?: Patient; error?: string; duplicate?: boolean }>
-  issueTicket: (patientId: string, categories: CategoryKey[], service: ServiceType, reason: string) => Promise<QueueTicket | null>
+  issueTicket: (patientId: string, categories: CategoryKey[], service: ServiceType, reason: string, vitals?: Vitals) => Promise<QueueTicket | null>
   setTicketStatus: (ticketId: string, status: TicketStatus) => void
   markUrgent: (ticketId: string) => void
   uploadScan: (patientId: string, file: string, kind: ScanKind, page_date: string, extra?: ScanExtra) => Promise<boolean>
@@ -664,11 +665,11 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      issueTicket: async (patientId, categories, service, reason) => {
+      issueTicket: async (patientId, categories, service, reason, vitals) => {
         if (!online) return null
         // The server issues the queue number; the ticket id is ours so a retried request can't double-book.
         const ticket_id = uuid()
-        const res = await send<{ ticket_id: string }>('/api/queue', { ticket_id, patient_id: patientId, categories, service, reason })
+        const res = await send<{ ticket_id: string }>('/api/queue', { ticket_id, patient_id: patientId, categories, service, reason, vitals })
         if (!res) return null
         return (await refresh())?.tickets.find((t) => t.ticket_id === res.ticket_id) ?? null
       },

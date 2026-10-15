@@ -24,7 +24,7 @@ export async function closeStaleTickets(q: Q) {
 }
 
 /** Only the server issues queue numbers, inside one transaction, so two computers never hand out the same one. */
-export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categories: CategoryKey[], service: ServiceType, reason: string, ticketId: string = uuid()) {
+export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categories: CategoryKey[], service: ServiceType, reason: string, ticketId: string = uuid(), vitalsIn?: Partial<Record<'bp' | 'temperature' | 'pulse' | 'respiration' | 'height' | 'weight', string>>) {
   const [existing] = await q.select().from(t.queueTicket).where(eq(t.queueTicket.ticket_id, ticketId))
   if (existing) return existing.ticket_id // retried request
   const patientId = await canonicalPatientId(q, patientIdIn)
@@ -47,6 +47,7 @@ export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categ
   const table = (await q.select().from(t.priorityCategory)) as PriorityCategory[]
   const cats = [...new Set<CategoryKey>([...categories, ...(ageOf(row.birthdate) >= 60 ? (['senior'] as CategoryKey[]) : [])])]
   const finalCats: CategoryKey[] = cats.length ? cats : ['regular']
+  const vitals = Object.fromEntries(Object.entries(vitalsIn ?? {}).map(([k, v]) => [k, (v ?? '').trim()]).filter(([, v]) => v))
   const category = topCategory(finalCats, table)
   const [{ max }] = await q.select({ max: sql<number>`coalesce(max(${t.queueTicket.queue_no}), 0)` }).from(t.queueTicket).where(eq(t.queueTicket.day, day))
   const queue_no = await nextCounter(q, `queue:${day}`, max)
@@ -60,6 +61,7 @@ export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categ
     queue_no,
     service_type: service,
     reason: reason || null,
+    vitals: Object.keys(vitals).length ? vitals : null,
     status: 'waiting',
     checked_in_at: nowMs(),
     day,

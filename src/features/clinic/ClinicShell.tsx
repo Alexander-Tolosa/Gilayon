@@ -10,7 +10,6 @@ import {
   UserCirclePlus,
   UsersThree,
   X,
-  Queue as QueueIcon,
 } from '@phosphor-icons/react'
 import { Key, Scan, Stamp } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
@@ -53,7 +52,6 @@ function useNav(role: StaffRole): Item[] {
   if (role === 'desk' || role === 'nurse')
     return [
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
-      { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
       { to: '/clinic/stamp', label: 'To stamp', icon: Stamp, badge: toStampCount(data) || undefined },
       { to: '/clinic/scan', label: 'Scan old folder', icon: Scan },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
@@ -65,7 +63,6 @@ function useNav(role: StaffRole): Item[] {
     { to: '/clinic/documents', label: 'Documents', icon: FileText },
     { to: '/clinic/report', label: 'Daily report', icon: ChartBar },
     { to: '/clinic/audit', label: 'Audit trail', icon: ClipboardText, badge: unread || undefined },
-    { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon },
     { to: '/clinic/settings', label: 'Settings', icon: Gear },
   ]
 }

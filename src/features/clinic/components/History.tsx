@@ -55,13 +55,14 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
             {!compact && <p className="mt-3 max-w-[75ch] text-base leading-relaxed text-ink-2">{c.treatment_notes}</p>}
             {c.vitals && !compact && (
               <p className="mt-2 text-[15px] text-muted">
-                BP {c.vitals.bp ?? '—'} · Temp {c.vitals.temperature ?? '—'} °C · Pulse {c.vitals.pulse ?? '—'} · Weight {c.vitals.weight ?? '—'} kg
+                BP {c.vitals.bp ?? '—'} · Temp {c.vitals.temperature ?? '—'} °C · Pulse {c.vitals.pulse ?? '—'} · RR {c.vitals.respiration ?? '—'} · Height {c.vitals.height ?? '—'} cm · Weight {c.vitals.weight ?? '—'} kg
               </p>
             )}
             <div className="mt-3 flex flex-wrap gap-2">
               {dx.map((d) => (
                 <Badge key={d.diagnosis_id} tone="brand">
-                  {d.icd10_code} {d.description}
+                  {d.icd10_code ? `${d.icd10_code} ` : ''}
+                  {d.description}
                 </Badge>
               ))}
             </div>
