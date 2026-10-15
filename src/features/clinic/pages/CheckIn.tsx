@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowRight, CheckCircle, Flag, FolderOpen, IdentificationCard, MagnifyingGlass, Printer, ShieldCheck, Sparkle, UserPlus, Warning } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button, Card, Chip, Field, Input, Select, Textarea, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
@@ -13,6 +13,38 @@ import type { CategoryKey, CivilStatus, PaperStatus, QueueTicket, ServiceType, V
 import { DependentForm, ScanUploader, UnlistedForm, VitalsFields } from '../components/ClinicForms'
 
 type Step = 'search' | 'check' | 'record' | 'priority' | 'done' | 'notlisted'
+
+/*
+  Vital signs belong to this visit and travel with the queue number, so nothing is saved until the ticket is
+  issued. But "Scan with AI" on the Records step leaves this screen and comes back to a fresh one, which used to
+  empty the boxes the desk had already filled at registration. They are kept for this tab only (sessionStorage,
+  gone when it closes), for this one patient, and dropped as soon as the number is issued or the check-in restarts.
+*/
+const VITALS_KEY = 'gilayon-checkin-vitals'
+const VITALS_MAX_AGE = 4 * 60 * 60 * 1000
+const savedVitals = (patientId: string | undefined): Vitals => {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(VITALS_KEY) ?? 'null') as { patientId: string; vitals: Vitals; at: number } | null
+    return s && patientId && s.patientId === patientId && Date.now() - s.at < VITALS_MAX_AGE ? s.vitals : {}
+  } catch {
+    return {}
+  }
+}
+const keepVitals = (patientId: string, vitals: Vitals) => {
+  try {
+    if (Object.values(vitals).some(Boolean)) sessionStorage.setItem(VITALS_KEY, JSON.stringify({ patientId, vitals, at: Date.now() }))
+    else sessionStorage.removeItem(VITALS_KEY)
+  } catch {
+    /* storage blocked: the readings last until the screen is left */
+  }
+}
+const dropVitals = () => {
+  try {
+    sessionStorage.removeItem(VITALS_KEY)
+  } catch {
+    /* nothing to drop */
+  }
+}
 
 const STEPS: { key: Step; label: string }[] = [
   { key: 'search', label: 'Search' },
@@ -32,14 +64,19 @@ export default function CheckIn() {
   const [personId, setPersonId] = useState<string | null>(resumed?.person_id ?? null)
   const [ticket, setTicket] = useState<QueueTicket | null>(null)
   // Vital signs taken at the desk belong to this visit, not the patient record: they travel with the queue number.
-  const [vitals, setVitals] = useState<Vitals>({})
+  // Back from the scan screen, the readings typed before leaving are still here.
+  const [vitals, setVitals] = useState<Vitals>(() => savedVitals(resumed?.patient_id))
   const patientId = personId ? patientOfPerson(personId)?.patient_id : undefined
+  useEffect(() => {
+    if (patientId && step !== 'done') keepVitals(patientId, vitals)
+  }, [patientId, vitals, step])
 
   const restart = () => {
     setStep('search')
     setPersonId(null)
     setTicket(null)
     setVitals({})
+    dropVitals()
   }
 
   const idx = STEPS.findIndex((s) => s.key === step)
@@ -99,6 +136,7 @@ export default function CheckIn() {
               onBack={() => setStep('record')}
               onPaper={() => setStep('check')}
               onIssued={(tk) => {
+                dropVitals() // the readings now live on the ticket
                 setTicket(tk)
                 setStep('done')
               }}

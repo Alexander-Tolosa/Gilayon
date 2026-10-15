@@ -482,6 +482,9 @@ test.describe('scanning an old folder', () => {
     await expect(page.getByRole('heading', { name: 'Check the paper folder' })).toBeVisible()
     await page.getByRole('button', { name: 'Check and continue' }).click()
     await expect(page.getByRole('button', { name: 'Scan with AI' })).toBeVisible()
+    // Readings typed at the desk before the detour must still be there when the nurse comes back.
+    await page.getByLabel('Blood pressure (mmHg)').fill('118/76')
+    await page.getByLabel('Weight (kg)').fill('61')
     await page.locator('input[type=file]').nth(1).setInputFiles('public/forms/sample-villanueva.png')
 
     // The read form opens on the verify screen, for this patient.
@@ -493,6 +496,8 @@ test.describe('scanning an old folder', () => {
     await page.getByRole('link', { name: 'Back to check-in' }).click()
     await expect(page).toHaveURL(/\/clinic\/checkin\?resume=/)
     await expect(page.getByText('Identity verified')).toBeVisible()
+    await expect(page.getByLabel('Blood pressure (mmHg)')).toHaveValue('118/76')
+    await expect(page.getByLabel('Weight (kg)')).toHaveValue('61')
   })
 
   test('a correction is kept, and a line can be added or taken away', async ({ page }) => {
