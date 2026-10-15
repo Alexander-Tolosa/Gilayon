@@ -1,5 +1,6 @@
-import { Camera, CheckCircle, UploadSimple, Warning } from '@phosphor-icons/react'
+import { Camera, CheckCircle, Scan, UploadSimple, Warning } from '@phosphor-icons/react'
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button, Chip, Field, Input, Select, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { useT } from '../lib/i18n'
@@ -9,10 +10,12 @@ import type { CivilStatus, RelationshipType, ScanCategory, ScanKind, Sex } from 
 
 /** Attach scans of old paper pages to a record, by upload (or the camera on a tablet). */
 export function ScanUploader({ patientId, compact }: { patientId: string; compact?: boolean }) {
-  const { uploadScan, online } = useClinic()
+  const { uploadScan, scanFolderForm, online } = useClinic()
   const toast = useToast()
   const t = useT()
+  const navigate = useNavigate()
   const input = useRef<HTMLInputElement>(null)
+  const aiInput = useRef<HTMLInputElement>(null)
   const [kind, setKind] = useState<ScanKind>('Chart')
   const [date, setDate] = useState('')
   const [category, setCategory] = useState<ScanCategory>('Old folder')
@@ -38,6 +41,25 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
     setBusy(false)
     if (input.current) input.current.value = ''
     if (n) toast({ tone: 'ok', title: `${n} ${n > 1 ? t('pages attached') : t('page attached')}`, body: t('Saved to the record. The paper folder stays until retention rules are confirmed.') })
+  }
+  /** Read one photographed form with the clinic server's OCR (and Ollama when it runs), then hand it to Scan old folder to verify. */
+  const scanWithAi = async (files: FileList | null) => {
+    const f = files?.[0]
+    if (aiInput.current) aiInput.current.value = ''
+    if (!f) return
+    setBusy(true)
+    try {
+      const image = await compressImage(f, 2000, 0.85)
+      const out = await scanFolderForm(image)
+      if (out.error || !out.reading) {
+        toast({ tone: 'warn', title: t('The scan could not be read.'), body: out.error ?? t('Retake it flat, in good light, with the whole form in view.') })
+      } else {
+        navigate('/clinic/scan', { state: { image, reading: out.reading, patientId } })
+      }
+    } catch {
+      toast({ tone: 'warn', title: `${f.name} ${t('is not an image')}`, body: t('Scan pages as JPG or PNG.') })
+    }
+    setBusy(false)
   }
   return (
     <div className={cn('rounded-3xl border-2 border-dashed border-brand-200 bg-brand-50/50 p-5', compact && 'p-4')}>
@@ -67,9 +89,13 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
         <Button type="button" size="lg" className="h-12" disabled={busy || !online} icon={<UploadSimple size={20} />} onClick={() => input.current?.click()}>
           {busy ? t('Attaching…') : t('Attach scans')}
         </Button>
+        <input ref={aiInput} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => scanWithAi(e.target.files)} />
+        <Button type="button" size="lg" variant="secondary" className="h-12" disabled={busy || !online} icon={<Scan size={20} />} onClick={() => aiInput.current?.click()}>
+          {t('Scan with AI')}
+        </Button>
       </div>
       <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-        <Camera size={16} /> {online ? t('Choose photos or scanner images. On a tablet this opens the camera.') : t('Attaching scans needs the clinic server. Reconnect to upload.')}
+        <Camera size={16} /> {online ? t('Choose photos or scanner images. On a tablet this opens the camera. Scan with AI reads an intake form for you to check before it is saved.') : t('Attaching scans needs the clinic server. Reconnect to upload.')}
       </p>
     </div>
   )

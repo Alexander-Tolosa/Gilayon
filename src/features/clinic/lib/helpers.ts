@@ -46,9 +46,9 @@ export const ticketLabel = (t: Pick<QueueTicket, 'category_id' | 'queue_no'>) =>
 
 export const LANE_STYLE: Record<CategoryKey, string> = {
   urgent: 'bg-danger text-white',
-  pregnant: 'bg-brand-700 text-white',
-  pwd: 'bg-brand-700 text-white',
-  senior: 'bg-brand-700 text-white',
+  pregnant: 'bg-priority text-white',
+  pwd: 'bg-priority text-white',
+  senior: 'bg-priority text-white',
   regular: 'bg-mist text-ink ring-1 ring-inset ring-line-strong',
 }
 

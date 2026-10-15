@@ -349,7 +349,6 @@ export function buildSeed(): ClinicData {
     for (let i = 0; i < count; i++) {
       const left = chance(0.04)
       const extraCats: CategoryKey[] = []
-      if (chance(0.03) || (pitch && i === 3)) extraCats.push('urgent')
       if (pitch && i === 5 && pregnantPool.length) extraCats.push('pregnant')
       const pt = pitch && i < 2 && returning.length ? returning[(d + i * 2) % returning.length] : pick(patientPool)
       makeVisit({ pt: i === 5 && pitch && pregnantPool.length ? pick(pregnantPool) : pt, day, checkIn: opening + i * between(12, 30) * 60_000, wait: between(6, 42), status: left ? 'left' : 'done', extraCats: extraCats.length ? extraCats : undefined })

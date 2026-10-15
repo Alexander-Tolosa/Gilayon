@@ -105,8 +105,7 @@ export default function WaitingScreen() {
           <span className="text-brand-300">{fil('Please wait for your number to be called.')}</span>
         </p>
         <div className="flex flex-wrap gap-3 text-lg">
-          <span className="rounded-full bg-danger px-4 py-1.5 font-semibold">U · {both('Urgent')}</span>
-          <span className="rounded-full bg-brand-700 px-4 py-1.5 font-semibold">P · Pregnant, PWD, Senior</span>
+          <span className="rounded-full bg-priority px-4 py-1.5 font-semibold">P · Pregnant, PWD, Senior</span>
           <span className="rounded-full bg-mist px-4 py-1.5 font-semibold text-ink">R · {both('Regular')}</span>
         </div>
       </footer>

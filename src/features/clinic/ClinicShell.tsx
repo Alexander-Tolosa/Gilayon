@@ -78,13 +78,14 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
       <Modal open={pw} onClose={() => setPw(false)} title={t('Change my password')}>
         <ChangePasswordForm onDone={() => setPw(false)} />
       </Modal>
-      <div className="flex h-20 items-center gap-3 px-5">
+      {/* A plain link, not a router link: it reloads the whole page and starts again from the clinic home. */}
+      <a href="/clinic" aria-label="Gilayon, back to the start" className="flex h-20 items-center gap-3 px-5 outline-none focus-visible:ring-2 focus-visible:ring-brand-500">
         <LogoMark className="size-10 rounded-xl" />
         <div className="leading-tight">
           <p className="text-xl font-semibold tracking-[-0.02em]">Gilayon</p>
           <p className="text-[13px] text-muted">HMO-Clinic records</p>
         </div>
-      </div>
+      </a>
       <p className="px-6 pb-2 text-sm font-semibold text-faint">
         {role === 'doctor' ? t('Doctor') : role === 'nurse' ? t('Nurse') : t('Receptionist')}
       </p>

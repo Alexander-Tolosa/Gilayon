@@ -122,7 +122,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 ## Five-minute demo script (concept §11)
 
 1. **Check in** (front desk, `/clinic/checkin`): search `maria lurdes` (typos are fine; add a birthdate to tell same-name people apart). Next is **Check the paper folder**: the patient states name, birthdate and employee ID (if any); the receptionist looks in the cabinet under the surname, records *Folder found* or *No folder*, and says whether the folder's details match. The system compares the same details with the record. An employee ID is only a secondary check, and a mismatch can be continued after checking another ID (recorded in the audit trail). Nobody is issued a queue number before this step. Someone not in the system yet is registered from *Not on the employee list? → New patient*, with optional employee ID, office and position. Then mark her **Urgent** and print the slip.
-2. **Waiting screen** (`/waiting`, open it in a second window): the number shows up in the Urgent lane, ahead of Pregnant/PWD/Senior and Regular.
+2. **Waiting screen** (`/waiting`, open it in a second window): the number shows up in the Priority lane, ahead of Regular.
 3. **Consult and sign** (doctor, *My queue*): *Call next patient*, apply a template, add **Amoxicillin**, and see the Penicillin allergy warning. Switch to another drug, add a medical certificate, then *Save and sign* with PIN `1234`. Print the prescription and certificate on letterhead.
 4. **Void and reissue** (*Documents*): void the prescription with a reason, then reissue it. The new draft shows which document number it replaces.
 5. **Offline**: click the status badge (top right) and choose **Offline**. Save a consultation; it is kept on this computer with a pending count. Switch back to **Online**, and it syncs.
@@ -152,7 +152,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | Concept item | Where |
 | --- | --- |
 | Verified check-in (name, birthdate, employee ID) | `/clinic/checkin` |
-| Priority lanes: Urgent 1; Pregnant, PWD, Senior (60+, computed) 2; Regular 3; first come, first served within a lane | `src/features/clinic/lib/helpers.ts` (`rankTickets`), Settings |
+| Priority lanes: Pregnant, PWD, Senior (60+, computed) 1; Regular 2; first come, first served within a lane | `src/features/clinic/lib/helpers.ts` (`rankTickets`), Settings |
 | Live waiting list and waiting screen | `/clinic/queue`, `/waiting` |
 | Registry, one-box search, linked relatives (MDR), family history | `/clinic/patients` |
 | Append-only consultations, required fields, templates, duplicate warning | `/clinic/consult`, patient record |

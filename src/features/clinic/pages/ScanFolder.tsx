@@ -1,7 +1,7 @@
 import { Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { Badge, Button, Card, Field, IconButton, Input, Select, Tabs, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
@@ -56,14 +56,20 @@ function Scanner({ onDone }: { onDone: () => void }) {
   const { data, online, search, patient, personOfPatient, scanFolderForm, confirmFolderScan, pending, captureFolderScan, fetchPendingScans, openPendingScan, discardPendingScan } = useClinic()
   const toast = useToast()
   const input = useRef<HTMLInputElement>(null)
-  const [image, setImage] = useState<string | null>(null)
+  const routed = useLocation()
+  // Handed over from a patient's "Scan with AI": already read, so it opens straight on verifying.
+  const [handed] = useState(() => (routed.state ?? null) as { image?: string; reading?: ScanReading; patientId?: string } | null)
+  const [image, setImage] = useState<string | null>(handed?.image ?? null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [reading, setReading] = useState<ScanReading | null>(null)
-  const [values, setValues] = useState<Record<string, string>>({})
-  const [patientId, setPatientId] = useState('')
+  const [reading, setReading] = useState<ScanReading | null>(handed?.reading ?? null)
+  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries((handed?.reading?.fields ?? []).map((f) => [f.key, f.value])))
+  const [patientId, setPatientId] = useState(handed?.patientId || handed?.reading?.match?.patient_id || '')
   const [q, setQ] = useState('')
   const shownAt = useRef(0)
+  useEffect(() => {
+    if (handed?.reading) shownAt.current = clock()
+  }, [handed])
   const [camera, setCamera] = useState(false)
   const [fromQueue, setFromQueue] = useState(false)
   const [hint, setHint] = useState('')
@@ -240,14 +246,16 @@ function Scanner({ onDone }: { onDone: () => void }) {
     <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
       <div className="flex flex-col gap-5">
         <Card className="p-5">
-          <ol className="mb-4 flex flex-wrap gap-x-2 gap-y-1 text-sm text-muted">
-            {['Pull the paper folder', 'Photograph the form', 'Machine reads it', 'You verify', 'Saved to the record'].map((s, i) => (
-              <li key={s} className={cn('flex items-center gap-2', (i === 1 && !image) || (i === 3 && reading) || (i === 2 && busy) ? 'font-semibold text-ink' : '')}>
-                <span className="grid size-6 place-items-center rounded-full bg-mist text-xs font-semibold">{i + 1}</span>
-                {s}
-                {i < 4 && <span aria-hidden>›</span>}
-              </li>
-            ))}
+          <ol className="mb-4 flex flex-col gap-2 text-sm text-muted">
+            {['Pull the paper folder', 'Photograph the form', 'Machine reads it', 'You verify', 'Saved to the record'].map((s, i) => {
+              const current = (i === 1 && !image) || (i === 2 && busy) || (i === 3 && !!reading)
+              return (
+                <li key={s} aria-current={current ? 'step' : undefined} className={cn('flex items-center gap-3', current && 'font-semibold text-ink')}>
+                  <span className={cn('grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold', current ? 'bg-brand-600 text-white' : 'bg-mist')}>{i + 1}</span>
+                  {s}
+                </li>
+              )
+            })}
           </ol>
           <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files)} />
           <CameraCapture open={camera} onClose={() => setCamera(false)} onCapture={(data) => { setCamera(false); void read(data) }} />

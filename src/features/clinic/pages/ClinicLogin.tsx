@@ -1,5 +1,5 @@
 import { ArrowLeft, ArrowRight, LockKey, Monitor } from '@phosphor-icons/react'
-import { useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { LogoMark } from '../../../shared/components/Logo'
 import { LegalLinks } from '../../../shared/components/Legal'
@@ -21,6 +21,11 @@ export default function ClinicLogin() {
   const [role, setRole] = useState<StaffRole>(initialRole)
   const accounts = data.staff.filter((s) => s.role === role && s.active !== false)
   const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
+  const list = useRef<HTMLDivElement>(null)
+  // Keep the chosen account fully in view inside the scrolling list, never half hidden under its edge.
+  useEffect(() => {
+    list.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' })
+  }, [staffId, role])
   // Only the demo server fills in the shared demo password; a real clinic server never does.
   const [typed, setPassword] = useState<string | null>(null)
   const password = typed ?? (data.demo ? 'demo-password' : '')
@@ -79,7 +84,7 @@ export default function ClinicLogin() {
             ))}
           </div>
           <p className="mb-2 mt-4 text-[15px] font-medium text-ink-2">{t('Account')}</p>
-          <div className="-mx-1 flex min-h-0 flex-col gap-2 overflow-y-auto px-1 py-0.5">
+          <div ref={list} role="group" aria-label={t('Account')} className="-mx-2 flex min-h-0 flex-col gap-2 overflow-y-auto scroll-py-2 px-2 py-2 [scrollbar-gutter:stable]">
             {accounts.map((a) => (
               <button
                 key={a.staff_id}
