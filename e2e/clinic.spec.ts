@@ -32,14 +32,13 @@ async function setConnection(page: Page, mode: 'Online' | 'This computer disconn
 }
 
 test.describe('public pages', () => {
-  test('landing buttons lead to sign-in and the role chooser, and the privacy notice opens', async ({ page }) => {
+  test('the landing page leads to sign-in, has no Get started, and the privacy notice opens', async ({ page }) => {
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 })).toContainText('Every health record')
     await page.locator('header').getByRole('link', { name: 'Sign in' }).click()
     await expect(page).toHaveURL(/\/clinic\/login$/)
     await page.goto('/')
-    await page.locator('header').getByRole('link', { name: 'Get started' }).click()
-    await expect(page.getByRole('heading', { name: 'Which one are you?' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Get started' })).toHaveCount(0)
     await page.goto('/')
     await page.locator('footer').getByRole('button', { name: 'Data Privacy Act notice' }).click()
     await expect(page.getByRole('dialog')).toContainText('Republic Act No. 10173')

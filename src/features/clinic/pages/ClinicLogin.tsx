@@ -1,9 +1,9 @@
-import { ArrowLeft, ArrowRight, LockKey, Monitor } from '@phosphor-icons/react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { ArrowLeft, ArrowRight, CheckCircle, Eye, EyeSlash, LockKey, Monitor, WarningCircle } from '@phosphor-icons/react'
+import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { LogoMark } from '../../../shared/components/Logo'
 import { LegalLinks } from '../../../shared/components/Legal'
-import { Avatar, Button, Field, Input } from '../../../shared/components/ui'
+import { Avatar, Button, Input } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { useClinicScale } from '../ClinicShell'
 import { LanguageSwitch, StatusBadge } from '../components/ClinicComponents'
@@ -21,16 +21,12 @@ export default function ClinicLogin() {
   const [role, setRole] = useState<StaffRole>(initialRole)
   const accounts = data.staff.filter((s) => s.role === role && s.active !== false)
   const [staffId, setStaffId] = useState(accounts[0]?.staff_id ?? '')
-  const list = useRef<HTMLDivElement>(null)
-  // Keep the chosen account fully in view inside the scrolling list, never half hidden under its edge.
-  useEffect(() => {
-    list.current?.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' })
-  }, [staffId, role])
   // Only the demo server fills in the shared demo password; a real clinic server never does.
   const [typed, setPassword] = useState<string | null>(null)
   const password = typed ?? (data.demo ? 'demo-password' : '')
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const [show, setShow] = useState(false)
 
   if (me) return <Navigate to="/clinic" replace />
 
@@ -42,99 +38,125 @@ export default function ClinicLogin() {
     navigate(role === 'doctor' ? '/clinic/doctor' : '/clinic/checkin')
   }
 
+  const roleName = (r: StaffRole) => t(r === 'doctor' ? 'Doctor' : r === 'nurse' ? 'Nurse' : 'Receptionist')
+  const step = 'mb-3 text-xl font-semibold text-ink'
+
   return (
-    <div className="grid min-h-[100dvh] bg-canvas lg:h-[100dvh] lg:grid-cols-[1fr_0.9fr]">
-      <div className="flex min-h-0 flex-col px-5 py-4 sm:px-10 lg:px-16">
-        <div className="flex items-center justify-between gap-3">
-          <Link to="/" className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-base font-medium text-ink-2 hover:bg-mist">
-            <ArrowLeft size={18} /> {t('Back')}
+    <div className="min-h-[100dvh] bg-canvas px-5 py-4 sm:px-10">
+      <div className="mx-auto flex w-full max-w-4xl flex-col">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link to="/" className="inline-flex min-h-12 items-center gap-2 rounded-full px-3 text-lg font-medium text-ink-2 hover:bg-mist">
+            <ArrowLeft size={22} /> {t('Back')}
           </Link>
           <div className="flex items-center gap-2">
-            <a href="/waiting" target="_blank" rel="noreferrer" title="Open the waiting screen (no sign-in)" className="hidden items-center gap-2 rounded-full border border-line bg-surface px-4 py-2 text-[15px] font-medium text-ink-2 hover:border-brand-300 sm:inline-flex">
-              <Monitor size={18} /> Waiting screen
-            </a>
-            <LanguageSwitch />
+            <LanguageSwitch showNames />
             <StatusBadge />
           </div>
         </div>
-        <form onSubmit={submit} className="mx-auto flex min-h-0 w-full max-w-lg flex-1 flex-col justify-center py-4">
+        <form onSubmit={submit} className="flex flex-col py-6">
           <div className="flex items-center gap-3">
-            <LogoMark className="size-11 rounded-2xl" />
-            <div>
-              <p className="text-xl font-semibold tracking-[-0.02em]">Gilayon</p>
-              <p className="text-sm text-muted">HMO-Clinic digital records</p>
+            <LogoMark className="size-12 rounded-2xl" />
+            <div className="leading-tight">
+              <p className="text-2xl font-semibold tracking-[-0.02em]">Gilayon</p>
+              <p className="text-base text-ink-2">HMO-Clinic digital records</p>
             </div>
           </div>
-          <h1 className="mt-5 text-[1.9rem] font-semibold leading-tight tracking-[-0.03em]">{t('Sign in to the clinic')}</h1>
-          <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-full border border-line bg-surface p-1.5" role="tablist">
+          <h1 className="mb-6 mt-5 text-[2rem] font-semibold leading-tight tracking-[-0.03em]">{t('Sign in to the clinic')}</h1>
+
+          {/* Two columns on a wide screen so nothing needs scrolling: who you are on the left, the password on the right. */}
+          <div className="grid gap-x-12 lg:grid-cols-2">
+          <div>
+          <p className={step}>1. {t('I am a')}</p>
+          <div className="mb-6 grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-3" role="radiogroup" aria-label={t('I am a')}>
             {(['doctor', 'desk', 'nurse'] as const).map((r) => (
               <button
                 key={r}
                 type="button"
-                role="tab"
-                aria-selected={role === r}
+                role="radio"
+                aria-checked={role === r}
                 onClick={() => {
                   setRole(r)
-                  setStaffId(data.staff.find((s) => s.role === r && s.active !== false)?.staff_id ?? '')
+                  setStaffId(data.staff.find((x) => x.role === r && x.active !== false)?.staff_id ?? '')
                 }}
-                className={cn('h-11 rounded-full text-[15px] font-semibold transition sm:text-[16px]', role === r ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}
+                className={cn('relative flex min-h-16 items-center justify-center rounded-2xl border-2 px-4 py-2 text-center text-lg font-semibold leading-tight transition', role === r ? 'border-brand-600 bg-brand-600 text-white' : 'border-line-strong bg-surface text-ink hover:border-brand-300')}
               >
-                {t(r === 'doctor' ? 'Doctor' : r === 'nurse' ? 'Nurse' : 'Receptionist')}
+                {role === r && <CheckCircle size={18} weight="fill" aria-hidden className="absolute right-1.5 top-1.5" />}
+                {roleName(r)}
               </button>
             ))}
           </div>
-          <p className="mb-2 mt-4 text-[15px] font-medium text-ink-2">{t('Account')}</p>
-          <div ref={list} role="group" aria-label={t('Account')} className="-mx-2 flex min-h-0 flex-col gap-2 overflow-y-auto scroll-py-2 px-2 py-2 [scrollbar-gutter:stable]">
-            {accounts.map((a) => (
-              <button
-                key={a.staff_id}
-                type="button"
-                aria-pressed={staffId === a.staff_id}
-                onClick={() => setStaffId(a.staff_id)}
-                className={cn('flex shrink-0 items-center gap-3 rounded-2xl border px-4 py-2.5 text-left transition', staffId === a.staff_id ? 'border-brand-600 bg-brand-50 ring-1 ring-brand-600' : 'border-line bg-surface hover:border-brand-200')}
-              >
-                <Avatar name={a.name} size="sm" />
-                <span className="flex-1">
-                  <span className="block text-base font-semibold">{a.name}</span>
-                  <span className="block text-sm text-muted">
-                    {a.title}
-                    {a.room ? ` · ${a.room}` : ''}
+
+          <p className={step}>2. {t('Who is signing in?')}</p>
+          <div role="radiogroup" aria-label={t('Account')} className="mb-6 flex flex-col gap-3">
+            {accounts.map((a) => {
+              const on = staffId === a.staff_id
+              return (
+                <button
+                  key={a.staff_id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => setStaffId(a.staff_id)}
+                  className={cn('flex min-h-[4.5rem] items-center gap-4 rounded-2xl border-2 px-4 py-3 text-left transition', on ? 'border-brand-600 bg-brand-50' : 'border-line-strong bg-surface hover:border-brand-300')}
+                >
+                  <Avatar name={a.name} size="md" />
+                  <span className="flex-1">
+                    <span className="block text-xl font-semibold">{a.name}</span>
+                    <span className="block text-base text-ink-2">
+                      {a.title}
+                      {a.room ? ` · ${a.room}` : ''}
+                    </span>
                   </span>
-                </span>
-              </button>
-            ))}
+                  <span className={cn('grid size-8 shrink-0 place-items-center rounded-full border-2', on ? 'border-brand-600 bg-brand-600 text-white' : 'border-line-strong')}>{on && <CheckCircle size={22} weight="fill" aria-hidden />}</span>
+                </button>
+              )
+            })}
           </div>
-          <Field label={t('Password')} htmlFor="pw" error={error || undefined} className="mt-4">
-            <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 text-lg" autoComplete="current-password" />
-          </Field>
-          <Button type="submit" size="lg" className="mt-4 h-13 text-lg" iconRight={<ArrowRight size={20} weight="bold" />}>
-            Sign in
+
+          </div>
+          <div>
+          <label htmlFor="pw" className={cn(step, "block")}>
+            3. {t('Password')}
+          </label>
+          <div className="relative">
+            <Input
+              id="pw"
+              type={show ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => (setPassword(e.target.value), setError(''))}
+              className="h-16 pr-28 text-xl"
+              autoComplete="current-password"
+              aria-describedby={error ? 'pw-error' : undefined}
+              invalid={!!error}
+            />
+            <button type="button" onClick={() => setShow((v) => !v)} aria-pressed={show} className="absolute right-2 top-1/2 inline-flex min-h-12 -translate-y-1/2 items-center gap-2 rounded-full px-4 text-lg font-semibold text-brand-700 hover:bg-brand-50">
+              {show ? <EyeSlash size={22} /> : <Eye size={22} />}
+              {show ? t('Hide') : t('Show')}
+            </button>
+          </div>
+          {error && (
+            <p id="pw-error" role="alert" className="mt-2 flex items-start gap-2 text-lg font-medium text-danger">
+              <WarningCircle size={22} weight="fill" className="mt-0.5 shrink-0" /> {error}
+            </p>
+          )}
+          <Button type="submit" size="lg" className="mt-6 h-16 w-full text-xl shadow-none" iconRight={<ArrowRight size={24} weight="bold" />}>
+            {t('Sign in')}
           </Button>
-          <p className="mt-3 flex items-center gap-2 text-sm text-muted">
-            <LockKey size={16} className="shrink-0" /> {data.demo ? 'Demo accounts are filled in. ' : ''}Sign-in details are kept apart from license numbers.
-          </p>
+          {data.demo && (
+            <p className="mt-3 flex items-start gap-2 text-base text-ink-2">
+              <LockKey size={20} className="mt-0.5 shrink-0" /> Demo accounts are filled in. Sign-in details are kept apart from license numbers.
+            </p>
+          )}
+          </div>
+          </div>
         </form>
-        <div className="flex flex-col items-center gap-2 border-t border-line pt-3 text-sm text-muted sm:flex-row sm:justify-between">
-          <a href="/waiting" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-medium text-ink-2 hover:text-brand-700 sm:hidden">
-            <Monitor size={18} /> Open the waiting screen (no sign-in)
+        <div className="flex flex-col gap-3 border-t border-line pt-4 text-base text-ink-2 sm:flex-row sm:items-center sm:justify-between">
+          <a href="/waiting" target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center gap-2 font-medium text-brand-700 hover:underline">
+            <Monitor size={22} /> {t('Waiting screen')} <span className="text-ink-2">(no sign-in)</span>
           </a>
-          <p className="hidden sm:block">{t('Records are handled under the Data Privacy Act.')}</p>
           <LegalLinks linkClassName="font-medium text-brand-700" />
         </div>
       </div>
-      <aside className="relative hidden overflow-hidden bg-brand-600 p-14 text-white lg:flex lg:flex-col lg:justify-end">
-        <div className="pointer-events-none absolute inset-0 opacity-30 [background-image:radial-gradient(rgb(143_176_255/0.5)_1px,transparent_1px)] [background-size:22px_22px]" />
-        <div className="relative max-w-md">
-          <p className="text-3xl font-light leading-tight tracking-[-0.02em]">
-            Verified check-in, a fair queue, <span className="font-semibold">signed documents and a report that builds itself.</span>
-          </p>
-          <ul className="mt-8 space-y-3 text-lg text-brand-100">
-            <li>{t('Runs on the clinic\'s own computers')}</li>
-            <li>{t('Keeps working with no internet')}</li>
-            <li>{t('Every action is written to the audit trail')}</li>
-          </ul>
-        </div>
-      </aside>
     </div>
   )
 }

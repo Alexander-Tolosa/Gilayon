@@ -136,15 +136,19 @@ const LANGS = [
 ] as const
 
 /** Language switch on every clinic screen: the American flag for English, the Philippine flag for Filipino. */
-export function LanguageSwitch({ className }: { className?: string }) {
+export function LanguageSwitch({ className, showNames }: { className?: string; showNames?: boolean }) {
   const lang = useLang()
   const t = useT()
   return (
     <div className={cn('flex rounded-full border border-line-strong bg-surface p-1', className)} role="group" aria-label={t('Language')}>
       {LANGS.map(({ key, name, Flag, width }) => (
         <button key={key} onClick={() => setLang(key)} aria-pressed={lang === key} aria-label={name} title={name} className={cn('grid min-h-11 place-items-center rounded-full px-3.5 transition', lang === key ? 'bg-brand-600' : 'hover:bg-mist')}>
-          {/* A hairline edge keeps the white parts of each flag crisp on any background. */}
-          <Flag className={cn('block h-[17px] shrink-0 rounded-[2px] shadow-[0_0_0_1px_rgb(11_26_56/0.12)]', width)} />
+          {showNames ? (
+            <span className={cn('text-base font-semibold', lang === key ? 'text-white' : 'text-ink')}>{name}</span>
+          ) : (
+            /* A hairline edge keeps the white parts of each flag crisp on any background. */
+            <Flag className={cn('block h-[17px] shrink-0 rounded-[2px] shadow-[0_0_0_1px_rgb(11_26_56/0.12)]', width)} />
+          )}
         </button>
       ))}
     </div>

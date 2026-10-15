@@ -47,12 +47,9 @@ function Nav() {
       <div className="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <Logo />
         <div className="flex items-center gap-2">
-          {/* Sign in goes straight to the account form; Get started first asks which role you are. */}
-          <Button to="/clinic/login" variant="secondary" size="sm" className="hidden sm:inline-flex">
+          {/* The same action as the hero's primary button, so it is quieter here and visible at every width. */}
+          <Button to="/clinic/login" variant="secondary" size="lg" className="px-8 text-lg">
             Sign in
-          </Button>
-          <Button to="/auth" size="sm" iconRight={<ArrowRight size={14} weight="bold" />}>
-            Get started
           </Button>
           <button
             onClick={() => setOpen((o) => !o)}
@@ -74,9 +71,6 @@ function Nav() {
             aria-label="Mobile"
           >
             <div className="flex flex-col gap-1 px-4 py-3">
-              <Link to="/clinic/login" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-brand-700 hover:bg-mist">
-                Sign in
-              </Link>
               <a href="#services" onClick={() => setOpen(false)} className="rounded-2xl px-4 py-3 text-[15px] font-medium text-ink-2 hover:bg-mist">
                 Services
               </a>
@@ -152,8 +146,8 @@ function Hero() {
         </motion.ul>
 
         <motion.div {...rise(0.32)} className="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-          <Button to="/auth" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
-            Get started
+          <Button to="/clinic/login" size="lg" iconRight={<ArrowRight size={16} weight="bold" />}>
+            Sign in
           </Button>
           <Button size="lg" variant="secondary" onClick={() => (document.getElementById('services') || document.getElementById('features'))?.scrollIntoView({ behavior: 'smooth' })}>
             View our services
@@ -518,7 +512,7 @@ function Footer() {
           {[
             { h: 'Product', l: [['Services', '#services'], ['Security', '#security']] },
             { h: 'Clinic', l: [['Doctor', '/clinic/login?role=doctor'], ['Receptionist', '/clinic/login?role=desk'], ['Nurse', '/clinic/login?role=nurse'], ['Waiting screen', '/waiting']] },
-            { h: 'Account', l: [['Get started', '/auth'], ['Sign in', '/clinic/login']] },
+            { h: 'Account', l: [['Sign in', '/clinic/login']] },
           ].map((c) => (
             <div key={c.h}>
               <p className="text-sm font-semibold text-white">{c.h}</p>
