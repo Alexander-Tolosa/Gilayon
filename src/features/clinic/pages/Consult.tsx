@@ -2,12 +2,12 @@ import { ArrowLeft, CheckCircle, CloudArrowUp, FileText, Plus, Printer, Robot, S
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { Badge, Button, Card, Field, Input, Textarea, useToast } from '../../../shared/components/ui'
+import { Badge, Button, Card, Chip, Field, Input, Textarea, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { AgeSex, LaneBadge, PinModal } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
 import { ageOf, fmtDay, fmtTimeOf, todayKey, uuid } from '../lib/helpers'
-import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, LAB_TESTS } from '../data/reference'
+import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, LAB_TESTS, TEMPLATES } from '../data/reference'
 import { useClinic, type ConsultInput } from '../store/store'
 import type { ServiceType } from '../types'
 import { VisitHistory } from '../components/History'
@@ -91,6 +91,8 @@ export default function Consult() {
   const [cert, setCert] = useState<Cert>(d0?.cert ?? { on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
   const [errors, setErrors] = useState<string[]>([])
   const [recap, setRecap] = useState(false)
+  // The template applied last shows as selected (blue), like the lab request chips.
+  const [templateKey, setTemplateKey] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [saved, setSaved] = useState<{ input: ConsultInput; result: 'saved' | 'local'; signed: boolean } | null>(null)
 
@@ -132,6 +134,19 @@ export default function Consult() {
   }
   const emp = employeeOfPerson(p.person_id)
   const principal = principalOf(patientId)
+
+  // A template fills the complaint, notes, diagnosis, medicines, labs and certificate, never the vital signs.
+  const applyTemplate = (key: string) => {
+    const tpl = TEMPLATES.find((x) => x.key === key)!
+    setTemplateKey(key)
+    setService(tpl.service)
+    setComplaint(tpl.complaint)
+    setNotes(tpl.notes)
+    setDx([{ description: tpl.diagnosis.description, icd10_code: '' }])
+    setRx(tpl.rx.map((r) => ({ ...r })))
+    setLabs(tpl.labs ?? [])
+    setCert(tpl.certificate ? { on: tpl.certificate.rest_days > 0 || tpl.key === 'pe', purpose: tpl.certificate.purpose, findings: tpl.diagnosis.description, rest_days: tpl.certificate.rest_days, remarks: '' } : { ...cert, on: false })
+  }
 
   const build = (): ConsultInput | null => {
     const e: string[] = []
@@ -380,7 +395,16 @@ export default function Consult() {
 
         {/* Consultation form on one screen */}
         <Card className="p-6">
-          <div className="grid grid-cols-1 gap-5">
+          <p className="text-base font-semibold text-ink-2">{t('Templates')}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {TEMPLATES.filter((x) => (me.services ?? []).includes(x.service)).map((x) => (
+              <Chip key={x.key} selected={templateKey === x.key} onClick={() => applyTemplate(x.key)} className="h-11 text-[15px]">
+                {x.label}
+              </Chip>
+            ))}
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 gap-5">
             <div className="grid grid-cols-3 gap-2">
               {(['Medical', 'Dental', 'Laboratory'] as ServiceType[]).map((s) => (
                 <button key={s} onClick={() => setService(s)} className={cn('h-12 rounded-2xl border-2 text-base font-semibold transition', service === s ? 'border-brand-600 bg-brand-600 text-white' : 'border-line hover:border-brand-300')}>
