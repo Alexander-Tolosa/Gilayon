@@ -184,6 +184,10 @@ export default function Consult() {
   if (saved) {
     const rxRow = data.prescriptions.find((r) => r.prescription_id === saved.input.rx_id)
     const mcRow = data.documents.find((d) => d.document_id === saved.input.doc_id)
+    const labRows = data.labs.filter((l) => l.consultation_id === saved.input.consultation_id)
+    const visitUrl = `/print/visit/${saved.input.consultation_id}`
+    const unsigned = rxRow?.status === 'draft' || mcRow?.status === 'draft'
+    const printable = saved.result === 'saved' && (!!rxRow || !!mcRow || labRows.length > 0)
     return (
       <div className="mx-auto max-w-3xl">
         <Card className="p-8">
@@ -221,6 +225,17 @@ export default function Consult() {
                 </span>
               </li>
             )}
+            {labRows.length > 0 && (
+              <li className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-canvas p-4">
+                <span className="text-lg font-medium">
+                  {t('Laboratory request')} · {labRows.length} {labRows.length > 1 ? t('tests') : t('test')}
+                  <span className="mt-0.5 block text-base font-normal text-ink-2">{labRows.map((l) => l.test_name).join(', ')}</span>
+                </span>
+                <Button size="sm" variant="secondary" icon={<Printer size={16} />} onClick={() => window.open(`/print/labreq/${saved.input.consultation_id}`, '_blank')}>
+                  {t('Print')}
+                </Button>
+              </li>
+            )}
             {(rxRow?.status === 'signed' || mcRow?.status === 'signed') && (
               <li className="flex items-center gap-2 rounded-2xl bg-ok-soft p-4 text-base font-medium text-ok">
                 <CheckCircle size={20} weight="fill" /> Sent to the front desk to be stamped and given to the patient.
@@ -231,7 +246,12 @@ export default function Consult() {
           <div className="mt-7 flex flex-wrap gap-3">
             {saved.result === 'saved' && signRefs.some((r) => (r.kind === 'rx' ? rxRow?.status === 'draft' : mcRow?.status === 'draft')) && (
               <Button size="lg" icon={<Signature size={20} />} onClick={() => setPinOpen(true)}>
-                {t('Sign')}
+                {t('Sign and print')}
+              </Button>
+            )}
+            {printable && (
+              <Button size="lg" variant={unsigned ? 'secondary' : 'primary'} icon={<Printer size={20} />} onClick={() => window.open(unsigned ? visitUrl : `${visitUrl}?auto=1`, '_blank')}>
+                {t('Print all')}
               </Button>
             )}
             <Button size="lg" variant="secondary" icon={<Printer size={20} />} onClick={() => window.open(`/print/summary/${patientId}`, '_blank')}>
@@ -242,7 +262,16 @@ export default function Consult() {
             </Button>
           </div>
         </Card>
-        <PinModal open={pinOpen} onClose={() => setPinOpen(false)} title={`${t('Sign')}: ${signRefs.length} document${signRefs.length > 1 ? 's' : ''}`} onSubmit={(pin) => signDocuments(signRefs, pin)}>
+        <PinModal open={pinOpen} onClose={() => setPinOpen(false)} title={`${t('Sign and print')}: ${signRefs.length} document${signRefs.length > 1 ? 's' : ''}`} onSubmit={async (pin) => {
+          // The tab is opened before the first await: a browser only allows a new window while the press still counts as a user action.
+          const tab = window.open('', '_blank')
+          const result = await signDocuments(signRefs, pin)
+          if (result === 'ok') {
+            if (tab) tab.location.href = `${visitUrl}?auto=1`
+            else toast({ tone: 'warn', title: t('Signed'), body: t('Your browser blocked the print window. Press Print all.') })
+          } else tab?.close()
+          return result
+        }}>
           <p className="text-center text-base text-ink-2">Your stored signature, license and PTR numbers and a document number are applied. Signed documents cannot be edited.</p>
         </PinModal>
       </div>

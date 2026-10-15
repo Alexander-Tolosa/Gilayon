@@ -165,7 +165,10 @@
   .print-page {
     box-shadow: none !important;
     max-width: none !important;
-    break-after: page;
+  }
+  /* A new sheet starts only between two documents. Breaking after every sheet added a blank page after the last one. */
+  .print-page + .print-page {
+    break-before: page;
   }
 }
 

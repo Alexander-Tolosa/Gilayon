@@ -262,6 +262,80 @@ test.describe('doctor', () => {
     await expect(page.getByText(/RX-\d{4}-\d{6}/)).toBeVisible()
   })
 
+  /** The first patient waiting, started: opens their consultation. */
+  async function startNextConsult(page: Page) {
+    await signIn(page, 'doctor')
+    const resume = page.getByRole('button', { name: 'Resume' })
+    if (await resume.count()) await resume.first().click()
+    else {
+      await page.getByRole('button', { name: 'Call next patient' }).click()
+      await page.getByRole('button', { name: /Start consultation/ }).first().click()
+    }
+    await expect(page).toHaveURL(/\/clinic\/consult\//)
+  }
+
+  test('after saving and signing, the whole visit prints in one go: prescription, certificate and lab request', async ({ page }) => {
+    // A headless browser has no print dialog to look at, so count the times the page asks for one.
+    await page.context().addInitScript(() => {
+      ;(window as unknown as { __prints: number }).__prints = 0
+      window.print = () => void ((window as unknown as { __prints: number }).__prints += 1)
+    })
+    await startNextConsult(page)
+    await fillConsult(page)
+    await page.getByLabel('Lab test', { exact: true }).fill('Fasting blood sugar')
+    await page.keyboard.press('Enter')
+    await page.getByRole('checkbox', { name: /Issue a/ }).check()
+    await page.getByRole('button', { name: 'Dental report', exact: true }).click()
+    await page.getByRole('button', { name: 'Save and sign' }).click()
+
+    // The print window opens by itself once the PIN signs the documents: nothing else to press.
+    const printing = page.context().waitForEvent('page')
+    for (const d of '1234') await page.getByRole('dialog').getByRole('button', { name: d, exact: true }).click()
+    const sheet = await printing
+    await sheet.waitForURL(/\/print\/visit\/[^/?]+\?auto=1/)
+    await expect(sheet.getByText('Prescription', { exact: true })).toBeVisible()
+    await expect(sheet.getByText('Laboratory Request', { exact: true })).toBeVisible()
+    await expect(sheet.getByText('Fasting blood sugar')).toBeVisible()
+    await expect(sheet.getByText(/RX-\d{4}-\d{6}/).first()).toBeVisible()
+    await expect(sheet.getByText(/DR-\d{4}-\d{6}/).first()).toBeVisible()
+    await expect(sheet.getByText('Not yet signed')).toHaveCount(0)
+    // One sheet each, so the patient gets three pages from one print.
+    await expect(sheet.locator('.print-page')).toHaveCount(3)
+    // The print dialog is asked for once, by itself, after the documents are on screen.
+    await expect.poll(() => sheet.evaluate(() => (window as unknown as { __prints: number }).__prints)).toBe(1)
+    // On paper it is three A4 pages, not four: nothing after the last document, no blank sheet.
+    const pdf = await sheet.pdf({ format: 'A4', margin: { top: '0', right: '0', bottom: '0', left: '0' } })
+    expect(pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g)).toHaveLength(3)
+    await sheet.close()
+
+    // The screen it came from lists the lab request next to the other two, and can print them again.
+    await expect(page.getByText('Consultation saved')).toBeVisible()
+    await expect(page.getByText(/Laboratory request · 1 test/)).toBeVisible()
+    const again = page.context().waitForEvent('page')
+    await page.getByRole('button', { name: 'Print all' }).click()
+    await expect((await again).getByText('Laboratory Request', { exact: true })).toBeVisible()
+  })
+
+  test('a visit with only a lab test still prints its request, and nothing else', async ({ page }) => {
+    await startNextConsult(page)
+    await page.getByLabel(/^Chief complaint/).fill('Annual check-up')
+    await page.getByRole('textbox', { name: /^Treatment notes/ }).fill('Routine blood tests requested.')
+    await page.getByPlaceholder(/Type the diagnosis/).fill('Health maintenance')
+    await page.keyboard.press('Enter')
+    await page.getByLabel('Lab test', { exact: true }).fill('Complete blood count')
+    await page.keyboard.press('Enter')
+    await page.getByRole('button', { name: 'Save and sign' }).click()
+    await expect(page.getByRole('heading', { name: 'Consultation saved' }).or(page.locator('p', { hasText: /^Consultation saved$/ }).first())).toBeVisible()
+
+    const printing = page.context().waitForEvent('page')
+    await page.getByRole('button', { name: 'Print all' }).click()
+    const sheet = await printing
+    await expect(sheet.getByText('Laboratory Request', { exact: true })).toBeVisible()
+    await expect(sheet.getByText('Complete blood count')).toBeVisible()
+    await expect(sheet.locator('.print-page')).toHaveCount(1)
+    await expect(sheet.getByText('Prescription', { exact: true })).toHaveCount(0)
+  })
+
   test('signs a prescription and a dental report, and the nurse stamps them from To stamp', async ({ page }) => {
     await signIn(page, 'doctor')
     const resume = page.getByRole('button', { name: 'Resume' })

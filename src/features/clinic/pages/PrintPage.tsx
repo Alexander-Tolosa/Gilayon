@@ -1,6 +1,6 @@
 import { ArrowLeft, Printer } from '@phosphor-icons/react'
-import { useState, type ReactNode } from 'react'
-import { useParams } from 'react-router-dom'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useParams, useSearchParams } from 'react-router-dom'
 import { Button } from '../../../shared/components/ui'
 import { Letterhead, SignatureBlock } from '../components/ClinicComponents'
 import { both, fil } from '../lib/i18n'
@@ -25,6 +25,8 @@ export default function PrintPage() {
       {kind === 'rx' && <RxPrint id={id} />}
       {kind === 'mc' && <CertificatePrint id={id} />}
       {kind === 'lab' && <LabPrint id={id} />}
+      {kind === 'labreq' && <LabRequestPrint consultationId={id} />}
+      {kind === 'visit' && <VisitPrint consultationId={id} />}
       {kind === 'summary' && <SummaryPrint id={id} />}
       {kind === 'ticket' && <TicketPrint id={id} />}
       {kind === 'report' && <ReportPrint day={id} />}
@@ -238,6 +240,86 @@ function LabPrint({ id }: { id: string }) {
         </div>
       )}
     </Letterhead>
+  )
+}
+
+/**
+ * What the patient takes to the laboratory: the tests ordered in one consultation. It is a request, not a signed
+ * medical document, so it carries the doctor's name and license with a line to sign, and is not held back by signing.
+ * Results already entered for these tests (a reprint, later) are shown beside them.
+ */
+function LabRequestPrint({ consultationId }: { consultationId: string }) {
+  const { data, staffById } = useClinic()
+  const labs = data.labs.filter((l) => l.consultation_id === consultationId)
+  if (!labs.length) return <Missing />
+  const consult = data.consultations.find((c) => c.consultation_id === consultationId)
+  const doctor = staffById(labs[0].requested_by)
+  const date = consult?.consult_date ?? todayKey(new Date(labs[0].requested_at))
+  const anyResult = labs.some((l) => l.status === 'resulted')
+  return (
+    <Letterhead footer={<div className="flex justify-between"><span>Laboratory request. Not a signed medical document.</span><span>{brand(data.demo)}</span></div>}>
+      <p className="mt-5 text-center text-[13pt] font-bold uppercase tracking-[0.2em]">Laboratory Request</p>
+      <PatientLine patientId={labs[0].patient_id} date={date} />
+      <table className="mt-6 w-full text-[11pt]">
+        <thead>
+          <tr className="border-b border-black/40 text-left text-[9.5pt] uppercase tracking-wide text-black/60">
+            <th className="w-10 py-1">No.</th>
+            <th className="py-1">Test requested</th>
+            {anyResult && <th className="py-1">Result</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {labs.map((l, i) => (
+            <tr key={l.lab_id} className="border-b border-black/10 align-top">
+              <td className="py-2 text-black/60">{i + 1}.</td>
+              <td className="py-2 font-semibold">{l.test_name}</td>
+              {anyResult && <td className="py-2">{l.status === 'resulted' ? l.result : 'Waiting for result'}</td>}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-6 text-[9.5pt] text-black/70">Please bring this request to the laboratory. The result is returned to the clinic and kept in the patient's record.</p>
+      {doctor && (
+        <div className="mt-10 flex justify-end">
+          <div className="w-72 text-center">
+            <div className="h-14" />
+            <p className="border-t border-black pt-1 font-bold uppercase">{doctor.name}</p>
+            <p className="text-[9pt]">{doctor.title}</p>
+            <p className="text-[9pt]">PRC License No. {doctor.license_no}</p>
+          </div>
+        </div>
+      )}
+    </Letterhead>
+  )
+}
+
+/**
+ * Everything printed for one consultation, one sheet each: the prescription, the certificate or dental report, and the
+ * laboratory request. Voided documents are left out. With ?auto=1 the print dialog opens by itself once they are on screen,
+ * which is what "Sign and print" uses, so the doctor presses nothing more.
+ */
+function VisitPrint({ consultationId }: { consultationId: string }) {
+  const { data } = useClinic()
+  const [params] = useSearchParams()
+  const rx = data.prescriptions.filter((r) => r.consultation_id === consultationId && r.status !== 'voided')
+  const docs = data.documents.filter((d) => d.consultation_id === consultationId && d.status !== 'voided')
+  const hasLabs = data.labs.some((l) => l.consultation_id === consultationId)
+  const ready = rx.length + docs.length > 0 || hasLabs
+  const printed = useRef(false)
+  useEffect(() => {
+    if (params.get('auto') !== '1' || !ready || printed.current) return
+    printed.current = true
+    // A moment for the letterhead and signature images to load, or they print as empty boxes.
+    const t = setTimeout(() => window.print(), 600)
+    return () => clearTimeout(t)
+  }, [params, ready])
+  if (!ready) return <p className="text-center text-lg text-ink-2">Nothing was prescribed, certified or requested in this visit, or it is not on this computer yet.</p>
+  return (
+    <div className="flex flex-col gap-6 print:gap-0">
+      {rx.map((r) => <RxPrint key={r.prescription_id} id={r.prescription_id} />)}
+      {docs.map((d) => <CertificatePrint key={d.document_id} id={d.document_id} />)}
+      {hasLabs && <LabRequestPrint consultationId={consultationId} />}
+    </div>
   )
 }
 

@@ -45,6 +45,11 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
                     <CloudArrowUp size={16} /> Saved on this computer · {t('waiting to sync')}
                   </span>
                 )}
+                {c.sync !== 'local' && ([...rx, ...mc].some((d) => d.status !== 'voided') || labs.length > 0) && (
+                  <Button size="sm" variant="ghost" icon={<Printer size={16} />} onClick={() => window.open(`/print/visit/${c.consultation_id}`, '_blank')}>
+                    {t('Print all')}
+                  </Button>
+                )}
                 {onCorrect && !c.correction_of && c.sync !== 'local' && (
                   <Button size="sm" variant="ghost" icon={<PencilSimple size={16} />} onClick={() => onCorrect(c)}>
                     Add correction
