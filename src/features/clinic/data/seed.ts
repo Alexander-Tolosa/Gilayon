@@ -322,15 +322,27 @@ export function buildSeed(): ClinicData {
   }
 
   const patientPool = patients.filter((p) => p.patient_id !== mlvPt.patient_id)
+  // The last week is written by hand, not drawn at random, so the daily and weekly census read cleanly
+  // when pitched: a busy Monday tapering to a half-day Saturday. Visits per weekday (Sun..Sat).
+  const PITCH_VISITS = [0, 14, 12, 11, 13, 9, 6]
+  const PITCH_DAYS = 6 // days before today
+  // A few patients come back within the week, so visits are higher than distinct patients.
+  const returning = patientPool.filter((p) => catsFor(p)[0] === 'regular').slice(0, 5)
+  const pregnantPool = patientPool.filter((p) => personOf(p).sex === 'Female' && ageOf(personOf(p).birthdate) >= 24 && ageOf(personOf(p).birthdate) <= 36)
   for (let d = 91; d >= 1; d--) {
     const date = new Date(now - d * 86_400_000)
-    if (date.getDay() === 0 || date.getDay() === 6) continue
+    const pitch = d <= PITCH_DAYS
+    if (!pitch && (date.getDay() === 0 || date.getDay() === 6)) continue
     const day = dayKeyOffset(-d)
     const opening = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 7, 30).getTime()
-    const count = between(8, 14)
+    const count = pitch ? PITCH_VISITS[date.getDay()] : between(8, 14)
     for (let i = 0; i < count; i++) {
       const left = chance(0.04)
-      makeVisit({ pt: pick(patientPool), day, checkIn: opening + i * between(12, 30) * 60_000, wait: between(6, 42), status: left ? 'left' : 'done', extraCats: chance(0.03) ? ['urgent'] : undefined })
+      const extraCats: CategoryKey[] = []
+      if (chance(0.03) || (pitch && i === 3)) extraCats.push('urgent')
+      if (pitch && i === 5 && pregnantPool.length) extraCats.push('pregnant')
+      const pt = pitch && i < 2 && returning.length ? returning[(d + i * 2) % returning.length] : pick(patientPool)
+      makeVisit({ pt: i === 5 && pitch && pregnantPool.length ? pick(pregnantPool) : pt, day, checkIn: opening + i * between(12, 30) * 60_000, wait: between(6, 42), status: left ? 'left' : 'done', extraCats: extraCats.length ? extraCats : undefined })
     }
   }
   // Maria Lourdes' digital visits since go-live.
