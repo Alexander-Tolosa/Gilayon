@@ -69,14 +69,82 @@ export function StatusBadge() {
   )
 }
 
+/** Points of a five-pointed star (outer radius r, standard inner ratio), first point aimed at `angle` degrees. */
+function starPoints(cx: number, cy: number, r: number, angle = -90) {
+  const inner = r * 0.381966
+  return Array.from({ length: 10 }, (_, i) => {
+    const a = ((angle + i * 36) * Math.PI) / 180
+    const d = i % 2 ? inner : r
+    return `${(cx + d * Math.cos(a)).toFixed(1)},${(cy + d * Math.sin(a)).toFixed(1)}`
+  }).join(' ')
+}
+
+/* Flags drawn to their official proportions and colours: flat, no gloss, so they read like real flag icons. */
+
+/** United States flag, 10:19. 13 stripes, union of 50 stars in 9 staggered rows (US Code, Title 4). */
+function FlagUS({ className }: { className?: string }) {
+  // Hoist (height) = 1300 units: stripe 100, union 988 x 700, star spacing 81.9 x 70, star diameter 80.
+  const stars: [number, number][] = []
+  for (let row = 0; row < 9; row++) for (let col = row % 2; col < 11; col += 2) stars.push([81.9 * (col + 1), 70 * (row + 1)])
+  return (
+    <svg viewBox="0 0 2470 1300" className={className} aria-hidden>
+      <rect width="2470" height="1300" fill="#b22234" />
+      <path d="M0 150H2470M0 350H2470M0 550H2470M0 750H2470M0 950H2470M0 1150H2470" stroke="#fff" strokeWidth="100" />
+      <rect width="988" height="700" fill="#3c3b6e" />
+      <g fill="#fff">
+        {stars.map(([x, y]) => (
+          <polygon key={`${x}-${y}`} points={starPoints(x, y, 40)} />
+        ))}
+      </g>
+    </svg>
+  )
+}
+
+/** Philippine flag, 1:2. Blue over red, white equilateral triangle, eight-rayed sun (three rays each) and three stars. */
+function FlagPH({ className }: { className?: string }) {
+  const H = 900
+  const cx = 259.81 // centre of the sun: centroid of the triangle
+  const rays = Array.from({ length: 8 }, (_, i) => i * 45)
+  // Each sun ray is a long central beam with a shorter beam either side.
+  const beam = (len: number, w: number) => `M${cx} ${450 - w}L${cx + len} 450L${cx} ${450 + w}Z`
+  return (
+    <svg viewBox="0 0 1800 900" className={className} aria-hidden>
+      <rect width="1800" height="450" fill="#0038a8" />
+      <rect y="450" width="1800" height="450" fill="#ce1126" />
+      <path d={`M0 0L${(H * Math.sqrt(3)) / 2} 450L0 ${H}Z`} fill="#fff" />
+      <g fill="#fcd116">
+        {rays.map((deg) => (
+          <g key={deg} transform={`rotate(${deg} ${cx} 450)`}>
+            <path d={beam(190, 9)} />
+            <path d={beam(150, 6)} transform={`rotate(11 ${cx} 450)`} />
+            <path d={beam(150, 6)} transform={`rotate(-11 ${cx} 450)`} />
+          </g>
+        ))}
+        <circle cx={cx} cy="450" r="90" />
+        <polygon points={starPoints(70, 112, 45, -60)} />
+        <polygon points={starPoints(70, 788, 45, -120)} />
+        <polygon points={starPoints(697, 450, 45, 0)} />
+      </g>
+    </svg>
+  )
+}
+
+// Each flag keeps its official proportions at 17px tall: US 10:19, Philippines 1:2.
+const LANGS = [
+  { key: 'en', name: 'English', Flag: FlagUS, width: 'w-[32px]' },
+  { key: 'fil', name: 'Filipino', Flag: FlagPH, width: 'w-[34px]' },
+] as const
+
+/** Language switch on every clinic screen: the American flag for English, the Philippine flag for Filipino. */
 export function LanguageSwitch({ className }: { className?: string }) {
   const lang = useLang()
   const t = useT()
   return (
     <div className={cn('flex rounded-full border border-line-strong bg-surface p-1', className)} role="group" aria-label={t('Language')}>
-      {(['en', 'fil'] as const).map((l) => (
-        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('min-h-11 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
-          {l === 'en' ? 'EN' : 'FIL'}
+      {LANGS.map(({ key, name, Flag, width }) => (
+        <button key={key} onClick={() => setLang(key)} aria-pressed={lang === key} aria-label={name} title={name} className={cn('grid min-h-11 place-items-center rounded-full px-3.5 transition', lang === key ? 'bg-brand-600' : 'hover:bg-mist')}>
+          {/* A hairline edge keeps the white parts of each flag crisp on any background. */}
+          <Flag className={cn('block h-[17px] shrink-0 rounded-[2px] shadow-[0_0_0_1px_rgb(11_26_56/0.12)]', width)} />
         </button>
       ))}
     </div>
