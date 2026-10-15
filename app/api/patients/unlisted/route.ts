@@ -1,20 +1,10 @@
 import { route, z } from '@/server/http'
+import { NewPerson, Short } from '@/server/schemas'
 import { registerUnlisted } from '@/server/services/records'
 
 const Body = z.object({
   patient_id: z.string().optional(),
-  person: z.object({
-    full_name: z.string().min(1),
-    birthdate: z.string(),
-    sex: z.enum(['Female', 'Male']),
-    contact: z.string(),
-    civil_status: z.enum(['Single', 'Married', 'Widowed', 'Separated']),
-    philhealth_pin: z.string().optional(),
-    pwd_id: z.string().optional(),
-    employee_no: z.string().optional(),
-    office: z.string().optional(),
-    position: z.string().optional(),
-  }),
+  person: NewPerson.extend({ employee_no: Short(40).optional(), office: Short(120).optional(), position: Short(120).optional() }),
   confirmed: z.boolean().optional(),
 })
 

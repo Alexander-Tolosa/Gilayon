@@ -6,7 +6,7 @@ const Body = z.object({
   patient_id: z.string(),
   categories: z.array(z.enum(['urgent', 'pregnant', 'pwd', 'senior', 'regular'])),
   service: z.enum(['Medical', 'Dental', 'Laboratory']),
-  reason: z.string().default(''),
+  reason: z.string().max(500).default(''),
 })
 
 export const POST = route({ body: Body }, async ({ tx, actor, body }) => ({

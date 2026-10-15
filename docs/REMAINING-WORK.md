@@ -4,6 +4,8 @@ Status as of 2026-10-15, on `main` after `v1.0.0`, PRs #11, #19, #20, #27, #29, 
 
 Gilayon does what the concept describes end to end: verified check-in and priority queue, patient registry with duplicate merge, append-only consultations, PIN-signed prescriptions and certificates with void and reissue, staff accounts, scanned pages on disk, an offline outbox with automatic sync, encrypted nightly backups with restore, HTTPS with a private clinic CA, an audit trail with a per-doctor unseen feed, and a daily report with census.
 
+A feature-by-feature review (what was fixed on `feature-review-hardening`, and open items O1–O13 with proposed fixes) is in [`FEATURE-REVIEW.md`](FEATURE-REVIEW.md).
+
 What is left falls into three groups: things that can only be checked on the clinic's own hardware, things that must change before real patient data goes in, and engineering follow-ups. Items are in priority order within each group.
 
 ---

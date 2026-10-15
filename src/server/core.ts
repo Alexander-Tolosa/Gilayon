@@ -22,7 +22,11 @@ export function strip<T>(row: Record<string, unknown>): T {
   return out as T
 }
 
-export type Actor = Pick<Staff, 'staff_id' | 'name' | 'role'> & { license_no?: string }
+export type Actor = Pick<Staff, 'staff_id' | 'name' | 'role'> & {
+  license_no?: string
+  /** Signed in with a temporary password: only the password change (and a minimal snapshot) is allowed. */
+  must_change_password?: boolean
+}
 
 export type AuditEntry = {
   action: string

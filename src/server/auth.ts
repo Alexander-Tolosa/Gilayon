@@ -16,11 +16,37 @@ export function idleMinutes(): number {
 const MAX_FAILS = 5
 const LOCK_MS = 60_000
 
+/* A 4-digit signing PIN has only 10,000 values, so wrong PINs lock signing for a while, as wrong passwords do. */
+const MAX_PIN_FAILS = 5
+const PIN_LOCK_MS = 5 * 60_000
+
 const hash = (token: string) => createHash('sha256').update(token).digest('hex')
 
 // Failed sign-ins per account, in memory: enough to slow guessing on a single server process.
-const g = globalThis as unknown as { __himsogFails?: Map<string, { n: number; until: number }> }
+const g = globalThis as unknown as { __himsogFails?: Map<string, { n: number; until: number }>; __himsogPinFails?: Map<string, { n: number; until: number }> }
 const fails = (g.__himsogFails ??= new Map())
+const pinFails = (g.__himsogPinFails ??= new Map())
+
+/** Refuses while this doctor's PIN is locked after too many wrong tries. */
+export function assertPinUnlocked(staff_id: string) {
+  const f = pinFails.get(staff_id)
+  if (f && f.until > nowMs()) {
+    const min = Math.ceil((f.until - nowMs()) / 60_000)
+    throw new HttpError(429, `Too many wrong PINs. Signing is locked for ${min} more minute${min > 1 ? 's' : ''}.`)
+  }
+}
+
+/** Counts a PIN attempt. Returns true when this wrong try has just locked signing. */
+export function notePinAttempt(staff_id: string, ok: boolean): boolean {
+  if (ok) {
+    pinFails.delete(staff_id)
+    return false
+  }
+  const n = (pinFails.get(staff_id)?.n ?? 0) + 1
+  const locked = n >= MAX_PIN_FAILS
+  pinFails.set(staff_id, { n: locked ? 0 : n, until: locked ? nowMs() + PIN_LOCK_MS : 0 })
+  return locked
+}
 
 export const hashSecret = (s: string) => bcrypt.hash(s, 8)
 
@@ -73,14 +99,14 @@ export async function heartbeat(q: Q, token: string) {
 export async function actorFromToken(q: Q, token: string | null): Promise<Actor | null> {
   if (!token) return null
   const [row] = await q
-    .select({ staff_id: staff.staff_id, name: staff.name, role: staff.role, license_no: staff.license_no, created_at: session.created_at, last_seen_at: session.last_seen_at })
+    .select({ staff_id: staff.staff_id, name: staff.name, role: staff.role, license_no: staff.license_no, must_change_password: staff.must_change_password, created_at: session.created_at, last_seen_at: session.last_seen_at })
     .from(session)
     .innerJoin(staff, eq(staff.staff_id, session.staff_id))
     .where(and(eq(session.token_hash, hash(token)), gt(session.expires_at, nowMs()), eq(staff.active, true)))
   if (!row) return null
   const idle = idleMinutes()
   if (idle && nowMs() - (row.last_seen_at ?? row.created_at) > idle * 60_000 + GRACE_MS) return null
-  return { staff_id: row.staff_id, name: row.name, role: row.role, license_no: row.license_no ?? undefined }
+  return { staff_id: row.staff_id, name: row.name, role: row.role, license_no: row.license_no ?? undefined, must_change_password: row.must_change_password || undefined }
 }
 
 export function verifyPin(pin: string, pin_hash: string | null) {

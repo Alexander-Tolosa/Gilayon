@@ -231,8 +231,9 @@ describe('staff accounts', () => {
   it('lets a new doctor set a first PIN without a current one', async () => {
     const id = await db.transaction((tx) => createStaff(tx, doctor, { name: 'Dr. New Doctor', role: 'doctor', title: 'Physician', license_no: '0123456', password: 'Doctor-pass-1' }))
     const me: Actor = { staff_id: id, name: 'Dr. New Doctor', role: 'doctor' }
-    expect(await db.transaction((tx) => changePin(tx, me, '', '4321'))).toBe(true)
-    expect(await db.transaction((tx) => changePin(tx, me, '0000', '1111'))).toBe(false)
+    await expect(db.transaction((tx) => changePin(tx, me, '', '1234'))).rejects.toMatchObject({ status: 400 })
+    expect(await db.transaction((tx) => changePin(tx, me, '', '7395'))).toBe(true)
+    expect(await db.transaction((tx) => changePin(tx, me, '0000', '8462'))).toBe(false)
   })
 })
 

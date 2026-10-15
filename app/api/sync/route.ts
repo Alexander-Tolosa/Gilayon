@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm'
 import { clientOp } from '../../../db/schema'
 import { audit, nowMs } from '@/server/core'
 import { route, z } from '@/server/http'
-import { ConsultSchema } from '@/server/schemas'
+import { ConsultSchema, DraftPatch, IsoDate } from '@/server/schemas'
 import { editDraft, saveConsultation } from '@/server/services/clinical'
 import { uploadScan } from '@/server/services/records'
 
@@ -16,7 +16,7 @@ const Op = z.discriminatedUnion('kind', [
       patient_id: z.string().min(1),
       file: z.string(),
       scan_kind: z.enum(['Chart', 'Prescription', 'Lab result', 'Certificate']),
-      page_date: z.string(),
+      page_date: IsoDate,
     }),
   }),
   z.object({
@@ -25,13 +25,7 @@ const Op = z.discriminatedUnion('kind', [
     input: z.object({
       doc_kind: z.enum(['rx', 'doc']),
       id: z.string().min(1),
-      patch: z.object({
-        items: z.array(z.object({ drug_name: z.string().min(1), dose: z.string(), frequency: z.string(), quantity: z.number().int().positive() })).optional(),
-        purpose: z.string().optional(),
-        findings: z.string().optional(),
-        rest_days: z.number().int().nullable().optional(),
-        remarks: z.string().nullable().optional(),
-      }),
+      patch: DraftPatch,
     }),
   }),
 ])

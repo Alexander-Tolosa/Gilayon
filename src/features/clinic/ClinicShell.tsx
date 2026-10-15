@@ -26,6 +26,7 @@ import { useT } from './lib/i18n'
 import { unreadActivity } from './lib/activity'
 import { todayKey } from './lib/helpers'
 import { ChangePasswordForm, ForcePasswordChange } from './components/StaffAdmin'
+import { RejectedOutbox } from './components/RejectedOutbox'
 import { useClinic } from './store/store'
 import type { StaffRole } from './types'
 
@@ -195,6 +196,7 @@ export function ClinicShell() {
           </div>
         </header>
         <main id="main" tabIndex={-1} className="mx-auto max-w-[1440px] px-4 pb-16 pt-6 outline-none sm:px-6 lg:px-8">
+          <RejectedOutbox />
           <Outlet />
         </main>
       </div>
