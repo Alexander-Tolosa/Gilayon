@@ -1,10 +1,12 @@
 import { desc, eq, sql } from 'drizzle-orm'
+import sharp from 'sharp'
 import * as t from '../../../db/schema'
 import { audit, HttpError, nowMs, uuid, type Actor } from '../core'
 import { getDb, type Q } from '../db'
 import { notifyChanged } from '../events'
 import { decodeImage, readScan, removeScan, storeScan } from '../files'
 import { ocrImage, readability } from '../recognition/ocr'
+import { uprightBytes, type Turn } from '../recognition/orient'
 import { mergeVision, parseReading, withoutInferredSections, type ParsedField } from '../recognition/parse'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
 import { readDocumentWithVision, readWithVision, visionStatus, type DocumentKind } from '../recognition/vision'
@@ -360,6 +362,15 @@ const REAL_DATE = (v: string) => {
   return d.getMonth() === Number(g[2]) - 1 && d.getTime() <= Date.now() && Number(g[1]) >= 1900
 }
 
+/**
+ * A table row the model wrote for a ruled line with nothing on it: "Diagnosis: None Treatment: None". A smaller model asked for
+ * the rows of a mostly empty table keeps writing them, so a line that says "none" for two or more of its own answers is not a row.
+ */
+const EMPTY_ANSWER = /:\s*(?:none|n\/a|nil|blank|empty)\b/gi
+export function isHollowRow(line: string) {
+  return (line.match(EMPTY_ANSWER) ?? []).length >= 2
+}
+
 export type DocumentReading = {
   /** The page's own lines, as the reader wrote them. Shown for the doctor to correct; filed with the page. */
   text: string[]
@@ -369,6 +380,12 @@ export type DocumentReading = {
   title: string
   /** The name the page is about, as written on it. */
   name_on_page: string
+  /** The model that read it, and whether it is the smaller one, which can add rows that are not on the page. */
+  model: string
+  small: boolean
+  /** How far the photo had to be turned to be read upright. When it is not 0, `image` is the photo turned, to show and to file. */
+  turned: Turn
+  image?: string
   /** True or false when the page names someone; null when it names nobody, so there is nothing to compare. */
   name_matches: boolean | null
   patient_name: string
@@ -382,15 +399,17 @@ export type DocumentReading = {
 export async function readDocument(q: Q, file: string, kind: DocumentKind, patientIdIn: string): Promise<DocumentReading> {
   const patientId = await canonicalPatientId(q, patientIdIn)
   const patient_name = await patientName(q, patientId)
-  const { bytes } = decodeImage(file)
+  const original = decodeImage(file).bytes
+  const { bytes, turned } = await uprightBytes(original)
   const v = await readDocumentWithVision(bytes, kind)
   const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '')
   const clean = (x: unknown) => (FOREIGN_TEXT.test(str(x)) ? '' : str(x))
-  const text = pageLines(v.data.page_text, 80).filter((l) => !FOREIGN_TEXT.test(l))
+  const text = pageLines(v.data.page_text, 80).filter((l) => !FOREIGN_TEXT.test(l) && !isHollowRow(l))
   const name_on_page = clean(v.data.patient_name)
   // "SANTOS, MARIA" and "Maria Santos" are the same name: the comparison looks at the words, not their order. A page with a
   // name that is only slightly off (handwriting) is still the same person; a different name is not.
   const name_matches = name_on_page && hasAnAnswer(name_on_page) ? matchScore(name_on_page.replace(/,/g, ' '), patient_name, []) >= 0.7 : null
   const date = clean(v.data.document_date)
-  return { text, date: REAL_DATE(date) ? date : '', issued_by: clean(v.data.issued_by), title: clean(v.data.title), name_on_page, name_matches, patient_name }
+  const image = turned ? `data:image/jpeg;base64,${(await sharp(bytes).resize({ width: 2000, height: 2000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toBuffer()).toString('base64')}` : undefined
+  return { text, date: REAL_DATE(date) ? date : '', issued_by: clean(v.data.issued_by), title: clean(v.data.title), name_on_page, name_matches, patient_name, model: v.model, small: v.small, turned, image }
 }

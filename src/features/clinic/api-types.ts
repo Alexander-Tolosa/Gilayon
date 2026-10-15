@@ -124,6 +124,12 @@ export type DocumentReading = {
   issued_by: string
   title: string
   name_on_page: string
+  model: string
+  /** The smaller reader, which can add rows that are not on the page. */
+  small: boolean
+  /** How far the photo was turned to read it upright; when not 0, `image` is the photo turned. */
+  turned: 0 | 90 | 180 | 270
+  image?: string
   /** null when the page names nobody, so there was nothing to compare with the patient. */
   name_matches: boolean | null
   patient_name: string

@@ -16,8 +16,8 @@ export type VisionStatus = { available: boolean; model: string; reason?: string 
 
 export const visionModel = () => process.env.OLLAMA_VISION_MODEL ?? 'qwen2.5vl:3b'
 
-export async function visionStatus(): Promise<VisionStatus> {
-  const model = visionModel()
+export async function visionStatus(named?: string): Promise<VisionStatus> {
+  const model = named ?? visionModel()
   if (process.env.OLLAMA_DISABLED === '1') return { available: false, model, reason: 'Turned off (OLLAMA_DISABLED=1).' }
   try {
     const res = await fetch(`${ollamaUrl()}/api/tags`, { signal: AbortSignal.timeout(800) })
@@ -49,8 +49,8 @@ async function prepare(bytes: Buffer, flip: boolean) {
 }
 
 /** Asks the model to read the form picture. Throws an HttpError with a plain reason when it cannot. */
-export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; timeoutMs?: number; prompt?: string; schema?: object } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
-  const st = await visionStatus()
+export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; timeoutMs?: number; prompt?: string; schema?: object; model?: string; keepAlive?: string } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
+  const st = await visionStatus(opts.model)
   if (!st.available) throw new HttpError(503, st.reason ?? 'The handwriting reader is not available.')
   const t0 = Date.now()
   const timeout = opts.timeoutMs ?? Number(process.env.OLLAMA_VISION_TIMEOUT_MS ?? 240000)
@@ -63,6 +63,8 @@ export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; time
       body: JSON.stringify({
         model: st.model,
         stream: false,
+        // A model used once in a while is let go soon after, so the faster one the scans use does not have to share memory with it for long.
+        ...(opts.keepAlive ? { keep_alive: opts.keepAlive } : {}),
         format: opts.schema ?? formSchema,
         // The picture alone is about 4,000 tokens, and the answer now carries the whole page written out, so
         // the window has to hold both: at 8,192 the JSON came back cut in half and could not be read.
@@ -129,4 +131,23 @@ const documentPrompt = (kind: DocumentKind) =>
   'page_text (the whole page written out top to bottom, every line that has writing on it, each as "label: answer" when it has a label, exactly as written). ' +
   'Use "" for anything that is not on the page. Copy text exactly as written; never guess, correct spelling, translate, or add anything that is not on the page.'
 
-export const readDocumentWithVision = (bytes: Buffer, kind: DocumentKind) => readWithVision(bytes, { prompt: documentPrompt(kind), schema: documentSchema, timeoutMs: 120_000 })
+/**
+ * Handwriting on a page with no fields is where the small model makes things up: asked for the rows of a table that is mostly
+ * empty, it kept writing rows (a chest pain, an asthma, an osteoarthritis) that were never on the page. The larger model read
+ * the same photo as exactly the two rows that are there, so documents use it when it is installed. A doctor pressing Scan with
+ * AI can wait a few seconds more for that; the scan of the clinic's own form keeps the fast model.
+ */
+export const documentModel = () => process.env.OLLAMA_VISION_DOC_MODEL ?? 'qwen2.5vl:7b'
+
+/** The model that will read a document, and whether it is the smaller one that can invent rows. */
+export async function documentReader(): Promise<{ model: string; small: boolean }> {
+  const large = documentModel()
+  if (large !== visionModel() && (await visionStatus(large)).available) return { model: large, small: false }
+  return { model: visionModel(), small: true }
+}
+
+export async function readDocumentWithVision(bytes: Buffer, kind: DocumentKind) {
+  const { model, small } = await documentReader()
+  const out = await readWithVision(bytes, { prompt: documentPrompt(kind), schema: documentSchema, timeoutMs: 180_000, model, keepAlive: small ? undefined : '90s' })
+  return { ...out, small }
+}

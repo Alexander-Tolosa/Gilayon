@@ -91,6 +91,7 @@ ollama pull qwen2.5vl:3b        # about 3.2 GB, needs the internet, so do it bef
 - **Time:** about 15 seconds a page on top of the OCR, so roughly 20 seconds in all (the first read after a restart also loads the model). The screen says it is reading.
 - **What it changes:** where Tesseract was unsure, the model's value is proposed and marked **Check**, with a note saying what Tesseract read. Where Tesseract was sure of a value that has a format (a date, a phone number, a PIN), it keeps it and flags the disagreement. Nothing is saved until the nurse confirms every field.
 - **If the model is missing,** the button is greyed out and says `ollama pull qwen2.5vl:3b`.
+- **Scan with AI for certificates, lab results and other pages** (the doctor's button) reads best with the larger model: `ollama pull qwen2.5vl:7b` (about 6 GB, about 7 GB of memory, about 20 seconds a page). It is let go from memory 90 seconds after use. Without it the smaller model reads the page and the screen warns that it can add rows that are not on the paper.
 - Turn it off with `OLLAMA_VISION_AUTO=0` (button only) or `OLLAMA_DISABLED=1` (not at all), or point it at a different model with `OLLAMA_VISION_MODEL`.
 
 ## 6. The evening before

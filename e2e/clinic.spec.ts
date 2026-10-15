@@ -637,6 +637,9 @@ test.describe('scan with AI for other documents', () => {
     name_on_page: 'Maria Lourdes Villanueva',
     name_matches: true,
     patient_name: 'Maria Lourdes Villanueva',
+    model: 'qwen2.5vl:7b',
+    small: false,
+    turned: 0,
   }
 
   async function openFromDashboard(page: Page) {
@@ -657,7 +660,12 @@ test.describe('scan with AI for other documents', () => {
     const text = page.getByRole('textbox', { name: /^Text read from the page/ })
     await expect(text).toHaveValue('CBC\nHemoglobin: 128 g/L\nWBC: 6.2')
     await text.fill('CBC\nHemoglobin: 126 g/L\nWBC: 6.2')
-    await page.getByRole('button', { name: /^Attach to Maria/ }).click()
+    // Text is filed only once the doctor says every line is on the paper.
+    const attach = page.getByRole('button', { name: /^Attach to Maria/ })
+    await expect(attach).toBeDisabled()
+    await page.getByLabel(/I read this text against the paper/).check()
+    await expect(attach).toBeEnabled()
+    await attach.click()
     await expect(page.getByText('Attached to Maria Lourdes Villanueva')).toBeVisible()
 
     // It is in the record, marked as read, with the corrected text beside the page.
@@ -677,9 +685,18 @@ test.describe('scan with AI for other documents', () => {
     const attach = page.getByRole('button', { name: /^Attach to Maria/ })
     await expect(attach).toBeDisabled()
     await page.getByLabel('It is this patient. File it anyway.').check()
+    await expect(attach).toBeDisabled() // the text still has to be checked against the paper
+    await page.getByLabel(/I read this text against the paper/).check()
     await expect(attach).toBeEnabled()
     await page.getByLabel('It is this patient. File it anyway.').uncheck()
     await expect(attach).toBeDisabled()
+  })
+
+  test('says when a sideways photo was turned upright, and warns when only the smaller reader was available', async ({ page }) => {
+    await reads(page, { ...lab, turned: 90, small: true, model: 'qwen2.5vl:3b', image: 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==' })
+    await openFromDashboard(page)
+    await expect(page.getByText(/The photo was sideways, so it was turned upright/)).toBeVisible()
+    await expect(page.getByText(/larger reader is not installed, so a smaller one read this page/)).toBeVisible()
   })
 
   test('opened from a patient record it is already for that patient, and the photo can be filed when the reader fails', async ({ page }) => {

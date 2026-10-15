@@ -43,6 +43,7 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
   const [category, setCategory] = useState<ScanCategory>('Outside report')
   const [source, setSource] = useState('')
   const [sure, setSure] = useState(false)
+  const [checked, setChecked] = useState(false) // the doctor read the text against the paper
   const [fileError, setFileError] = useState('') // what is missing to file the page, shown beside the filing fields
 
   const reset = () => {
@@ -54,6 +55,7 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
     setDate('')
     setSource('')
     setSure(false)
+    setChecked(false)
     setBusy(false)
   }
   // A fresh screen each time it opens, for the patient it was opened for.
@@ -117,7 +119,7 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
     }
     setFileError('')
     setBusy(true)
-    const ok = await uploadScan(chosen, image, kind, date || todayKey(), {
+    const ok = await uploadScan(chosen, reading?.image ?? image, kind, date || todayKey(), {
       category,
       source_clinic: outside ? source.trim() : undefined,
       report_date: outside ? date || undefined : undefined,
@@ -150,7 +152,7 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
   )
 
   const kindLabel = KINDS.find((k) => k.kind === kind)?.label ?? 'page'
-  const canAttach = !!reading && !busy && (!mismatch || sure)
+  const canAttach = !!reading && !busy && (!mismatch || sure) && (!text.trim() || checked)
 
   return (
     <Modal open={open} onClose={onClose} wide title="Scan with AI" subtitle="Photograph a certificate, lab result, dental report or prescription. You check what was read, then it is filed in the patient's record.">
@@ -251,7 +253,7 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
         {chosen && reading && image && (
           <div className="grid gap-5 md:grid-cols-[minmax(0,14rem)_minmax(0,1fr)]">
             <div>
-              <img src={image} alt={`The ${kindLabel.toLowerCase()} that was scanned`} className="max-h-80 w-full rounded-2xl border border-line object-contain bg-mist" />
+              <img src={reading.image ?? image} alt={`The ${kindLabel.toLowerCase()} that was scanned`} className="max-h-80 w-full rounded-2xl border border-line object-contain bg-mist" />
               <button type="button" className="mt-2 text-sm font-semibold text-brand-700 underline underline-offset-2" onClick={() => reset()} disabled={busy}>
                 Scan a different page
               </button>
@@ -291,6 +293,21 @@ export function ScanDocument({ open, onClose, patientId }: { open: boolean; onCl
                   Copy the text
                 </Button>
               </div>
+              {!!reading.turned && <p className="text-sm text-muted">The photo was sideways, so it was turned upright. The turned photo is the one that is filed.</p>}
+              {reading.small === true && (
+                <p className="flex items-start gap-2 rounded-2xl bg-warn-soft px-4 py-3 text-base text-ink" role="note">
+                  <Warning size={20} weight="fill" className="mt-0.5 shrink-0 text-warn" />
+                  <span>
+                    The larger reader is not installed, so a smaller one read this page. It can add rows and numbers that are not on the paper. Delete any line you cannot find on it.
+                  </span>
+                </p>
+              )}
+              {text.trim() && (
+                <label className="flex items-start gap-3 rounded-2xl border border-line px-4 py-3 text-base font-medium">
+                  <input type="checkbox" checked={checked} onChange={(e) => setChecked(e.target.checked)} className="mt-0.5 size-5 shrink-0 accent-brand-600" />
+                  <span>I read this text against the paper, and every line is on it.</span>
+                </label>
+              )}
 
               {fileError && (
                 <p className="text-base font-medium text-danger" role="alert">

@@ -6,7 +6,7 @@ const { getDb } = await import('../src/server/db')
 const { seed } = await import('../db/seed')
 const { scannedPage } = await import('../db/schema')
 const { loadSnapshot } = await import('../src/server/state')
-const { readDocument } = await import('../src/server/services/recognition')
+const { readDocument, isHollowRow } = await import('../src/server/services/recognition')
 const { uploadScan } = await import('../src/server/services/records')
 const { documentSchema } = await import('../src/server/recognition/vision')
 
@@ -18,6 +18,7 @@ const { documentSchema } = await import('../src/server/recognition/vision')
 const doctor = { staff_id: 'st-d1', name: 'Dr. Ramon Sollesta', role: 'doctor' as const }
 const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='
 const MODEL = 'qwen2.5vl:3b'
+const LARGE = 'qwen2.5vl:7b'
 
 let db: Awaited<ReturnType<typeof getDb>>
 let maria: string // Maria Lourdes Villanueva
@@ -32,12 +33,12 @@ beforeAll(async () => {
 afterEach(() => vi.unstubAllGlobals())
 
 /** Stands in for Ollama: the model is installed, and answers with `answer` to the page. */
-function model(answer: Record<string, unknown>) {
+function model(answer: Record<string, unknown>, installed: string[] = [MODEL]) {
   const calls: { body?: Record<string, unknown> }[] = []
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: { body?: string }) => {
-      if (url.endsWith('/api/tags')) return new Response(JSON.stringify({ models: [{ name: MODEL }] }), { status: 200, headers: { 'Content-Type': 'application/json' } })
+      if (url.endsWith('/api/tags')) return new Response(JSON.stringify({ models: installed.map((name) => ({ name })) }), { status: 200, headers: { 'Content-Type': 'application/json' } })
       calls.push({ body: init?.body ? JSON.parse(init.body) : undefined })
       return new Response(JSON.stringify({ message: { content: JSON.stringify(answer) } }), { status: 200, headers: { 'Content-Type': 'application/json' } })
     }),
@@ -115,6 +116,42 @@ describe('reading a page for the doctor to check', () => {
   it('says plainly when the model is not installed', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ models: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } })))
     await expect(readDocument(db, PNG, 'Lab result', maria)).rejects.toMatchObject({ status: 503 })
+  })
+})
+
+describe('which reader reads a document', () => {
+  it('uses the larger model when it is installed, and lets it go from memory soon after', async () => {
+    const calls = model(page(), [MODEL, LARGE])
+    const r = await readDocument(db, PNG, 'Lab result', maria)
+    expect(calls[0].body).toMatchObject({ model: LARGE, keep_alive: '90s' })
+    expect(r).toMatchObject({ model: LARGE, small: false })
+  })
+
+  it('falls back to the small model, and says so, because the small one can add rows that are not on the page', async () => {
+    const calls = model(page(), [MODEL])
+    const r = await readDocument(db, PNG, 'Lab result', maria)
+    expect(calls[0].body!.model).toBe(MODEL)
+    expect(r).toMatchObject({ model: MODEL, small: true })
+  })
+})
+
+describe('rows the model wrote for lines with nothing on them', () => {
+  it('knows a row with nothing in it: two or more of its own answers are "none"', () => {
+    expect(isHollowRow('Date: 10/15/24 Chief Complaint: Nausea Diagnosis: None Treatment: None')).toBe(true)
+    expect(isHollowRow('Date: 10/15/24 Chief Complaint: Fatigue Diagnosis: N/A Treatment: blank')).toBe(true)
+  })
+
+  it('keeps a real row, including one with a single empty cell', () => {
+    expect(isHollowRow('Date: 10/15/24 Chief Complaint: Headache Diagnosis: Tension headache Treatment: Rest')).toBe(false)
+    expect(isHollowRow('Date: 10/15/24 Chief Complaint: Headache Diagnosis: Tension headache Treatment: None')).toBe(false)
+    expect(isHollowRow('Hemoglobin: 128 g/L')).toBe(false)
+    expect(isHollowRow('Remarks: none')).toBe(false)
+  })
+
+  it('leaves them out of what the doctor is shown, and keeps the real rows', async () => {
+    model(page({ page_text: ['Date: 10/15/24 Chief Complaint: Headache Diagnosis: Tension headache Treatment: Rest', 'Date: 10/15/24 Chief Complaint: Nausea Diagnosis: None Treatment: None', 'Date: 10/15/24 Chief Complaint: Fatigue Diagnosis: None Treatment: None'] }))
+    const r = await readDocument(db, PNG, 'Chart', maria)
+    expect(r.text).toEqual(['Date: 10/15/24 Chief Complaint: Headache Diagnosis: Tension headache Treatment: Rest'])
   })
 })
 
