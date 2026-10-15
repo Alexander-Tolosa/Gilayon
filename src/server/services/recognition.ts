@@ -58,6 +58,16 @@ async function vocabulary(q: Q) {
 }
 
 /**
+ * A line is worth showing only when something was written on it. The model returns the form's own empty
+ * lines too ("Verified by nurse/doctor: [blank]"), and a blank line copied nowhere is noise on the screen.
+ */
+function hasAnAnswer(line: string) {
+  if (line.length < 3) return false
+  const answer = line.includes(':') ? line.slice(line.lastIndexOf(':') + 1) : line
+  return answer.replace(/\[?\b(blank|none|n\/?a|empty)\b\]?/gi, '').replace(/[^a-z0-9]/gi, '').length > 0
+}
+
+/**
  * The picture is also read by the local vision model whenever it is installed (`OLLAMA_VISION_AUTO=0` turns that off), because
  * Tesseract alone misreads handwriting. `handwriting` asks for it explicitly: then a failure is reported instead of skipped.
  */
@@ -85,7 +95,7 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
     try {
       const v = await readWithVision(bytes, { flip: flipped })
       fields = mergeVision(fields, v.data, v.model)
-      other = (Array.isArray(v.data.other_text) ? (v.data.other_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter((x) => x.length > 2).slice(0, 40)
+      other = (Array.isArray(v.data.other_text) ? (v.data.other_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter(hasAnAnswer).slice(0, 40)
       parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
     } catch (e) {
       // An automatic second reading is a bonus: if it fails, the OCR reading still stands (and the nurse can press Read handwriting to retry).
@@ -102,7 +112,7 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
 async function reading(q: Q, ev: { event_id: string; fields: unknown; other?: string[]; ocr_ms: number; parse_ms: number; ocr_engine: string; parse_engine: string }) {
   const fields = ev.fields as ParsedField[]
   const f = Object.fromEntries(fields.map((x) => [x.key, x.value]))
-  return { event_id: ev.event_id, fields, other: ev.other ?? [], ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, vision: await visionStatus(), ...(await findPatient(q, f)) }
+  return { event_id: ev.event_id, fields, other: ev.other ?? [], read_handwriting: ev.parse_engine.includes('image reader'), ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, vision: await visionStatus(), ...(await findPatient(q, f)) }
 }
 
 /** `replaces` is the draft from this person's first reading of the same page, removed once the second succeeds. */

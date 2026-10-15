@@ -269,7 +269,8 @@ function Scanner({ onDone }: { onDone: () => void }) {
         <Card className="p-5">
           <ol className="mb-4 flex flex-col gap-2 text-sm text-muted">
             {['Pull the paper folder', 'Photograph the form', 'Machine reads it', 'You verify', 'Saved to the record'].map((s, i) => {
-              const current = (i === 1 && !image) || (i === 2 && busy) || (i === 3 && !!reading)
+              // One step at a time: re-reading the handwriting is still "machine reads it", though a reading is already on screen.
+              const current = i === (busy ? 2 : reading ? 3 : 1)
               return (
                 <li key={s} aria-current={current ? 'step' : undefined} className={cn('flex items-center gap-3', current && 'font-semibold text-ink')}>
                   <span className={cn('grid size-7 shrink-0 place-items-center rounded-full text-xs font-semibold', current ? 'bg-brand-600 text-white' : 'bg-mist')}>{i + 1}</span>
@@ -391,22 +392,27 @@ function Scanner({ onDone }: { onDone: () => void }) {
         {reading && (
           <div className="flex flex-col gap-4">
             <Card className="p-5">
-              <div className="flex flex-wrap items-center gap-2">
+              {/* Plain words for the front desk; the engine names belong in Accuracy and speed, and sit in the tooltip for support. */}
+              <div className="flex flex-wrap items-center gap-2" title={`${reading.ocr_engine} / ${reading.parse_engine}`}>
                 <Badge tone="ok" icon={<Lightning size={14} />}>Read in {seconds(reading.ocr_ms + reading.parse_ms)}</Badge>
-                <Badge tone="neutral" icon={<Cpu size={14} />}>{reading.ocr_engine}</Badge>
-                <Badge tone={reading.parse_engine.includes('image reader') ? 'ok' : 'neutral'}>{reading.parse_engine}</Badge>
+                <Badge tone={reading.read_handwriting ? 'ok' : 'neutral'} icon={<Cpu size={14} />}>
+                  {reading.read_handwriting ? 'Typed text and handwriting' : 'Typed text only'}
+                </Badge>
                 {flagged > 0 && <Badge tone="warn" icon={<Warning size={14} />}>{flagged} to check</Badge>}
               </div>
-              {!reading.parse_engine.includes('image reader') && !fromQueue && (
+              <p className="mt-2 text-sm text-muted">
+                Read on this computer, with no internet. Names and numbers were checked against your patient list. Nothing is saved until you confirm every field below.
+              </p>
+              {!reading.read_handwriting && !fromQueue && (
                 <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
-                  <p className="max-w-prose text-sm text-ink-2">
+                  <p className="max-w-prose text-sm text-ink-2" title={reading.vision.available ? undefined : reading.vision.reason}>
                     {busy
-                      ? 'Reading the handwriting on this PC. This takes about half a minute and needs no internet.'
+                      ? 'Looking at the picture itself. About 15 seconds, and it needs no internet.'
                       : changed > 0
-                        ? 'Handwriting can only be re-read before you correct anything, so your corrections are not lost.'
+                        ? 'The handwriting can only be read again before you correct anything, so your corrections are not lost.'
                         : reading.vision.available
-                          ? `Hard to read? ${reading.vision.model} can look at the picture itself. It reads handwriting better, takes about 30 seconds, and every value it changes is marked for you to check.`
-                          : `Handwriting reader: ${reading.vision.reason}`}
+                          ? 'Only the typed text was read. If the form is filled in by hand, ask the reader to look at the picture itself: about 15 seconds, and every value it changes is marked for you to check.'
+                          : 'The handwriting reader is not set up on this computer, so only the typed text was read. Anything handwritten needs to be typed in by hand.'}
                   </p>
                   <Button variant="secondary" size="md" className="shrink-0" icon={<PencilLine size={18} />} disabled={busy || changed > 0 || !reading.vision.available} onClick={() => void readHandwriting()}>
                     {busy ? 'Reading…' : 'Read handwriting'}

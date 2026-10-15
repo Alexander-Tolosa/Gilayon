@@ -108,6 +108,8 @@ export type ScanReading = {
   parse_ms: number
   ocr_engine: string
   parse_engine: string
+  /** Whether the image reader looked at the picture itself, which is what reads handwriting. */
+  read_handwriting: boolean
   /** Lines on the page that no field on this form covers. Shown to be read and copied; never saved on their own. */
   other: string[]
   /** The optional handwriting reader (a local vision model). */
