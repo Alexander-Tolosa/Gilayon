@@ -57,7 +57,10 @@ async function vocabulary(q: Q) {
   return { ...BASE_VOCABULARY, substances: upper([...BASE_VOCABULARY.substances, ...al.map((a) => a.s)]), conditions: upper([...BASE_VOCABULARY.conditions, ...fh.map((f) => f.c)]) }
 }
 
-/** `handwriting` also asks the local vision model to read the picture, for pages the OCR cannot read well. */
+/**
+ * The picture is also read by the local vision model whenever it is installed (`OLLAMA_VISION_AUTO=0` turns that off), because
+ * Tesseract alone misreads handwriting. `handwriting` asks for it explicitly: then a failure is reported instead of skipped.
+ */
 async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = {}) {
   let ocr = await ocrImage(bytes)
   let flipped = false
@@ -71,7 +74,8 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
     }
   }
   // Pure handwriting can leave the OCR with almost nothing, which is exactly when the image reader is needed.
-  if (ocr.lines.length < 4 && !opts.handwriting) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
+  const auto = !opts.handwriting && process.env.OLLAMA_VISION_AUTO !== '0' && (await visionStatus()).available
+  if (ocr.lines.length < 4 && !opts.handwriting && !auto) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
   const t0 = Date.now()
   let fields = parseReading(ocr)
   let parse_engine = 'Rule reader (local)'
@@ -80,10 +84,16 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
     fields = mergeLlm(fields, llm.data)
     parse_engine = `Rule reader + ${llm.model} (Ollama, local)`
   }
-  if (opts.handwriting) {
-    const v = await readWithVision(bytes, { flip: flipped })
-    fields = mergeVision(fields, v.data, v.model)
-    parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
+  if (opts.handwriting || auto) {
+    try {
+      const v = await readWithVision(bytes, { flip: flipped })
+      fields = mergeVision(fields, v.data, v.model)
+      parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
+    } catch (e) {
+      // An automatic second reading is a bonus: if it fails, the OCR reading still stands (and the nurse can press Read handwriting to retry).
+      if (opts.handwriting) throw e
+      if (ocr.lines.length < 4) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
+    }
   }
   // Layer 2: correct near-misses against the clinic's own records.
   fields = snapToKnown(fields, await knownPatients(q), await vocabulary(q)).fields

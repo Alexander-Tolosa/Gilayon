@@ -373,7 +373,7 @@ function Scanner({ onDone }: { onDone: () => void }) {
         {busy && !reading && (
           <Card className="p-8">
             <p className="flex items-center gap-3 text-xl font-semibold">
-              <Scan size={28} className="animate-pulse text-brand-600" /> Reading the form on this PC…
+              <Scan size={28} className="animate-pulse text-brand-600" /> Reading the form on this PC. This can take about 20 seconds…
             </p>
             <p className="mt-2 text-base text-muted">Local OCR first, then the parser. This usually takes a few seconds and needs no internet.</p>
           </Card>

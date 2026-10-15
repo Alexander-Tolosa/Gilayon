@@ -34,6 +34,6 @@ export default defineConfig({
     url: `http://localhost:${PORT}/api/public/queue`,
     timeout: 300_000,
     reuseExistingServer: false,
-    env: { PGLITE_DIR: process.env.E2E_DATA_DIR, IDLE_MINUTES: '0', GILAYON_AUTO_SEED: '1' },
+    env: { PGLITE_DIR: process.env.E2E_DATA_DIR, IDLE_MINUTES: '0', OLLAMA_VISION_AUTO: '0', GILAYON_AUTO_SEED: '1' },
   },
 })
