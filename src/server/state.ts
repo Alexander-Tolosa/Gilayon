@@ -23,6 +23,7 @@ import type { Q } from './db'
 import { strip, type Actor } from './core'
 import { isDemoServer } from './env'
 import { getClinicProfile } from './services/clinic'
+import { todayKey } from '../features/clinic/lib/helpers'
 
 /** The newest audit entries sent with every snapshot. Older ones are paged in by GET /api/audit. */
 export const AUDIT_LIMIT = 3000
@@ -60,7 +61,28 @@ export async function lastBackupAt(q: Q) {
   return (row?.value as number | undefined) ?? 0
 }
 
+/**
+ * Someone still on a temporary password sees only their own account (enough for the "choose your own
+ * password" screen), not the clinic's records: a temporary password may have been read off a note.
+ */
+async function temporaryPasswordSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
+  const [self] = await q.select().from(t.staff).where(eq(t.staff.staff_id, actor.staff_id))
+  return {
+    persons: [], employees: [], patients: [], relationships: [], familyHistory: [], allergies: [], categories: [], tickets: [], consultations: [], diagnoses: [], labs: [], prescriptions: [], documents: [], scans: [], audit: [],
+    staff: self ? [staffForSignedIn(self)] : [],
+    offsite: { pending: 0, lastAt: 0 },
+    merged: {},
+    auditSeenAt: 0,
+    mergedRecords: [],
+    notDuplicates: [],
+    lastImport: { at: 0, count: 0, source: '' },
+    clinic: await getClinicProfile(q),
+    demo: isDemoServer(),
+  }
+}
+
 export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
+  if (actor.must_change_password) return temporaryPasswordSnapshot(q, actor)
   const doctor = actor.role === 'doctor'
   const [persons, employees, patients, relationships, familyHistory, allergies, categories, tickets, consultations, diagnoses, labs, rx, rxItems, documents, scans, staff, audit, imp, backupAt, clinic] =
     await Promise.all([
@@ -160,9 +182,9 @@ export async function loadSnapshot(q: Q, actor: Actor): Promise<Snapshot> {
   }
 }
 
-/** Public waiting screen: queue numbers and lanes only. No names, reasons or patient ids. */
+/** Public waiting screen: today's queue numbers and lanes only. No names, reasons, patient ids or earlier days. */
 export async function loadPublicQueue(q: Q) {
-  const [tickets, categories, staff, clinic] = await Promise.all([q.select().from(t.queueTicket), q.select().from(t.priorityCategory), q.select().from(t.staff).where(eq(t.staff.active, true)), getClinicProfile(q)])
+  const [tickets, categories, staff, clinic] = await Promise.all([q.select().from(t.queueTicket).where(eq(t.queueTicket.day, todayKey())), q.select().from(t.priorityCategory), q.select().from(t.staff).where(eq(t.staff.active, true)), getClinicProfile(q)])
   return {
     tickets: tickets.map((r) => ({
       ...strip<QueueTicket>(r),

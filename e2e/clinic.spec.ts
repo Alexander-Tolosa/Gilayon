@@ -242,7 +242,8 @@ test.describe('corrections', () => {
   test('two records of one person are merged on the Duplicates screen, fold under the survivor, and a doctor undoes it', async ({ page }) => {
     await signIn(page, 'doctor')
     const s = await snapshot(page)
-    // The demo data has no true duplicate pair, so register a second record for a dependent who already has visits.
+    // The demo data has no true duplicate pair, so register a second record for a dependent who already has visits
+    // (confirmed, as the desk does after the possible-duplicate warning).
     const hr = new Set(s.employees.map((e) => e.person_id))
     const original = s.patients.find((p) => !hr.has(p.person_id) && s.consultations.some((c) => c.patient_id === p.patient_id))!
     const person = s.persons.find((p) => p.person_id === original.person_id)!
@@ -253,7 +254,7 @@ test.describe('corrections', () => {
         const res = await fetch(`/api/patients/${principalId}/dependents`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ person: { full_name: person.full_name, birthdate: person.birthdate, sex: person.sex, contact: '0900 000 0000', civil_status: 'Single' }, type: 'Sibling', mdr: false }),
+          body: JSON.stringify({ person: { full_name: person.full_name, birthdate: person.birthdate, sex: person.sex, contact: '0900 000 0000', civil_status: 'Single' }, type: 'Sibling', mdr: false, confirmed: true }),
         })
         return { ok: res.ok, body: await res.json() }
       },

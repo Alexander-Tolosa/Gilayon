@@ -108,6 +108,17 @@ export function todayKey(d = new Date()) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+/**
+ * A name reduced to its letters for comparing what the desk typed with the record. Accents are folded
+ * first, so "Bañas" and "Banas" compare equal instead of "ñ" being dropped ("baas").
+ */
+export const normName = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z]/g, '')
+
 export function dayKeyOffset(days: number) {
   return todayKey(new Date(Date.now() + days * 86_400_000))
 }

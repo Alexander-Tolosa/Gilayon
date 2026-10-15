@@ -1,10 +1,10 @@
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, or, sql } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import type { CivilStatus, PaperStatus, RelationshipType, ScanKind, Sex } from '../../features/clinic/types'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
 import { newScanId, removeScan, storeScan } from '../files'
 import { canonicalPatientId } from './merge'
-import { matchScore } from '../../features/clinic/lib/helpers'
+import { matchScore, normName } from '../../features/clinic/lib/helpers'
 import type { Q } from '../db'
 
 export const patientName = async (q: Q, patientId: string) => {
@@ -15,8 +15,6 @@ export const patientName = async (q: Q, patientId: string) => {
     .where(eq(t.patient.patient_id, patientId))
   return r?.n ?? 'patient'
 }
-
-const normName = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
 
 export type IdChecked = 'company_id' | 'government_id' | 'other'
 const ID_LABEL: Record<IdChecked, string> = { company_id: 'company ID', government_id: 'government ID', other: 'another ID' }
@@ -123,6 +121,13 @@ async function nextPatientNo(q: Q) {
   return `HMO-${String(n).padStart(5, '0')}`
 }
 
+/** Same birthdate and sex and a similar name: refused until the desk confirms it checked an ID. */
+async function refuseLikelyDuplicate(q: Q, full_name: string, birthdate: string, sex: Sex) {
+  const same = await q.select().from(t.person).where(sql`${t.person.birthdate} = ${birthdate} and ${t.person.sex} = ${sex}`)
+  const hit = same.find((p) => matchScore(full_name, p.full_name, []) >= 0.75)
+  if (hit) throw new HttpError(409, `Possible duplicate: ${hit.full_name}, born ${hit.birthdate}, is already on file. Check an ID, then confirm this is a different person.`)
+}
+
 /** An employee ID belongs to one person. Returns the name of whoever already holds it, if anyone else does. */
 async function employeeNoOwner(q: Q, employeeNo: string, exceptPersonId?: string) {
   const [row] = await q
@@ -150,11 +155,7 @@ export async function registerUnlisted(
   }
   const full_name = input.full_name.trim().replace(/\s+/g, ' ')
   if (full_name.split(' ').length < 2) throw new HttpError(400, 'Enter the full name.')
-  if (!confirmed) {
-    const same = await q.select().from(t.person).where(sql`${t.person.birthdate} = ${input.birthdate} and ${t.person.sex} = ${input.sex}`)
-    const hit = same.find((p) => matchScore(full_name, p.full_name, []) >= 0.75)
-    if (hit) throw new HttpError(409, `Possible duplicate: ${hit.full_name}, born ${hit.birthdate}, is already on file. Check an ID, then confirm this is a different person.`)
-  }
+  if (!confirmed) await refuseLikelyDuplicate(q, full_name, input.birthdate, input.sex)
   const employee_no = (input.employee_no ?? '').trim().toUpperCase()
   if (employee_no) {
     const owner = await employeeNoOwner(q, employee_no)
@@ -210,13 +211,23 @@ export async function createDependent(
   input: { full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; philhealth_pin?: string; pwd_id?: string },
   type: RelationshipType,
   mdr: boolean,
+  opts: { patientId?: string; confirmed?: boolean } = {},
 ) {
+  if (opts.patientId) {
+    const [dup] = await q.select({ id: t.patient.patient_id }).from(t.patient).where(eq(t.patient.patient_id, opts.patientId))
+    if (dup) return dup.id // retried request
+  }
   const principalPatientId = await canonicalPatientId(q, principalPatientIdIn)
+  const [principal] = await q.select({ id: t.patient.patient_id }).from(t.patient).where(eq(t.patient.patient_id, principalPatientId))
+  if (!principal) throw new HttpError(404, 'Patient not found')
   const principalName = await patientName(q, principalPatientId)
+  const full_name = input.full_name.trim().replace(/\s+/g, ' ')
+  if (full_name.split(' ').length < 2) throw new HttpError(400, 'Enter the full name.')
+  if (!opts.confirmed) await refuseLikelyDuplicate(q, full_name, input.birthdate, input.sex)
   const patient_no = await nextPatientNo(q)
   const person_id = uuid()
-  const patient_id = uuid()
-  await q.insert(t.person).values({ person_id, full_name: input.full_name.trim(), birthdate: input.birthdate, sex: input.sex, contact: input.contact })
+  const patient_id = opts.patientId ?? uuid()
+  await q.insert(t.person).values({ person_id, full_name, birthdate: input.birthdate, sex: input.sex, contact: input.contact })
   await q.insert(t.patient).values({
     patient_id,
     person_id,
@@ -228,7 +239,7 @@ export async function createDependent(
     created_by: actor.staff_id,
   })
   await q.insert(t.patientRelationship).values({ relationship_id: uuid(), patient_id: principalPatientId, related_patient_id: patient_id, relationship_type: type, listed_in_mdr: mdr })
-  await audit(q, actor.staff_id, { action: 'create', table: 'patient', record: patient_id, summary: `Created record for ${input.full_name.trim()} (${type.toLowerCase()} of ${principalName})` })
+  await audit(q, actor.staff_id, { action: 'create', table: 'patient', record: patient_id, summary: `Created record for ${full_name} (${type.toLowerCase()} of ${principalName})` })
   return patient_id
 }
 
@@ -236,6 +247,16 @@ export async function linkRelative(q: Q, actor: Actor, principalIn: string, rela
   const [principalPatientId, relatedPatientId] = [await canonicalPatientId(q, principalIn), await canonicalPatientId(q, relatedIn)]
   if (principalPatientId === relatedPatientId) throw new HttpError(400, 'A person cannot be their own relative.')
   const [a, b] = await Promise.all([patientName(q, principalPatientId), patientName(q, relatedPatientId)])
+  const [already] = await q
+    .select({ type: t.patientRelationship.relationship_type })
+    .from(t.patientRelationship)
+    .where(
+      or(
+        and(eq(t.patientRelationship.patient_id, principalPatientId), eq(t.patientRelationship.related_patient_id, relatedPatientId)),
+        and(eq(t.patientRelationship.patient_id, relatedPatientId), eq(t.patientRelationship.related_patient_id, principalPatientId)),
+      ),
+    )
+  if (already) throw new HttpError(409, `${b} and ${a} are already linked (${already.type.toLowerCase()}).`)
   await q.insert(t.patientRelationship).values({ relationship_id: uuid(), patient_id: principalPatientId, related_patient_id: relatedPatientId, relationship_type: type, listed_in_mdr: mdr })
   await audit(q, actor.staff_id, { action: 'link', table: 'patient_relationship', record: principalPatientId, summary: `Linked ${b} as ${type.toLowerCase()} of ${a}` })
 }

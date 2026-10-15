@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs'
 import { and, eq, ne } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import { STAFF as DEMO_STAFF } from '../../features/clinic/data/seed'
-import { endSessions, hashSecret, passwordProblem, verifyPin } from '../auth'
+import { assertPinUnlocked, endSessions, hashSecret, notePinAttempt, passwordProblem, verifyPin } from '../auth'
 import { audit, HttpError, uuid, type Actor } from '../core'
 import type { Q } from '../db'
 
@@ -16,16 +16,21 @@ export async function updateCategoryRank(q: Q, actor: Actor, category: string, r
 const MAX_SIGNATURE_BYTES = 400_000
 
 export async function setSignatureImage(q: Q, actor: Actor, image: string) {
-  if (!image.startsWith('data:image/') || image.length > MAX_SIGNATURE_BYTES) throw new HttpError(413, 'Signature must be a small image.')
+  // Raster images only: an SVG can carry script, and the signature is drawn on every printed document.
+  if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(image) || image.length > MAX_SIGNATURE_BYTES) throw new HttpError(413, 'The signature must be a PNG, JPG or WebP image under about 300 KB.')
   await q.update(t.staff).set({ signature_image: image }).where(eq(t.staff.staff_id, actor.staff_id))
   await audit(q, actor.staff_id, { action: 'edit', table: 'staff', record: actor.staff_id, summary: 'Updated signature image' })
 }
 
 export async function changePin(q: Q, actor: Actor, current: string, next: string) {
   if (!/^\d{4}$/.test(next)) throw new HttpError(400, 'The PIN is 4 digits.')
+  if (['0000', '1111', '1234', '4321', '2580', '1212'].includes(next)) throw new HttpError(400, 'Choose a PIN that is harder to guess.')
+  assertPinUnlocked(actor.staff_id)
   const [me] = await q.select().from(t.staff).where(eq(t.staff.staff_id, actor.staff_id))
   // A new doctor has no PIN yet: the first one is set without a current PIN.
-  if (!me || (me.pin_hash && !(await verifyPin(current, me.pin_hash)))) {
+  const ok = !!me && (!me.pin_hash || (await verifyPin(current, me.pin_hash)))
+  if (me?.pin_hash) notePinAttempt(actor.staff_id, ok)
+  if (!ok) {
     await audit(q, actor.staff_id, { action: 'flag', table: 'staff', record: actor.staff_id, summary: 'PIN change failed: current PIN incorrect' })
     return false
   }

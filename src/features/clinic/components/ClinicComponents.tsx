@@ -8,7 +8,7 @@ import { authedBlobUrl } from '../lib/api'
 import { fil, setLang, useLang, useT } from '../lib/i18n'
 import { LANE_STYLE, ageOf, fmtStampOf, ticketLabel } from '../lib/helpers'
 import { TEXT_KEY, TEXT_SIZES, applyTextSize, savedTextSize, type TextSize } from '../lib/textsize'
-import { useClinic } from '../store/store'
+import { useClinic, type SignResult } from '../store/store'
 import type { CategoryKey, NetworkMode, QueueTicket, Staff } from '../types'
 
 /* ------------------------------- Status badge ------------------------------ */
@@ -226,7 +226,7 @@ export function Signature({ staff, className }: { staff: Staff; className?: stri
   )
 }
 
-export function PinModal({ open, onClose, onSubmit, title, children }: { open: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<'ok' | 'bad-pin' | 'offline'>; title: string; children?: ReactNode }) {
+export function PinModal({ open, onClose, onSubmit, title, children }: { open: boolean; onClose: () => void; onSubmit: (pin: string) => Promise<SignResult>; title: string; children?: ReactNode }) {
   const t = useT()
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
@@ -237,7 +237,7 @@ export function PinModal({ open, onClose, onSubmit, title, children }: { open: b
       setError('')
       onClose()
     } else {
-      setError(r === 'bad-pin' ? t('Incorrect PIN. Try again.') : 'This computer is offline. Documents stay drafts marked "not yet signed" until it reconnects.')
+      setError(typeof r === 'object' ? r.error : r === 'bad-pin' ? t('Incorrect PIN. Try again.') : 'This computer is offline. Documents stay drafts marked "not yet signed" until it reconnects.')
       setPin('')
     }
   }

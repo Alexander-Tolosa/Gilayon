@@ -94,7 +94,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
     else if (f.birthdate > todayKey()) e.birthdate = t('Birthdate cannot be in the future')
     setErrors(e)
     if (Object.keys(e).length || (dups.length && !ackDup)) return
-    const pt = await createDependent(principalPatientId, f, f.type, f.mdr)
+    const pt = await createDependent(principalPatientId, f, f.type, f.mdr, dups.length > 0 && ackDup)
     if (!pt) return toast({ tone: 'warn', title: t('Needs the clinic server'), body: t('New records can only be created when this computer is connected.') })
     toast({ tone: 'ok', title: t('Dependent added'), body: `${f.full_name} ${t('is linked to')} ${principal?.full_name}.` })
     onDone(pt.patient_id)

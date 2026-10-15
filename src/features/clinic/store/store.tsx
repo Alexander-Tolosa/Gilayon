@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type OpenedScan, type PendingScan, type RecognitionMetrics, type ScanReading, type SecurityStatus, type Snapshot } from '../api-types'
-import { matchScore, todayKey, uuid } from '../lib/helpers'
+import { matchScore, normName, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import type { HrImportResult, RawHrRow } from '../lib/hrlist'
 import { dropOps, loadOutbox, putOp, type OutboxOp } from '../lib/outbox'
@@ -162,6 +162,10 @@ type Api = {
   me: Staff | null
   network: NetworkMode
   pending: PendingOp[]
+  /** Offline entries the server refused. Kept on this computer until their author resends or discards them. */
+  rejected: PendingOp[]
+  retryRejected: (opId: string) => Promise<void>
+  discardRejected: (opId: string) => Promise<void>
   recent: string[]
   signIn: (staffId: string, password: string) => Promise<string | null>
   signOut: () => void
@@ -187,7 +191,8 @@ type Api = {
   setEmployeeInfo: (patientId: string, info: { employee_no: string; office: string; position: string }, reason?: string) => Promise<string | null>
   /** The desk looked in the paper cabinet. Returns an error message, or null when it was saved. */
   recordPaperCheck: (patientId: string, status: PaperStatus, folderNo?: string) => Promise<string | null>
-  createDependent: (principalPatientId: string, input: NewPersonInput, type: RelationshipType, mdr: boolean) => Promise<Patient | null>
+  /** `confirmed`: the desk saw the possible-duplicate warning and checked an ID. */
+  createDependent: (principalPatientId: string, input: NewPersonInput, type: RelationshipType, mdr: boolean, confirmed?: boolean) => Promise<Patient | null>
   /** Registers someone who is not in the system yet. A 409 with `duplicate` means a likely duplicate person. */
   registerUnlisted: (input: UnlistedInput, confirmed?: boolean) => Promise<{ patient?: Patient; error?: string; duplicate?: boolean }>
   issueTicket: (patientId: string, categories: CategoryKey[], service: ServiceType, reason: string) => Promise<QueueTicket | null>
@@ -202,7 +207,7 @@ type Api = {
   callTicket: (ticketId: string) => Promise<boolean>
   startConsult: (ticketId: string) => void
   saveConsultation: (input: ConsultInput) => Promise<'saved' | 'local'>
-  signDocuments: (refs: { kind: 'rx' | 'doc'; id: string }[], pin: string) => Promise<'ok' | 'bad-pin' | 'offline'>
+  signDocuments: (refs: { kind: 'rx' | 'doc'; id: string }[], pin: string) => Promise<SignResult>
   voidDocument: (kind: 'rx' | 'doc', id: string, reason: string) => void
   reissueDocument: (kind: 'rx' | 'doc', id: string) => string | null
   editDraft: (kind: 'rx' | 'doc', id: string, patch: Partial<Prescription> | Partial<DocumentRow>) => void
@@ -241,6 +246,9 @@ type Api = {
   online: boolean
 }
 
+/** A wrong PIN, no server, or the server's own reason (PIN locked, not your draft, no license number). */
+export type SignResult = 'ok' | 'bad-pin' | 'offline' | { error: string }
+
 export type IdChecked = 'company_id' | 'government_id' | 'other'
 /** What the desk typed. The employee ID is a secondary check and only compared when the person is on the HR list. */
 export type VerifyInput = { full_name: string; birthdate: string; employee_no?: string; principal_no?: string; id_checked?: IdChecked; paper_match?: boolean; override?: boolean }
@@ -262,7 +270,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const [network, setNetworkState] = useState<NetworkMode>(() => ss.get<NetworkMode>(S_NET, 'online'))
   // Everything waiting on this computer, for whoever signed in here; each person only sees their own.
   const [queued, setPending] = useState<PendingOp[]>([])
-  const pending = useMemo(() => queued.filter((o) => o.staff_id === session), [queued, session])
+  const pending = useMemo(() => queued.filter((o) => o.staff_id === session && !o.rejected), [queued, session])
+  const rejected = useMemo(() => queued.filter((o) => o.staff_id === session && o.rejected), [queued, session])
   const [recent, setRecent] = useState<string[]>(() => ss.get<string[]>(S_RECENT, []))
   const tokenRef = useRef(token)
   const networkRef = useRef(network)
@@ -407,10 +416,15 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
     flushing.current = true
     try {
       const res = await api<{ applied: string[]; rejected: { op_id: string; reason: string }[] }>('/api/sync', { token: tokenRef.current, body: { ops: ops.map((o) => ({ op_id: o.op_id, kind: o.kind, input: o.input })) } })
-      const gone = new Set([...res.applied, ...res.rejected.map((r) => r.op_id)])
-      await dropOps([...gone])
-      setPending((p) => p.filter((o) => !gone.has(o.op_id)))
-      if (res.rejected.length) tell(`${res.rejected.length} offline ${res.rejected.length === 1 ? 'entry' : 'entries'} could not be applied: ${res.rejected[0].reason}`)
+      const applied = new Set(res.applied)
+      await dropOps(res.applied)
+      // Refused entries stay on disk, marked, so the author can copy, fix or discard them.
+      const now = Date.now()
+      const why = new Map(res.rejected.map((r) => [r.op_id, r.reason]))
+      const marked = ops.filter((o) => why.has(o.op_id)).map((o) => ({ ...o, rejected: { reason: why.get(o.op_id)!, at: now } }))
+      await Promise.all(marked.map(putOp))
+      setPending((p) => p.filter((o) => !applied.has(o.op_id)).map((o) => marked.find((m) => m.op_id === o.op_id) ?? o))
+      if (marked.length) tell(`${marked.length} offline ${marked.length === 1 ? 'entry was' : 'entries were'} refused by the server and kept on this computer for you to review: ${marked[0].rejected.reason}`)
       await refresh()
     } catch (e) {
       if (e instanceof ApiError && e.status === 0) setConnected(false)
@@ -518,6 +532,18 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       // What the badge shows: the demo switch, or the truth when the server cannot be reached.
       network: network === 'online' && !connected ? 'offline' : network,
       pending,
+      rejected,
+      retryRejected: async (opId) => {
+        const op = rejected.find((o) => o.op_id === opId)
+        if (!op) return
+        const { rejected: _r, ...again } = op
+        await putOp(again as OutboxOp)
+        setPending((p) => p.map((o) => (o.op_id === opId ? (again as OutboxOp) : o)))
+      },
+      discardRejected: async (opId) => {
+        await dropOps([opId])
+        setPending((p) => p.filter((o) => o.op_id !== opId))
+      },
       recent,
       online,
       signIn: async (staffId, password) => {
@@ -579,8 +605,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         const p = person(personId)!
         const emp = employeeOfPerson(personId)
         const mismatches: string[] = []
-        const n = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
-        if (n(entered.full_name) !== n(p.full_name)) mismatches.push('Full name')
+        if (normName(entered.full_name) !== normName(p.full_name)) mismatches.push('Full name')
         if (entered.birthdate !== p.birthdate) mismatches.push('Birthdate')
         const enteredEmp = (entered.employee_no ?? '').trim().toUpperCase()
         if (emp && enteredEmp && enteredEmp !== emp.employee_no) mismatches.push('Employee ID')
@@ -613,9 +638,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         return call(`/api/patients/${patientId}/paper`, { status, folder_no: folderNo || undefined })
       },
 
-      createDependent: async (principalPatientId, input, type, mdr) => {
+      createDependent: async (principalPatientId, input, type, mdr, confirmed) => {
         if (!online) return null
-        const res = await send<{ patient_id: string }>(`/api/patients/${principalPatientId}/dependents`, { person: input, type, mdr })
+        // The id is ours so a retried request cannot create the dependent twice.
+        const res = await send<{ patient_id: string }>(`/api/patients/${principalPatientId}/dependents`, { patient_id: uuid(), person: input, type, mdr, confirmed })
         if (!res) return null
         return (await refresh())?.patients.find((p) => p.patient_id === res.patient_id) ?? null
       },
@@ -721,8 +747,7 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
             setConnected(false)
             return 'offline'
           }
-          tell(e instanceof ApiError ? e.message : 'Signing failed.')
-          return 'bad-pin'
+          return { error: e instanceof ApiError ? e.message : 'Signing failed.' }
         }
       },
 
@@ -868,13 +893,13 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       },
 
       resetDemo: () => {
-        void dropOps(pendingRef.current.map((o) => o.op_id))
+        void dropOps([...pendingRef.current, ...rejected].map((o) => o.op_id))
         setPending([])
         setRecent([])
         void send('/api/dev/reset')
       },
     }
-  }, [data, ready, connected, me, network, pending, recent, online, setNetwork, refresh, clearSession, enqueue])
+  }, [data, ready, connected, me, network, pending, rejected, recent, online, setNetwork, refresh, clearSession, enqueue])
 
   return <Ctx.Provider value={api_}>{children}</Ctx.Provider>
 }

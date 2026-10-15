@@ -7,9 +7,11 @@ import type { ScanCategory, ScanKind } from '../types'
   It lives in IndexedDB (not sessionStorage), so a closed tab or a restart does not lose a doctor's
   notes. Entries are removed only after the server confirms them. Each carries its own id, so a retry
   can never create a duplicate. Patient records are NOT stored here; only what is waiting to be sent.
+  An entry the server refuses is kept, marked `rejected`, until the person who wrote it copies, resends
+  or discards it: a doctor's note must never disappear because of one validation message.
 */
 
-export type OutboxOp = { op_id: string; staff_id: string; at: number } & (
+export type OutboxOp = { op_id: string; staff_id: string; at: number; rejected?: { reason: string; at: number } } & (
   | { kind: 'consult'; input: ConsultInput }
   | { kind: 'scan'; input: { page_id: string; patient_id: string; file: string; scan_kind: ScanKind; page_date: string; category?: ScanCategory; source_clinic?: string; report_date?: string } }
   | { kind: 'folder_scan'; input: { scan_id: string; file: string; captured_at: number; patient_hint?: string } }

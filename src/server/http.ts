@@ -15,6 +15,8 @@ type Opts<S extends ZodType | undefined> = {
   body?: S
   /** Reads skip the transaction and do not wake other screens. */
   read?: boolean
+  /** Allowed before a temporary password has been replaced (the password change itself, the minimal snapshot). */
+  allowTempPassword?: boolean
 }
 
 type Args<S extends ZodType | undefined> = {
@@ -48,6 +50,7 @@ export function route<S extends ZodType | undefined = undefined>(opts: Opts<S>, 
       if (!opts.public) {
         actor = await actorFromToken(db, bearer(req))
         if (!actor) throw new HttpError(401, 'Sign in to continue.')
+        if (actor.must_change_password && !opts.allowTempPassword) throw new HttpError(403, 'Choose your own password first.')
         if (opts.roles && !opts.roles.includes(actor.role)) throw new HttpError(403, 'Your role is not allowed to do this.')
       }
       let body: unknown

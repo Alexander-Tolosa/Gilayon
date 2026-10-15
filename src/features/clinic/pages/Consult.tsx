@@ -1,6 +1,6 @@
 import { ArrowLeft, CheckCircle, CloudArrowUp, FileText, Plus, Printer, Robot, Signature, Trash, Warning, X } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Badge, Button, Card, Chip, Field, Input, Textarea, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
@@ -13,6 +13,32 @@ import type { ServiceType } from '../types'
 import { VisitHistory } from '../components/History'
 
 type RxRow = { drug_name: string; dose: string; frequency: string; quantity: number; ack?: boolean }
+type Cert = { on: boolean; purpose: string; findings: string; rest_days: number; remarks: string }
+type Vitals = { bp: string; temperature: string; pulse: string; weight: string }
+
+/**
+ * What the doctor has typed but not saved, kept in this tab (sessionStorage) per doctor, patient and visit.
+ * An idle sign-out, a reload or a stray click away no longer loses a half-written note; it is removed
+ * once the consultation is saved. It never leaves this tab and is gone when the tab closes.
+ */
+type ConsultDraft = { at: number; service: ServiceType; complaint: string; notes: string; vitals: Vitals; dx: { description: string; icd10_code: string }[]; labs: string[]; rx: RxRow[]; cert: Cert }
+const draftKey = (staffId: string, patientId: string, visit: string) => `himsog-consult-draft:${staffId}:${patientId}:${visit}`
+function readDraft(key: string): ConsultDraft | null {
+  try {
+    const v = sessionStorage.getItem(key)
+    return v ? (JSON.parse(v) as ConsultDraft) : null
+  } catch {
+    return null
+  }
+}
+function writeDraft(key: string, d: ConsultDraft | null) {
+  try {
+    if (d) sessionStorage.setItem(key, JSON.stringify(d))
+    else sessionStorage.removeItem(key)
+  } catch {
+    /* storage full or blocked: the form still works, it just is not kept */
+  }
+}
 
 export default function Consult() {
   const { patientId = '' } = useParams()
@@ -28,22 +54,41 @@ export default function Consult() {
   const ticket = data.tickets.find((x) => x.ticket_id === ticketId)
   const original = data.consultations.find((c) => c.consultation_id === correctId)
   const allergies = data.allergies.filter((a) => a.patient_id === patientId)
+  const key = draftKey(me?.staff_id ?? '', patientId, ticketId ?? (correctId ? `correct-${correctId}` : 'walk-in'))
+  const [restored, setRestored] = useState<ConsultDraft | null>(() => readDraft(key))
+  const d0 = restored
 
-  const [service, setService] = useState<ServiceType>(ticket?.service_type ?? original?.service_type ?? (me?.services?.[0] ?? 'Medical'))
-  const [complaint, setComplaint] = useState(original?.chief_complaint ?? ticket?.reason ?? '')
-  const [notes, setNotes] = useState(original?.treatment_notes ?? '')
-  const [vitals, setVitals] = useState({ bp: '', temperature: '', pulse: '', weight: '' })
-  const [dx, setDx] = useState<{ description: string; icd10_code: string }[]>(original ? data.diagnoses.filter((d) => d.consultation_id === original.consultation_id).map(({ description, icd10_code }) => ({ description, icd10_code })) : [])
+  const [service, setService] = useState<ServiceType>(d0?.service ?? ticket?.service_type ?? original?.service_type ?? (me?.services?.[0] ?? 'Medical'))
+  const [complaint, setComplaint] = useState(d0?.complaint ?? original?.chief_complaint ?? ticket?.reason ?? '')
+  const [notes, setNotes] = useState(d0?.notes ?? original?.treatment_notes ?? '')
+  // A correction starts from the original's vitals, like its complaint and notes.
+  const startVitals: Vitals = { bp: original?.vitals?.bp ?? '', temperature: original?.vitals?.temperature ?? '', pulse: original?.vitals?.pulse ?? '', weight: original?.vitals?.weight ?? '' }
+  const [vitals, setVitals] = useState<Vitals>(d0?.vitals ?? startVitals)
+  const [dx, setDx] = useState<{ description: string; icd10_code: string }[]>(d0?.dx ?? (original ? data.diagnoses.filter((d) => d.consultation_id === original.consultation_id).map(({ description, icd10_code }) => ({ description, icd10_code })) : []))
   const [dxQuery, setDxQuery] = useState('')
-  const [labs, setLabs] = useState<string[]>([])
-  const [rx, setRx] = useState<RxRow[]>([])
-  const [cert, setCert] = useState<{ on: boolean; purpose: string; findings: string; rest_days: number; remarks: string }>({ on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
+  const [labs, setLabs] = useState<string[]>(d0?.labs ?? [])
+  const [rx, setRx] = useState<RxRow[]>(d0?.rx ?? [])
+  const [cert, setCert] = useState<Cert>(d0?.cert ?? { on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
   const [errors, setErrors] = useState<string[]>([])
   const [recap, setRecap] = useState(false)
   // The template applied last shows as selected (blue), like the lab request chips.
   const [templateKey, setTemplateKey] = useState<string | null>(null)
   const [pinOpen, setPinOpen] = useState(false)
   const [saved, setSaved] = useState<{ input: ConsultInput; result: 'saved' | 'local'; signed: boolean } | null>(null)
+
+  // Keep what has been typed so far; forget it once the consultation is saved.
+  const typed = notes.trim().length > 0 || rx.some((r) => r.drug_name.trim()) || dx.length > 0 || labs.length > 0 || cert.findings.trim().length > 0
+  useEffect(() => {
+    if (saved) return writeDraft(key, null)
+    if (typed) writeDraft(key, { at: Date.now(), service, complaint, notes, vitals, dx, labs, rx, cert })
+  }, [key, saved, typed, service, complaint, notes, vitals, dx, labs, rx, cert])
+  // Closing or reloading the tab with an unsaved note asks first.
+  useEffect(() => {
+    if (saved || !typed) return
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault()
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [saved, typed])
 
   const conflicts = (drug: string) => {
     const d = drug.toLowerCase()
@@ -226,6 +271,31 @@ export default function Consult() {
         <p className="mb-5 rounded-2xl bg-brand-50 px-5 py-4 text-base text-brand-900">
           Adding a correction to the visit on <b>{fmtDay(original.consult_date)}</b>. The original entry is kept unchanged; this saves as a new entry linked to it.
         </p>
+      )}
+      {restored && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-brand-50 px-5 py-4 text-base text-brand-800">
+          <span>
+            {t('Restored the note you were writing at')} {new Date(restored.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}. {t('It is not saved to the record yet.')}
+          </span>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => {
+              writeDraft(key, null)
+              setRestored(null)
+              setService(ticket?.service_type ?? original?.service_type ?? (me.services?.[0] ?? 'Medical'))
+              setComplaint(original?.chief_complaint ?? ticket?.reason ?? '')
+              setNotes(original?.treatment_notes ?? '')
+              setVitals(startVitals)
+              setDx(original ? data.diagnoses.filter((d) => d.consultation_id === original.consultation_id).map(({ description, icd10_code }) => ({ description, icd10_code })) : [])
+              setLabs([])
+              setRx([])
+              setCert({ on: false, purpose: 'Excuse from work', findings: '', rest_days: 1, remarks: '' })
+            }}
+          >
+            {t('Start over')}
+          </Button>
+        </div>
       )}
       {!online && <p className="mb-5 rounded-2xl bg-danger-soft px-5 py-4 text-base text-danger">Offline: the consultation will be saved on this computer and synced later. Documents stay drafts until signed on a connected computer.</p>}
       {errors.length > 0 && (
