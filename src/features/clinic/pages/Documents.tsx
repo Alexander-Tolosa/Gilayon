@@ -16,7 +16,7 @@ type Row = { kind: 'rx' | 'doc'; id: string; patientId: string; status: DocStatu
 export default function Documents() {
   const t = useT()
   const toast = useToast()
-  const { data, me, personOfPatient, staffById, signDocuments, voidDocument, reissueDocument, editDraft, online } = useClinic()
+  const { data, me, patient, personOfPatient, staffById, signDocuments, voidDocument, reissueDocument, editDraft, online } = useClinic()
   const [tab, setTab] = useState<'draft' | 'signed' | 'voided'>('draft')
   const [q, setQ] = useState('')
   const [voiding, setVoiding] = useState<Row | null>(null)
@@ -31,6 +31,9 @@ export default function Documents() {
   }, [data.prescriptions, data.documents, t])
 
   const visible = rows.filter((r) => r.status === tab).filter((r) => !q || `${personOfPatient(r.patientId)?.full_name} ${r.no ?? ''} ${r.detail}`.toLowerCase().includes(q.toLowerCase()))
+  // The server enforces this; the buttons are only hidden for doctors who have not consulted the patient.
+  const careTeam = new Set(data.consultations.filter((c) => c.doctor_id === me?.staff_id).map((c) => patient(c.patient_id)?.patient_id))
+  const onCareTeam = (patientId: string) => careTeam.has(patient(patientId)?.patient_id)
   const stamped = new Set(data.releases.map((x) => `${x.kind}:${x.document_id}`))
   const counts = { draft: rows.filter((r) => r.status === 'draft').length, signed: rows.filter((r) => r.status === 'signed').length, voided: rows.filter((r) => r.status === 'voided').length }
 
@@ -93,12 +96,12 @@ export default function Documents() {
                       </Button>
                     </>
                   )}
-                  {r.status === 'signed' && (
+                  {r.status === 'signed' && onCareTeam(r.patientId) && (
                     <Button size="sm" variant="danger" icon={<Prohibit size={16} />} onClick={() => setVoiding(r)}>
                       {t('Void')}
                     </Button>
                   )}
-                  {r.status === 'voided' && !rows.some((x) => x.replaces === r.id) && (
+                  {r.status === 'voided' && onCareTeam(r.patientId) && !rows.some((x) => x.replaces === r.id) && (
                     <Button
                       size="sm"
                       variant="soft"

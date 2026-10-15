@@ -1,4 +1,4 @@
-import { eq, inArray } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import * as t from '../../../db/schema'
 import { audit, HttpError, nowMs, type Actor } from '../core'
 import type { Q } from '../db'
@@ -28,10 +28,25 @@ const label = async (q: Q, patientId: string) => {
 }
 
 /** Everything attached to a patient and, through earlier merges, to the records already folded into it. */
-async function groupIds(q: Q, patientId: string) {
+export async function groupIds(q: Q, patientId: string) {
   const all = await q.select({ patient_id: t.patient.patient_id, merged_into: t.patient.merged_into }).from(t.patient)
   const map = mergeMap(all)
   return [patientId, ...Object.entries(map).filter(([, root]) => root === patientId).map(([id]) => id)]
+}
+
+/**
+ * Doctors who have a consultation on this patient (or on a record merged into it) may amend, void or
+ * reissue; any other doctor can read but not change. Starting a consult from the queue is how one joins.
+ */
+export async function assertCareTeam(q: Q, actor: Actor, patientId: string) {
+  const root = await canonicalPatientId(q, patientId)
+  const ids = await groupIds(q, root)
+  const [mine] = await q
+    .select({ id: t.consultation.consultation_id })
+    .from(t.consultation)
+    .where(and(inArray(t.consultation.patient_id, ids), eq(t.consultation.doctor_id, actor.staff_id)))
+    .limit(1)
+  if (!mine) throw new HttpError(403, 'Only a doctor who has consulted this patient can change their record.')
 }
 
 async function counts(q: Q, ids: string[]) {

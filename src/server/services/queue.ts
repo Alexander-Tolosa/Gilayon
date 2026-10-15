@@ -89,6 +89,7 @@ export async function setTicketStatus(q: Q, actor: Actor, ticketId: string, stat
   const allowed = MOVES[tk.status][status]
   if (!allowed) throw new HttpError(409, `A ${tk.status.replace('_', ' ')} ticket cannot be set to ${status.replace('_', ' ')}.`)
   if (!allowed.includes(actor.role)) throw new HttpError(403, 'Only a doctor can make this change.')
+  if ((tk.status === 'called' || tk.status === 'in_consult') && actor.role === 'doctor' && tk.doctor_id && tk.doctor_id !== actor.staff_id) throw new HttpError(403, 'Only the doctor who called this patient can change this ticket.')
   if (status === 'waiting' && tk.day !== todayKey()) throw new HttpError(409, 'That ticket is from an earlier day. Check the person in again.')
   await q
     .update(t.queueTicket)

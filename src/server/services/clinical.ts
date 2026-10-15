@@ -5,7 +5,7 @@ import { todayKey } from '../../features/clinic/lib/helpers'
 import { assertPinUnlocked, notePinAttempt, verifyPin } from '../auth'
 import { audit, HttpError, nextCounter, nowMs, uuid, type Actor } from '../core'
 import type { Q } from '../db'
-import { canonicalPatientId } from './merge'
+import { assertCareTeam, canonicalPatientId } from './merge'
 import { patientName } from './records'
 
 type Kind = 'rx' | 'doc'
@@ -20,6 +20,7 @@ export async function saveConsultation(q: Q, actor: Actor, rawInput: ConsultInpu
   if (input.correction_of) {
     const [orig] = await q.select({ patient_id: t.consultation.patient_id }).from(t.consultation).where(eq(t.consultation.consultation_id, input.correction_of))
     if (!orig || (await canonicalPatientId(q, orig.patient_id)) !== input.patient_id) throw new HttpError(400, 'The consultation being corrected belongs to another patient or does not exist.')
+    await assertCareTeam(q, actor, input.patient_id)
   }
   // The note matters more than the queue slip: a ticket that is missing or already has its note is
   // simply not linked (one note per ticket), and the note is still saved.
@@ -28,6 +29,7 @@ export async function saveConsultation(q: Q, actor: Actor, rawInput: ConsultInpu
     const [tk] = await q.select().from(t.queueTicket).where(eq(t.queueTicket.ticket_id, ticketId))
     const [used] = tk ? await q.select({ id: t.consultation.consultation_id }).from(t.consultation).where(eq(t.consultation.ticket_id, ticketId)) : []
     if (tk && (await canonicalPatientId(q, tk.patient_id)) !== input.patient_id) throw new HttpError(400, 'That queue number belongs to another patient.')
+    if (tk?.doctor_id && tk.doctor_id !== actor.staff_id) throw new HttpError(409, 'Another doctor called this patient.')
     if (!tk || used) ticketId = null
   }
   const created = nowMs()
@@ -121,12 +123,14 @@ export async function voidDocument(q: Q, actor: Actor, kind: Kind, id: string, r
   if (kind === 'rx') {
     const [r] = await q.select().from(t.prescription).where(eq(t.prescription.prescription_id, id))
     if (!r) throw new HttpError(404, 'Prescription not found')
+    await assertCareTeam(q, actor, r.patient_id)
     if (r.status === 'voided') throw new HttpError(409, `${r.document_no ?? 'This prescription'} is already void.`)
     await q.update(t.prescription).set({ status: 'voided', void_reason: reason }).where(eq(t.prescription.prescription_id, id))
     await audit(q, actor.staff_id, { action: 'void', table: 'prescription', record: id, summary: `Voided ${r.document_no ?? 'draft prescription'}: ${reason}` })
   } else {
     const [d] = await q.select().from(t.document).where(eq(t.document.document_id, id))
     if (!d) throw new HttpError(404, 'Document not found')
+    await assertCareTeam(q, actor, d.patient_id)
     if (d.status === 'voided') throw new HttpError(409, `${d.document_no ?? `This ${d.doc_type.toLowerCase()}`} is already void.`)
     await q.update(t.document).set({ status: 'voided', void_reason: reason }).where(eq(t.document.document_id, id))
     await audit(q, actor.staff_id, { action: 'void', table: 'document', record: id, summary: `Voided ${d.document_no ?? `draft ${d.doc_type.toLowerCase()}`}: ${reason}` })
@@ -147,6 +151,7 @@ export async function reissueDocument(q: Q, actor: Actor, kind: Kind, id: string
     if (dup) return newId
     const [r] = await q.select().from(t.prescription).where(eq(t.prescription.prescription_id, id))
     if (!r) throw new HttpError(404, 'Prescription not found')
+    await assertCareTeam(q, actor, r.patient_id)
     const [taken] = await q.select({ id: t.prescription.prescription_id }).from(t.prescription).where(eq(t.prescription.replaces, id))
     assertReplaceable(r.status, taken?.id, r.document_no ?? 'This prescription')
     const items = await q.select().from(t.prescriptionItem).where(eq(t.prescriptionItem.prescription_id, id))
@@ -158,6 +163,7 @@ export async function reissueDocument(q: Q, actor: Actor, kind: Kind, id: string
     if (dup) return newId
     const [d] = await q.select().from(t.document).where(eq(t.document.document_id, id))
     if (!d) throw new HttpError(404, 'Document not found')
+    await assertCareTeam(q, actor, d.patient_id)
     const [taken] = await q.select({ id: t.document.document_id }).from(t.document).where(eq(t.document.replaces, id))
     assertReplaceable(d.status, taken?.id, d.document_no ?? `This ${d.doc_type.toLowerCase()}`)
     await q.insert(t.document).values({
@@ -218,6 +224,7 @@ export async function addLabResult(q: Q, actor: Actor, labId: string, result: st
   if (!l) throw new HttpError(404, 'Lab order not found')
   const amend = l.status === 'resulted'
   if (amend && actor.role !== 'doctor') throw new HttpError(409, 'This test already has a result. Ask a doctor to correct it.')
+  if (amend) await assertCareTeam(q, actor, l.patient_id)
   if (amend && l.result === result) return
   await q.update(t.labOrder).set({ status: 'resulted', result, result_date: todayKey() }).where(eq(t.labOrder.lab_id, labId))
   await audit(q, actor.staff_id, {

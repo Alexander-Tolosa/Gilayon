@@ -42,6 +42,8 @@ export default function PatientRecord() {
     )
   }
   const doctor = me?.role === 'doctor'
+  // The server decides; this only hides Correct for a doctor who has not consulted the patient.
+  const onCareTeam = !!doctor && data.consultations.some((c) => c.doctor_id === me?.staff_id && patient(c.patient_id)?.patient_id === patient(id)?.patient_id)
   const emp = employeeOfPerson(p.person_id)
   const principal = principalOf(id)
   const allergies = data.allergies.filter((a) => a.patient_id === id)
@@ -205,7 +207,7 @@ export default function PatientRecord() {
 
       {tab === 'visits' &&
         (doctor ? (
-          <VisitHistory patientId={id} onCorrect={(c) => navigate(`/clinic/consult/${id}?correct=${c.consultation_id}`)} />
+          <VisitHistory patientId={id} onCorrect={onCareTeam ? (c) => navigate(`/clinic/consult/${id}?correct=${c.consultation_id}`) : undefined} />
         ) : (
           <Card className="p-6">
             <p className="flex items-center gap-2 text-lg font-semibold">

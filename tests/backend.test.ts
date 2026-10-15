@@ -131,6 +131,23 @@ describe('consultations and documents', () => {
     await expect(db.transaction((tx) => voidDocument(tx, doctor, 'doc', 'doc-a', ' '))).rejects.toMatchObject({ status: 400 })
   })
 
+  it('lets only a doctor who consulted the patient amend, void or reissue; others read only', async () => {
+    const other: Actor = { staff_id: 'st-d2', name: 'Dr. Liza Magbanua', role: 'doctor' }
+    // A patient the seed never gave a consultation, so neither doctor starts on the care team.
+    const snap = await loadSnapshot(db, doctor)
+    const seen = new Set(snap.consultations.map((c) => c.patient_id))
+    const patient_id = snap.patients.find((p) => !seen.has(p.patient_id))!.patient_id
+    await db.transaction((tx) => saveConsultation(tx, doctor, consult(patient_id, 'cb')))
+    const correction = { ...consult(patient_id, 'cc'), correction_of: 'c-cb', rx: [], certificate: undefined, labs: [], lab_ids: [] }
+    await expect(db.transaction((tx) => saveConsultation(tx, other, correction))).rejects.toMatchObject({ status: 403 })
+    await expect(db.transaction((tx) => voidDocument(tx, other, 'doc', 'doc-cb', 'Not mine'))).rejects.toMatchObject({ status: 403 })
+    await db.transaction((tx) => voidDocument(tx, doctor, 'doc', 'doc-cb', 'Test void'))
+    await expect(db.transaction((tx) => reissueDocument(tx, other, 'doc', 'doc-cb', 'doc-cb2'))).rejects.toMatchObject({ status: 403 })
+    // Seeing the patient themselves puts them on the care team.
+    await db.transaction((tx) => saveConsultation(tx, other, consult(patient_id, 'cd')))
+    expect(await db.transaction((tx) => saveConsultation(tx, other, correction))).toBe('saved')
+  })
+
   it('records the actions in the audit log', async () => {
     const s = await loadSnapshot(db, doctor)
     const actions = new Set(s.audit.map((a) => a.action))
