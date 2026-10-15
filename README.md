@@ -55,6 +55,10 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 
 Not built yet: a multi-process event bus (the server is a single process, as on the clinic PC).
 
+## Demo on a MacBook and a phone
+
+[docs/DEMO-ON-MAC.md](docs/DEMO-ON-MAC.md) sets up a laptop and a phone for a live demonstration, including the certificate the phone needs before its camera will open, and the optional local model.
+
 ## HTTPS and running as a service
 
 Offline mode and the installable app need a secure page, and passwords and patient records should never cross the clinic network in plain text. Gilayon runs its own small certificate authority (CA): each clinic PC trusts it once, and the server presents a certificate it signed.

@@ -505,7 +505,7 @@ function FieldRow({
   const unchecked = flagged && value === field?.value
   const listId = useId()
   const hint = HINTS[key] ?? (kind && kind !== 'identity' ? GROUP_HINTS[kind] : undefined)
-  const box = cn('h-12 flex-1 text-base', unchecked && 'border-warn bg-warn-soft')
+  const box = cn('h-12 flex-1 text-base placeholder:italic placeholder:text-faint/70', unchecked && 'border-warn bg-warn-soft')
   const options = key === 'sex' ? SEXES : key === 'civil_status' ? CIVIL : null
 
   return (
