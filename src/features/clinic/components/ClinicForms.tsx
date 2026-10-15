@@ -90,7 +90,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
         <Field label={t('Birthdate')} error={errors.birthdate} hint={f.birthdate && !errors.birthdate ? `${t('Age')}: ${ageOf(f.birthdate)} (calculated)` : undefined}>
           <Input type="date" value={f.birthdate} onChange={(e) => setF({ ...f, birthdate: e.target.value })} className="h-12 text-base" invalid={!!errors.birthdate} />
         </Field>
-        <Field label="Relationship to the employee">
+        <Field label={t('Relationship to the employee')}>
           <div className="flex flex-wrap gap-2">
             {(['Spouse', 'Child', 'Parent', 'Sibling'] as RelationshipType[]).map((r) => (
               <Chip key={r} selected={f.type === r} onClick={() => setF({ ...f, type: r })} className="h-11 text-[15px]">

@@ -55,7 +55,7 @@ export default function Consult() {
   if (!pt || !p || !me) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-xl font-semibold">Patient not found</p>
+        <p className="text-xl font-semibold">{t('Patient not found')}</p>
         <Button to="/clinic/doctor" className="mt-4">
           {t('My queue')}
         </Button>
@@ -340,7 +340,7 @@ export default function Consult() {
                   Add drug
                 </Button>
               </div>
-              {rx.length === 0 && <p className="mt-2 text-base text-muted">No medicines. Add a drug or use a template.</p>}
+              {rx.length === 0 && <p className="mt-2 text-base text-muted">{t('No medicines. Add a drug or use a template.')}</p>}
               <datalist id="drugs">
                 {DRUGS.map((d) => (
                   <option key={d.name} value={d.name} />

@@ -33,8 +33,8 @@ export default function PatientRecord() {
   if (!pt || !p) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-xl font-semibold">Record not found</p>
-        <p className="mt-1 text-base text-ink-2">It may not be cached on this computer while offline.</p>
+        <p className="text-xl font-semibold">{t('Record not found')}</p>
+        <p className="mt-1 text-base text-ink-2">{t('It may not be cached on this computer while offline.')}</p>
         <Button to="/clinic/patients" className="mt-5">
           {t('Patient registry')}
         </Button>
@@ -127,7 +127,7 @@ export default function PatientRecord() {
         )}
         {data.mergedRecords.filter((m) => m.into === pt.patient_id).length > 0 && (
           <div className="mt-4 rounded-2xl bg-canvas px-4 py-3">
-            <p className="text-[15px] font-semibold">Includes records merged into this one</p>
+            <p className="text-[15px] font-semibold">{t('Includes records merged into this one')}</p>
             <ul className="mt-1 flex flex-col gap-1">
               {data.mergedRecords
                 .filter((m) => m.into === pt.patient_id)
@@ -239,7 +239,7 @@ export default function PatientRecord() {
         <Card className="p-6">
           <p className="text-base text-ink-2">Every entry shows who made it and when. Edits keep both versions here.</p>
           <ul className="mt-4 flex flex-col gap-2">
-            {changes.length === 0 && <li className="text-base text-muted">No changes recorded.</li>}
+            {changes.length === 0 && <li className="text-base text-muted">{t('No changes recorded.')}</li>}
             {changes.map((a) => (
               <li key={a.log_id} className="rounded-2xl bg-canvas px-4 py-3">
                 <p className="text-base font-medium">{a.summary}</p>
@@ -335,7 +335,7 @@ function FamilyTab({ patientId, isEmployee }: { patientId: string; isEmployee: b
               </li>
             )
           })}
-          {!principal && deps.length === 0 && <li className="text-base text-muted">No relatives linked.</li>}
+          {!principal && deps.length === 0 && <li className="text-base text-muted">{t('No relatives linked.')}</li>}
         </ul>
         {isEmployee &&
           (addDep ? (
@@ -352,7 +352,7 @@ function FamilyTab({ patientId, isEmployee }: { patientId: string; isEmployee: b
         <p className="text-lg font-semibold">{t('Family history')}</p>
         <p className="text-[15px] text-muted">Conditions in relatives, who may not be patients themselves.</p>
         <ul className="mt-4 flex flex-col gap-2">
-          {history.length === 0 && <li className="text-base text-muted">None recorded.</li>}
+          {history.length === 0 && <li className="text-base text-muted">{t('None recorded.')}</li>}
           {history.map((h) => (
             <li key={h.history_id} className="rounded-2xl bg-canvas px-4 py-3 text-base">
               <b>{h.relative}</b>: {h.condition}

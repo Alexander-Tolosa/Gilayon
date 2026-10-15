@@ -60,7 +60,7 @@ export default function ClinicLogin() {
               <p className="text-sm text-muted">HMO-Clinic digital records</p>
             </div>
           </div>
-          <h1 className="mt-5 text-[1.9rem] font-semibold leading-tight tracking-[-0.03em]">Sign in to the clinic</h1>
+          <h1 className="mt-5 text-[1.9rem] font-semibold leading-tight tracking-[-0.03em]">{t('Sign in to the clinic')}</h1>
           <div className="mt-4 grid grid-cols-3 gap-1.5 rounded-full border border-line bg-surface p-1.5" role="tablist">
             {(['doctor', 'desk', 'nurse'] as const).map((r) => (
               <button
@@ -78,7 +78,7 @@ export default function ClinicLogin() {
               </button>
             ))}
           </div>
-          <p className="mb-2 mt-4 text-[15px] font-medium text-ink-2">Account</p>
+          <p className="mb-2 mt-4 text-[15px] font-medium text-ink-2">{t('Account')}</p>
           <div className="-mx-1 flex min-h-0 flex-col gap-2 overflow-y-auto px-1 py-0.5">
             {accounts.map((a) => (
               <button
@@ -98,7 +98,7 @@ export default function ClinicLogin() {
               </button>
             ))}
           </div>
-          <Field label="Password" htmlFor="pw" error={error || undefined} className="mt-4">
+          <Field label={t('Password')} htmlFor="pw" error={error || undefined} className="mt-4">
             <Input id="pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="h-12 text-lg" autoComplete="current-password" />
           </Field>
           <Button type="submit" size="lg" className="mt-4 h-13 text-lg" iconRight={<ArrowRight size={20} weight="bold" />}>
@@ -112,7 +112,7 @@ export default function ClinicLogin() {
           <a href="/waiting" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 font-medium text-ink-2 hover:text-brand-700 sm:hidden">
             <Monitor size={18} /> Open the waiting screen (no sign-in)
           </a>
-          <p className="hidden sm:block">Records are handled under the Data Privacy Act.</p>
+          <p className="hidden sm:block">{t('Records are handled under the Data Privacy Act.')}</p>
           <LegalLinks linkClassName="font-medium text-brand-700" />
         </div>
       </div>
@@ -123,9 +123,9 @@ export default function ClinicLogin() {
             Verified check-in, a fair queue, <span className="font-semibold">signed documents and a report that builds itself.</span>
           </p>
           <ul className="mt-8 space-y-3 text-lg text-brand-100">
-            <li>Runs on the clinic's own computers</li>
-            <li>Keeps working with no internet</li>
-            <li>Every action is written to the audit trail</li>
+            <li>{t('Runs on the clinic\'s own computers')}</li>
+            <li>{t('Keeps working with no internet')}</li>
+            <li>{t('Every action is written to the audit trail')}</li>
           </ul>
         </div>
       </aside>

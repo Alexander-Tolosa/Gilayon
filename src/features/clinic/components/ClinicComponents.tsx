@@ -42,7 +42,7 @@ export function StatusBadge() {
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-14 z-50 w-[22rem] rounded-3xl border border-line bg-surface p-4 shadow-lift">
-            <p className="text-base font-semibold">Connection</p>
+            <p className="text-base font-semibold">{t('Connection')}</p>
             <p className="mt-1 text-sm text-muted">
               {network === 'online' && 'Connected to the clinic server and the internet. Off-site backup is up to date.'}
               {network === 'lan' && `The internet is down. Everything in the clinic still works. ${data.offsite.pending} changes wait for the off-site backup.`}
