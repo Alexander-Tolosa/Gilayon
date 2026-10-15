@@ -76,7 +76,7 @@ export default function DailyReport() {
         sub="Builds itself from the day's check-ins and consultations. Printable for the Hospital Management Officer."
         actions={
           <>
-            <Input type="date" value={day} max={todayKey()} onChange={(e) => setDay(e.target.value || todayKey())} className="h-12 w-48 text-base" aria-label="Report date" />
+            <Input type="date" value={day} max={todayKey()} onChange={(e) => setDay(e.target.value || todayKey())} className="h-12 w-48 text-base" aria-label={t('Report date')} />
             <Button size="lg" icon={<Printer size={20} />} onClick={() => window.open(`/print/report/${day}`, '_blank')}>
               {t('Print')} PDF
             </Button>
@@ -114,7 +114,7 @@ export default function DailyReport() {
       </Card>
       <div className="mt-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card className="p-6">
-          <p className="text-lg font-semibold">Visits by priority lane</p>
+          <p className="text-lg font-semibold">{t('Visits by priority lane')}</p>
           <ul className="mt-4 flex flex-col gap-3">
             {r.byLane.map((l) => (
               <li key={l.lane} className="grid grid-cols-[7rem_1fr_3rem] items-center gap-3 text-base">
@@ -134,7 +134,7 @@ export default function DailyReport() {
           </div>
         </Card>
         <Card className="p-6">
-          <p className="text-lg font-semibold">Visits, last two weeks</p>
+          <p className="text-lg font-semibold">{t('Visits, last two weeks')}</p>
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={week} margin={{ top: 6, right: 8, bottom: 0, left: -20 }}>
@@ -150,7 +150,7 @@ export default function DailyReport() {
         <Card className="p-6">
           <p className="text-lg font-semibold">{t('Common complaints')}</p>
           <ol className="mt-3 flex flex-col gap-2">
-            {r.complaints.length === 0 && <li className="text-base text-muted">No consultations recorded.</li>}
+            {r.complaints.length === 0 && <li className="text-base text-muted">{t('No consultations recorded.')}</li>}
             {r.complaints.map(([c, n]) => (
               <li key={c} className="flex justify-between rounded-2xl bg-canvas px-4 py-3 text-base">
                 <span>{c}</span>
@@ -160,9 +160,9 @@ export default function DailyReport() {
           </ol>
         </Card>
         <Card className="p-6">
-          <p className="text-lg font-semibold">Common diagnoses</p>
+          <p className="text-lg font-semibold">{t('Common diagnoses')}</p>
           <ol className="mt-3 flex flex-col gap-2">
-            {r.diagnoses.length === 0 && <li className="text-base text-muted">No diagnoses recorded.</li>}
+            {r.diagnoses.length === 0 && <li className="text-base text-muted">{t('No diagnoses recorded.')}</li>}
             {r.diagnoses.map(([c, n]) => (
               <li key={c} className="flex justify-between rounded-2xl bg-canvas px-4 py-3 text-base">
                 <span>{c}</span>
@@ -170,7 +170,7 @@ export default function DailyReport() {
               </li>
             ))}
           </ol>
-          <p className="mt-5 text-lg font-semibold">Seen by doctor</p>
+          <p className="mt-5 text-lg font-semibold">{t('Seen by doctor')}</p>
           <ul className="mt-2 flex flex-col gap-2">
             {r.byDoctor.map((d) => (
               <li key={d.name} className="flex justify-between text-base">

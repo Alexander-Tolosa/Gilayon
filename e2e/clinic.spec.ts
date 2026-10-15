@@ -144,3 +144,127 @@ test.describe('doctor', () => {
     expect((await download).suggestedFilename()).toMatch(/^gilayon-audit-trail-\d{4}-\d{2}-\d{2}\.csv$/)
   })
 })
+
+/** Reads one whole-clinic snapshot as the signed-in user, for checks the screens do not show directly. */
+function snapshot(page: Page) {
+  return page.evaluate(async () => {
+    const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+    const res = await fetch('/api/state', { headers: { Authorization: `Bearer ${token}` } })
+    return (await res.json()) as {
+      patients: { patient_id: string; person_id: string }[]
+      persons: { person_id: string; full_name: string; birthdate: string; sex: string }[]
+      employees: { person_id: string }[]
+      consultations: { patient_id: string }[]
+      merged: Record<string, string>
+      mergedRecords: { patient_id: string; into: string }[]
+    }
+  })
+}
+
+test.describe('corrections', () => {
+  test('a signed prescription is voided with a reason and reissued as a draft that names it', async ({ page }) => {
+    await signIn(page, 'doctor')
+    const before = await serverState(page)
+    // A patient with no visit yet, taken from the end of the list so it does not clash with the other tests.
+    const patient = before.patients.filter((p) => !before.consultations.some((c) => c.patient_id === p.patient_id)).at(-1)!
+    await page.goto(`/clinic/consult/${patient.patient_id}`)
+    await page.getByRole('button', { name: 'Fever', exact: true }).click()
+    await page.getByRole('button', { name: 'Save and sign' }).click()
+    const pin = page.getByRole('dialog')
+    for (const d of '1234') await pin.getByRole('button', { name: d, exact: true }).click()
+    await expect(page.getByText('Consultation saved')).toBeVisible()
+    const rxNo = (await page.getByText(/RX-\d{4}-\d{6}/).first().innerText()).match(/RX-\d{4}-\d{6}/)![0]
+
+    await page.goto('/clinic/documents')
+    await page.getByRole('tab', { name: /^Signed/ }).click()
+    await page.getByPlaceholder('Patient or document no.').fill(rxNo)
+    const signed = page.locator('li').filter({ hasText: rxNo })
+    await signed.getByRole('button', { name: 'Void' }).click()
+    // A reason is required: the button stays off until one is written.
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByRole('button', { name: 'Void', exact: true })).toBeDisabled()
+    await dialog.getByRole('textbox').fill('Wrong dose written')
+    await dialog.getByRole('button', { name: 'Void', exact: true }).click()
+
+    // It stays on the Voided tab with its reason, and cannot be edited back.
+    const voided = page.locator('li').filter({ hasText: rxNo })
+    await expect(voided).toContainText('voided: Wrong dose written')
+    await expect(voided.getByRole('button', { name: 'Void' })).toHaveCount(0)
+    await voided.getByRole('button', { name: 'Reissue' }).click()
+
+    // The replacement is an unsigned draft that names the voided document.
+    await expect(page.getByText('Replacement drafted')).toBeVisible()
+    await page.getByPlaceholder('Patient or document no.').fill('')
+    const draft = page.locator('li').filter({ hasText: `replaces ${rxNo}` })
+    await expect(draft).toHaveCount(1)
+    await expect(draft.getByRole('button', { name: 'Sign' })).toBeVisible()
+    // It is offered only once: the voided original has no Reissue button now.
+    await page.getByRole('tab', { name: /^Voided/ }).click()
+    await expect(page.locator('li').filter({ hasText: rxNo }).getByRole('button', { name: 'Reissue' })).toHaveCount(0)
+
+    // Sign the replacement with the PIN: it gets its own number.
+    await page.getByRole('tab', { name: /^Not yet signed/ }).click()
+    await page.locator('li').filter({ hasText: `replaces ${rxNo}` }).getByRole('button', { name: 'Sign' }).click()
+    const sign = page.getByRole('dialog')
+    for (const d of '1234') await sign.getByRole('button', { name: d, exact: true }).click()
+    await page.getByRole('tab', { name: /^Signed/ }).click()
+    const replacement = page.locator('li').filter({ hasText: `replaces ${rxNo}` })
+    await expect(replacement).toHaveCount(1)
+    await expect(replacement).toContainText(/RX-\d{4}-\d{6}/)
+  })
+
+  test('two records of one person are merged on the Duplicates screen, fold under the survivor, and a doctor undoes it', async ({ page }) => {
+    await signIn(page, 'doctor')
+    const s = await snapshot(page)
+    // The demo data has no true duplicate pair, so register a second record for a dependent who already has visits.
+    const hr = new Set(s.employees.map((e) => e.person_id))
+    const original = s.patients.find((p) => !hr.has(p.person_id) && s.consultations.some((c) => c.patient_id === p.patient_id))!
+    const person = s.persons.find((p) => p.person_id === original.person_id)!
+    const principal = s.patients.find((p) => hr.has(p.person_id))!
+    const created = await page.evaluate(
+      async ({ principalId, person }) => {
+        const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+        const res = await fetch(`/api/patients/${principalId}/dependents`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ person: { full_name: person.full_name, birthdate: person.birthdate, sex: person.sex, contact: '0900 000 0000', civil_status: 'Single' }, type: 'Sibling', mdr: false }),
+        })
+        return { ok: res.ok, body: await res.json() }
+      },
+      { principalId: principal.patient_id, person },
+    )
+    expect(created.ok).toBe(true)
+    const extraId = created.body.patient_id as string
+
+    await page.goto('/clinic/patients/duplicates')
+    const row = page.locator('li').filter({ hasText: person.full_name }).first()
+    await expect(row).toBeVisible()
+    await row.getByRole('button', { name: 'Review' }).click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toContainText('Are these the same person?')
+    // The record with the visit history is the one suggested to keep.
+    await expect(dialog.getByRole('button', { name: 'Keeping this record' })).toHaveCount(1)
+    await dialog.getByRole('button', { name: 'Merge records' }).click()
+    await expect(page.getByText('Records merged')).toBeVisible()
+
+    // The new record is folded away; its visits-bearing twin survives and says what it absorbed.
+    const merged = await snapshot(page)
+    expect(merged.merged[extraId]).toBe(original.patient_id)
+    expect(merged.patients.some((p) => p.patient_id === extraId)).toBe(false)
+    expect(merged.consultations.filter((c) => c.patient_id === original.patient_id).length).toBe(s.consultations.filter((c) => c.patient_id === original.patient_id).length)
+    await page.goto(`/clinic/patients/${original.patient_id}`)
+    await expect(page.getByText('Includes records merged into this one')).toBeVisible()
+
+    // A doctor undoes it with a reason; the record comes back as its own patient.
+    await page.getByRole('button', { name: 'Undo merge' }).click()
+    const undo = page.getByRole('dialog')
+    await expect(undo.getByRole('button', { name: 'Undo merge' })).toBeDisabled()
+    await undo.getByRole('textbox').fill('Merged by mistake in the test')
+    await undo.getByRole('button', { name: 'Undo merge' }).click()
+    await expect(page.getByText('Merge undone')).toBeVisible()
+    await expect(page.getByText('Includes records merged into this one')).toHaveCount(0)
+    const restored = await snapshot(page)
+    expect(restored.merged[extraId]).toBeUndefined()
+    expect(restored.patients.some((p) => p.patient_id === extraId)).toBe(true)
+  })
+})

@@ -46,7 +46,7 @@ export default function Documents() {
             { value: 'voided', label: t('Voided'), count: counts.voided },
           ]}
         />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Patient or document no." className="h-12 text-base sm:w-80" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Patient or document no.')} className="h-12 text-base sm:w-80" />
       </div>
       <ul className="flex flex-col gap-3">
         {visible.slice(0, 80).map((r) => {
@@ -63,7 +63,7 @@ export default function Documents() {
                     {r.no && <span className="font-mono text-base text-danger">{r.no}</span>}
                     <DocStatusBadge status={r.status} />
                   </p>
-                  <p className="truncate text-base text-ink-2">
+                  <p className="break-words text-base text-ink-2">
                     <Link to={`/clinic/patients/${r.patientId}`} className="font-semibold text-ink hover:underline">
                       {p?.full_name}
                     </Link>{' '}
@@ -115,7 +115,7 @@ export default function Documents() {
             </li>
           )
         })}
-        {visible.length === 0 && <li className="rounded-3xl bg-surface p-8 text-center text-lg text-ink-2">Nothing here.</li>}
+        {visible.length === 0 && <li className="rounded-3xl bg-surface p-8 text-center text-lg text-ink-2">{t('Nothing here.')}</li>}
       </ul>
 
       <Modal

@@ -39,9 +39,9 @@ export default function CheckIn() {
   const idx = STEPS.findIndex((s) => s.key === step)
   return (
     <div>
-      <PageTitle title={t('Check-in')} sub="Nobody gets a queue number until their identity is checked against the HR list." />
+      <PageTitle title={t('Check-in')} sub={t('Nobody gets a queue number until their identity is checked against the HR list.')} />
       {step !== 'notlisted' && (
-        <ol className="mb-6 grid grid-cols-5 gap-2" aria-label="Progress">
+        <ol className="mb-6 grid grid-cols-5 gap-2" aria-label={t('Progress')}>
           {STEPS.map((s, i) => (
             <li key={s.key} className="flex flex-col gap-2">
               <span className={cn('h-2 rounded-full transition-colors duration-500', i <= idx ? 'bg-brand-600' : 'bg-line')} />
@@ -101,7 +101,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
   return (
     <button onClick={onPick} className="grid w-full grid-cols-1 items-center gap-3 rounded-3xl border border-line bg-surface p-5 text-left transition hover:border-brand-300 hover:shadow-soft sm:grid-cols-[1.5fr_1fr_1.3fr_auto]">
       <div className="min-w-0">
-        <p className="truncate text-xl font-semibold">{hit.person.full_name}</p>
+        <p className="break-words text-xl font-semibold">{hit.person.full_name}</p>
         <p className="text-[15px] text-ink-2">
           <AgeSex birthdate={hit.person.birthdate} sex={hit.person.sex} />
         </p>
@@ -114,7 +114,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
         {hit.employee ? (
           <>
             <p className="font-mono text-[17px] font-semibold text-brand-800">{hit.employee.employee_no}</p>
-            <p className="truncate text-[15px] text-muted">{hit.employee.office}</p>
+            <p className="break-words text-[15px] text-muted">{hit.employee.office}</p>
           </>
         ) : (
           <>
@@ -214,11 +214,11 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
         <button onClick={onBack} className="mb-4 inline-flex items-center gap-2 text-base font-medium text-ink-2 hover:text-ink">
           <ArrowLeft size={18} /> {t('Back')}
         </button>
-        <h2 className="text-2xl font-semibold tracking-tight">Create a dependent linked to an employee</h2>
-        <p className="mt-1 text-base text-ink-2">Spouses, children and parents are patients too. Find the employee first.</p>
+        <h2 className="text-2xl font-semibold tracking-tight">{t('Create a dependent linked to an employee')}</h2>
+        <p className="mt-1 text-base text-ink-2">{t('Spouses, children and parents are patients too. Find the employee first.')}</p>
         {!principal ? (
           <>
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Employee's name or employee ID" className="mt-5 h-14 text-lg" autoFocus />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('Employee\'s name or employee ID')} className="mt-5 h-14 text-lg" autoFocus />
             <div className="mt-3 flex flex-col gap-2">
               {hits.map((h) => (
                 <button key={h.person.person_id} onClick={() => setPrincipal(h.patient!.patient_id)} className="flex items-center justify-between gap-3 rounded-2xl border border-line p-4 text-left hover:border-brand-300">
@@ -354,7 +354,7 @@ function VerifyStep({ personId, onBack, onOk }: { personId: string; onBack: () =
       </Card>
       <div className="flex flex-col gap-4">
         <Card className="p-6">
-          <p className="text-base font-semibold text-ink-2">Checking against the HR list</p>
+          <p className="text-base font-semibold text-ink-2">{t('Checking against the HR list')}</p>
           <div className="mt-4 flex flex-col gap-2">
             {row('Full name', name, p.full_name)}
             {row('Birthdate', birth ? fmtDay(birth) : '', fmtDay(p.birthdate))}
@@ -455,7 +455,7 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
         <Card className="p-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <div className="rounded-2xl bg-canvas p-4">
-              <p className="text-sm text-muted">Last visit</p>
+              <p className="text-sm text-muted">{t('Last visit')}</p>
               <p className="text-lg font-semibold">{lastVisit ? `${fmtDay(lastVisit.consult_date)} · ${lastVisit.chief_complaint}` : 'No digital visit yet'}</p>
             </div>
             <div className="rounded-2xl bg-canvas p-4">
@@ -515,7 +515,7 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
                     {d.listed_in_mdr && ' · MDR'}
                   </li>
                 ))}
-                {!dependents.length && <li className="text-base text-muted">No dependents linked yet.</li>}
+                {!dependents.length && <li className="text-base text-muted">{t('No dependents linked yet.')}</li>}
               </ul>
               {addDep ? (
                 <div className="mt-4 rounded-3xl border border-line p-5">
@@ -612,7 +612,7 @@ function PriorityStep({ patientId, onBack, onIssued }: { patientId: string; onBa
         </Field>
       </Card>
       <Card className="flex h-fit flex-col gap-4 p-6">
-        <p className="text-base font-semibold text-ink-2">This ticket</p>
+        <p className="text-base font-semibold text-ink-2">{t('This ticket')}</p>
         <div className="flex items-center gap-3">
           <LaneBadge category={lane} className="px-4 py-2 text-lg" />
           <span className="text-base text-muted">rank {rankOf(lane, data.categories)}</span>
@@ -620,7 +620,7 @@ function PriorityStep({ patientId, onBack, onIssued }: { patientId: string; onBa
         <p className="text-lg">
           <b className="tabular">{ahead}</b> {ahead === 1 ? 'person' : 'people'} ahead in this lane or higher.
         </p>
-        {!online && <p className="rounded-2xl bg-danger-soft px-4 py-3 text-base text-danger">Only the clinic server issues queue numbers. Reconnect this computer first.</p>}
+        {!online && <p className="rounded-2xl bg-danger-soft px-4 py-3 text-base text-danger">{t('Only the clinic server issues queue numbers. Reconnect this computer first.')}</p>}
         <Button
           size="lg"
           className="h-16 text-xl"

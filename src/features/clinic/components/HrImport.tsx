@@ -5,6 +5,7 @@ import { Badge, Button, Card, Field, Modal, Select, useToast } from '../../../sh
 import { detectDelimiter, parseCsv } from '../lib/csv'
 import { HR_FIELDS, autoMap, detectDateOrder, normalizeRow, toIsoDate, type DateOrder, type HrField, type HrImportResult, type RawHrRow } from '../lib/hrlist'
 import { fmtStampOf } from '../lib/helpers'
+import { useT } from '../lib/i18n'
 import { useClinic } from '../store/store'
 
 const MAX_BYTES = 5 * 1024 * 1024
@@ -17,6 +18,7 @@ type Stage = 'closed' | 'choose' | 'map' | 'review' | 'done'
 export function HrImportCard() {
   const { data, hrImport } = useClinic()
   const toast = useToast()
+  const t = useT()
   const [stage, setStage] = useState<Stage>('closed')
   const [parsed, setParsed] = useState<Parsed | null>(null)
   const [mapping, setMapping] = useState<Partial<Record<HrField, number>>>({})
@@ -38,11 +40,11 @@ export function HrImportCard() {
   const onFile = async (f: File | undefined) => {
     if (!f) return
     setError('')
-    if (f.size > MAX_BYTES) return setError('That file is over 5 MB. Export only the columns listed above, or split the list.')
-    if (/\.xlsx?$/i.test(f.name)) return setError('This is an Excel file. In Excel choose File > Save As > "CSV UTF-8", then pick that file.')
+    if (f.size > MAX_BYTES) return setError(t('That file is over 5 MB. Export only the columns listed above, or split the list.'))
+    if (/\.xlsx?$/i.test(f.name)) return setError(t('This is an Excel file. In Excel choose File > Save As > "CSV UTF-8", then pick that file.'))
     const text = await f.text()
     const table = parseCsv(text, detectDelimiter(text))
-    if (table.length < 2) return setError('The file has no data rows. The first row must be the column names.')
+    if (table.length < 2) return setError(t('The file has no data rows. The first row must be the column names.'))
     const [headers, ...body] = table
     const map = autoMap(headers)
     const dateValues = map.birthdate !== undefined ? body.slice(0, 500).map((r) => r[map.birthdate!] ?? '') : []
@@ -78,7 +80,7 @@ export function HrImportCard() {
     setError('')
     const res = await hrImport(rows, parsed?.name ?? 'HR list', true)
     setBusy(false)
-    if (res.error || !res.result) return setError(res.error ?? 'Could not check the list.')
+    if (res.error || !res.result) return setError(res.error ?? t('Could not check the list.'))
     setResult(res.result)
     setStage('review')
   }
@@ -88,10 +90,10 @@ export function HrImportCard() {
     setError('')
     const res = await hrImport(rows, parsed?.name ?? 'HR list', false)
     setBusy(false)
-    if (res.error || !res.result) return setError(res.error ?? 'The import failed.')
+    if (res.error || !res.result) return setError(res.error ?? t('The import failed.'))
     setResult(res.result)
     setStage('done')
-    toast({ tone: 'ok', title: 'HR list imported', body: `${res.result.created} new, ${res.result.updated} updated.` })
+    toast({ tone: 'ok', title: t('HR list imported'), body: `${res.result.created} ${t('new')}, ${res.result.updated} ${t('updated')}.` })
   }
 
   const nothing = result && result.created + result.updated === 0
@@ -100,23 +102,23 @@ export function HrImportCard() {
     <Card className="p-6 xl:col-span-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="text-lg font-semibold">HR employee list</p>
+          <p className="text-lg font-semibold">{t('HR employee list')}</p>
           <p className="text-[15px] text-muted">
-            The list check-in verifies against. Importing creates a record for each new employee and updates names, offices and positions; it never changes a birthdate.
+            {t('The list check-in verifies against. Importing creates a record for each new employee and updates names, offices and positions; it never changes a birthdate.')}
           </p>
           <p className="mt-2 text-[15px] text-ink-2">
             {data.lastImport.at ? (
               <>
-                Last import: <b>{fmtStampOf(data.lastImport.at)}</b> · {data.lastImport.count} rows · {data.lastImport.source}
+                {t('Last import:')} <b>{fmtStampOf(data.lastImport.at)}</b> · {data.lastImport.count} {t('rows')} · {data.lastImport.source}
               </>
             ) : (
-              'No list has been imported yet.'
+              t('No list has been imported yet.')
             )}{' '}
-            · {data.employees.length} employees on the list now.
+            · {data.employees.length} {t('employees on the list now.')}
           </p>
         </div>
         <Button size="lg" icon={<FileArrowUp size={18} />} onClick={() => setStage('choose')}>
-          Import HR list
+          {t('Import HR list')}
         </Button>
       </div>
 
@@ -124,91 +126,91 @@ export function HrImportCard() {
         open={stage !== 'closed'}
         onClose={close}
         wide
-        title={stage === 'done' ? 'Import finished' : 'Import the HR employee list'}
-        subtitle={stage === 'choose' ? 'Step 1 of 3: choose the file' : stage === 'map' ? 'Step 2 of 3: match the columns' : stage === 'review' ? 'Step 3 of 3: check, then import' : undefined}
+        title={stage === 'done' ? t('Import finished') : t('Import the HR employee list')}
+        subtitle={stage === 'choose' ? t('Step 1 of 3: choose the file') : stage === 'map' ? t('Step 2 of 3: match the columns') : stage === 'review' ? t('Step 3 of 3: check, then import') : undefined}
         footer={
           stage === 'choose' ? (
             <Button variant="ghost" onClick={close}>
-              Cancel
+              {t('Cancel')}
             </Button>
           ) : stage === 'map' ? (
             <>
               <Button variant="ghost" onClick={() => setStage('choose')}>
-                Back
+                {t('Back')}
               </Button>
               <Button onClick={check} disabled={busy || missing.length > 0}>
-                {busy ? 'Checking…' : 'Check the list'}
+                {busy ? t('Checking…') : t('Check the list')}
               </Button>
             </>
           ) : stage === 'review' ? (
             <>
               <Button variant="ghost" onClick={() => setStage('map')}>
-                Back
+                {t('Back')}
               </Button>
               <Button onClick={apply} disabled={busy || !!nothing}>
-                {busy ? 'Importing…' : nothing ? 'Nothing to import' : `Import ${result!.created + result!.updated} changes`}
+                {busy ? t('Importing…') : nothing ? t('Nothing to import') : `${t('Import')} ${result!.created + result!.updated} ${t('changes')}`}
               </Button>
             </>
           ) : (
-            <Button onClick={close}>Done</Button>
+            <Button onClick={close}>{t('Done')}</Button>
           )
         }
       >
         {stage === 'choose' && (
           <div>
             <p className="text-base text-ink-2">
-              Export the HR list from Excel as <b>CSV UTF-8</b> (File &gt; Save As). The first row must be the column names. Needed: employee ID, full name, birthdate and sex. Office, position and contact number are optional.
+              {t('Export the HR list from Excel as CSV UTF-8 (File > Save As). The first row must be the column names. Needed: employee ID, full name, birthdate and sex. Office, position and contact number are optional.')}
             </p>
             <input ref={file} type="file" accept=".csv,text/csv" onChange={(e) => void onFile(e.target.files?.[0])} className="mt-4 block w-full rounded-2xl border-2 border-dashed border-brand-200 bg-brand-50/50 p-6 text-base" />
-            <p className="mt-3 text-sm text-muted">Up to 5,000 rows and 5 MB. Nothing is saved until you press Import on the last step.</p>
+            <p className="mt-3 text-sm text-muted">{t('Up to 5,000 rows and 5 MB. Nothing is saved until you press Import on the last step.')}</p>
           </div>
         )}
 
         {stage === 'map' && parsed && (
           <div>
             <p className="text-[15px] text-ink-2">
-              <b>{parsed.name}</b>: {parsed.body.length} rows. Check that each field is matched to the right column.
+              <b>{parsed.name}</b>: {parsed.body.length} {t('rows')}. {t('Check that each field is matched to the right column.')}
             </p>
             <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {HR_FIELDS.map((f) => (
-                <Field key={f.key} label={`${f.label}${f.required ? '' : ' (optional)'}`} hint={f.hint}>
+                <Field key={f.key} label={`${t(f.label)}${f.required ? '' : ` (${t('optional')})`}`} hint={f.hint ? t(f.hint) : undefined}>
                   <Select
                     value={mapping[f.key] ?? ''}
                     onChange={(e) => setMapping({ ...mapping, [f.key]: e.target.value === '' ? undefined : Number(e.target.value) })}
                     className="h-12 text-base"
                   >
-                    <option value="">{f.required ? 'Choose a column' : 'Not in the file'}</option>
+                    <option value="">{f.required ? t('Choose a column') : t('Not in the file')}</option>
                     {parsed.headers.map((h, i) => (
                       <option key={i} value={i}>
-                        {h || `Column ${i + 1}`}
+                        {h || `${t('Column')} ${i + 1}`}
                       </option>
                     ))}
                   </Select>
                 </Field>
               ))}
-              <Field label="How dates are written" hint={orderGuessed ? 'Cannot tell from the file: check the sample below.' : 'Worked out from the file.'}>
+              <Field label={t('How dates are written')} hint={orderGuessed ? t('Cannot tell from the file: check the sample below.') : t('Worked out from the file.')}>
                 <Select value={order} onChange={(e) => setOrder(e.target.value as DateOrder)} className="h-12 text-base">
                   {(Object.keys(ORDER_LABEL) as DateOrder[]).map((o) => (
                     <option key={o} value={o}>
-                      {ORDER_LABEL[o]}
+                      {t(ORDER_LABEL[o])}
                     </option>
                   ))}
                 </Select>
               </Field>
             </div>
-            {missing.length > 0 && <p className="mt-3 text-[15px] font-semibold text-danger">Still to match: {missing.map((m) => m.label).join(', ')}.</p>}
+            {missing.length > 0 && <p className="mt-3 text-[15px] font-semibold text-danger">{t('Still to match:')} {missing.map((m) => t(m.label)).join(', ')}.</p>}
 
-            <p className="mb-1 mt-4 text-[15px] font-semibold">What the first rows will become</p>
+            <p className="mb-1 mt-4 text-[15px] font-semibold">{t('What the first rows will become')}</p>
             <div className="overflow-x-auto rounded-2xl border border-line">
               <table className="w-full text-left text-[14px]">
                 <thead className="bg-canvas text-muted">
                   <tr>
-                    <th className="px-3 py-2">Line</th>
-                    <th className="px-3 py-2">Employee ID</th>
-                    <th className="px-3 py-2">Name</th>
-                    <th className="px-3 py-2">Birthdate</th>
-                    <th className="px-3 py-2">Sex</th>
-                    <th className="px-3 py-2">Office</th>
+                    <th className="px-3 py-2">{t('Line')}</th>
+                    <th className="px-3 py-2">{t('Employee ID')}</th>
+                    <th className="px-3 py-2">{t('Name')}</th>
+                    <th className="px-3 py-2">{t('Birthdate')}</th>
+                    <th className="px-3 py-2">{t('Sex')}</th>
+                    <th className="px-3 py-2">{t('Office')}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -246,13 +248,13 @@ export function HrImportCard() {
                 ['On the system, not in this file', result.notInList],
               ].map(([k, v]) => (
                 <div key={String(k)} className="rounded-2xl bg-canvas p-4">
-                  <p className="text-sm text-muted">{k}</p>
+                  <p className="text-sm text-muted">{t(String(k))}</p>
                   <p className="text-3xl font-semibold tabular">{v}</p>
                 </div>
               ))}
             </div>
 
-            {stage === 'review' && result.notInList > 0 && <p className="mt-3 text-sm text-muted">Employees not in the file are left exactly as they are. Importing never removes anyone.</p>}
+            {stage === 'review' && result.notInList > 0 && <p className="mt-3 text-sm text-muted">{t('Employees not in the file are left exactly as they are. Importing never removes anyone.')}</p>}
 
             {result.conflicts.length > 0 && (
               <div className="mt-4 rounded-2xl bg-warn-soft px-4 py-3 text-[15px] text-warn">
@@ -302,7 +304,7 @@ export function HrImportCard() {
                 <p className="mt-1">
                   After the import they appear in{' '}
                   <Link to="/clinic/patients/duplicates" onClick={close} className="font-semibold underline">
-                    Possible duplicates
+                    {t('Possible duplicates')}
                   </Link>
                   , where you can merge them with the HR-listed record kept.
                 </p>

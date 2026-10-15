@@ -55,7 +55,7 @@ export default function Consult() {
   if (!pt || !p || !me) {
     return (
       <Card className="p-8 text-center">
-        <p className="text-xl font-semibold">Patient not found</p>
+        <p className="text-xl font-semibold">{t('Patient not found')}</p>
         <Button to="/clinic/doctor" className="mt-4">
           {t('My queue')}
         </Button>
@@ -304,7 +304,7 @@ export default function Consult() {
                 {dx.map((d) => (
                   <span key={d.icd10_code + d.description} className="inline-flex items-center gap-1.5 rounded-full bg-brand-600 py-1.5 pl-4 pr-2 text-base font-medium text-white">
                     {d.icd10_code} {d.description}
-                    <button aria-label={`Remove ${d.description}`} onClick={() => setDx(dx.filter((x) => x !== d))} className="grid size-7 place-items-center rounded-full hover:bg-white/20">
+                    <button aria-label={`Remove ${d.description}`} onClick={() => setDx(dx.filter((x) => x !== d))} className="-my-1.5 -mr-1.5 grid size-10 place-items-center rounded-full hover:bg-white/20">
                       <X size={14} weight="bold" />
                     </button>
                   </span>
@@ -340,7 +340,7 @@ export default function Consult() {
                   Add drug
                 </Button>
               </div>
-              {rx.length === 0 && <p className="mt-2 text-base text-muted">No medicines. Add a drug or use a template.</p>}
+              {rx.length === 0 && <p className="mt-2 text-base text-muted">{t('No medicines. Add a drug or use a template.')}</p>}
               <datalist id="drugs">
                 {DRUGS.map((d) => (
                   <option key={d.name} value={d.name} />
@@ -500,7 +500,7 @@ function Recap({ patientId, onDraft, onClose }: { patientId: string; onDraft: (t
         <p className="flex items-center gap-2 text-base font-semibold text-brand-900">
           <Robot size={20} weight="fill" /> AI-generated draft · read-only · one patient
         </p>
-        <button onClick={onClose} aria-label="Close recap" className="grid size-9 place-items-center rounded-full hover:bg-white">
+        <button onClick={onClose} aria-label="Close recap" className="grid size-11 place-items-center rounded-full hover:bg-white">
           <X size={16} />
         </button>
       </div>

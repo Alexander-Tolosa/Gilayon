@@ -42,24 +42,24 @@ export function StatusBadge() {
       <AnimatePresence>
         {open && (
           <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-14 z-50 w-[22rem] rounded-3xl border border-line bg-surface p-4 shadow-lift">
-            <p className="text-base font-semibold">Connection</p>
+            <p className="text-base font-semibold">{t('Connection')}</p>
             <p className="mt-1 text-sm text-muted">
-              {network === 'online' && 'Connected to the clinic server and the internet. Off-site backup is up to date.'}
-              {network === 'lan' && `The internet is down. Everything in the clinic still works. ${data.offsite.pending} changes wait for the off-site backup.`}
-              {network === 'offline' && `This computer cannot reach the clinic server. Notes are saved here and sync when it reconnects. Queue numbers and signing need the server. ${pending.length} ${t('waiting to sync')}.`}
+              {network === 'online' && t('Connected to the clinic server and the internet. Off-site backup is up to date.')}
+              {network === 'lan' && `${t('The internet is down. Everything in the clinic still works.')} ${data.offsite.pending} ${t('changes wait for the off-site backup.')}`}
+              {network === 'offline' && `${t('This computer cannot reach the clinic server. Notes are saved here and sync when it reconnects. Queue numbers and signing need the server.')} ${pending.length} ${t('waiting to sync')}.`}
             </p>
             <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-faint">Demo: simulate this computer's connection</p>
             <div className="mt-2 flex flex-col gap-1.5">
               {(Object.keys(NET) as NetworkMode[]).map((m) => (
                 <button key={m} onClick={() => setNetwork(m)} className={cn('flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-[15px] transition', network === m ? 'bg-brand-50 font-semibold text-brand-800 ring-1 ring-brand-200' : 'hover:bg-mist')}>
                   <span className={cn('size-2.5 rounded-full', NET[m].dot)} />
-                  {m === 'online' ? 'Online' : m === 'lan' ? 'Internet down (clinic network only)' : 'This computer disconnected'}
+                  {m === 'online' ? t('Online') : m === 'lan' ? t('Internet down (clinic network only)') : t('This computer disconnected')}
                 </button>
               ))}
             </div>
             {waiting > 0 && network !== 'offline' && (
               <Button size="sm" variant="soft" className="mt-3 w-full" icon={<ArrowsClockwise size={16} />} onClick={() => setNetwork('online')}>
-                Sync now
+                {t('Sync now')}
               </Button>
             )}
           </motion.div>
@@ -71,10 +71,11 @@ export function StatusBadge() {
 
 export function LanguageSwitch({ className }: { className?: string }) {
   const lang = useLang()
+  const t = useT()
   return (
-    <div className={cn('flex rounded-full border border-line-strong bg-surface p-1', className)} role="group" aria-label="Language">
+    <div className={cn('flex rounded-full border border-line-strong bg-surface p-1', className)} role="group" aria-label={t('Language')}>
       {(['en', 'fil'] as const).map((l) => (
-        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('h-9 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+        <button key={l} onClick={() => setLang(l)} aria-pressed={lang === l} className={cn('min-h-11 rounded-full px-3.5 text-[15px] font-semibold transition', lang === l ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
           {l === 'en' ? 'EN' : 'FIL'}
         </button>
       ))}
@@ -84,6 +85,7 @@ export function LanguageSwitch({ className }: { className?: string }) {
 
 /** A / A+ / A++ on every clinic screen, for senior staff (concept: large text, big buttons). */
 export function TextSizeSwitch({ className }: { className?: string }) {
+  const t = useT()
   const [size, setSize] = useState<TextSize>(savedTextSize)
   const pick = (s: TextSize) => {
     setSize(s)
@@ -95,9 +97,9 @@ export function TextSizeSwitch({ className }: { className?: string }) {
     }
   }
   return (
-    <div className={cn('hidden rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label="Text size">
+    <div className={cn('hidden rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label={t('Text size')}>
       {TEXT_SIZES.map((s) => (
-        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('h-9 min-w-10 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('min-h-11 min-w-11 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
           {s.label}
         </button>
       ))}
@@ -167,7 +169,7 @@ export function PinModal({ open, onClose, onSubmit, title, children }: { open: b
       setError('')
       onClose()
     } else {
-      setError(r === 'bad-pin' ? 'Incorrect PIN. Try again.' : 'This computer is offline. Documents stay drafts marked "not yet signed" until it reconnects.')
+      setError(r === 'bad-pin' ? t('Incorrect PIN. Try again.') : 'This computer is offline. Documents stay drafts marked "not yet signed" until it reconnects.')
       setPin('')
     }
   }
@@ -183,14 +185,19 @@ export function PinModal({ open, onClose, onSubmit, title, children }: { open: b
       {children}
       <div className="mt-2 flex justify-center gap-3" aria-live="polite">
         {[0, 1, 2, 3].map((i) => (
-          <span key={i} className={cn('size-5 rounded-full border-2', i < pin.length ? 'border-brand-600 bg-brand-600' : 'border-line-strong')} />
+          <span key={i} aria-hidden="true" className={cn('size-5 rounded-full border-2', i < pin.length ? 'border-brand-600 bg-brand-600' : 'border-line-strong')} />
         ))}
+        <span className="sr-only">{pin.length} {t('of 4 digits entered')}</span>
       </div>
-      {error && <p className="mt-3 text-center text-[15px] font-semibold text-danger">{error}</p>}
+      {error && <p role="alert" className="mt-3 text-center text-[15px] font-semibold text-danger">{error}</p>}
       <div className="mx-auto mt-5 grid max-w-xs grid-cols-3 gap-2">
         {['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'].map((k) => (
           <button
             key={k || 'blank'}
+            type="button"
+            aria-label={k === '⌫' ? t('Delete last digit') : undefined}
+            aria-hidden={!k || undefined}
+            tabIndex={k ? undefined : -1}
             disabled={!k}
             onClick={() => (k === '⌫' ? setPin((p) => p.slice(0, -1)) : press(k))}
             className={cn('h-16 rounded-2xl text-2xl font-semibold tabular transition active:scale-95', k ? 'bg-mist text-ink hover:bg-brand-50' : 'invisible')}
@@ -263,6 +270,7 @@ export function SignatureBlock({ staff, signed, documentNo, issuedAt }: { staff:
 /** A scan kept on the clinic server: fetched with the sign-in token, shown from memory. */
 function ProtectedImage({ path, className }: { path: string; className?: string }) {
   const [src, setSrc] = useState<string | null>(null)
+  const t = useT()
   const [failed, setFailed] = useState(false)
   useEffect(() => {
     let live = true
@@ -271,9 +279,9 @@ function ProtectedImage({ path, className }: { path: string; className?: string 
       live = false
     }
   }, [path])
-  if (failed) return <div className={cn('grid place-items-center bg-mist p-4 text-center text-sm text-muted', className)}>Scan could not be loaded</div>
+  if (failed) return <div className={cn('grid place-items-center bg-mist p-4 text-center text-sm text-muted', className)}>{t('Scan could not be loaded')}</div>
   if (!src) return <div className={cn('animate-pulse bg-mist', className)} aria-busy="true" />
-  return <img src={src} alt="Scanned page" className={cn('object-contain', className)} />
+  return <img src={src} alt={t('Scanned page')} className={cn('object-contain', className)} />
 }
 
 /** Placeholder image for seeded "old paper" pages. Real uploads are shown as the uploaded image. */

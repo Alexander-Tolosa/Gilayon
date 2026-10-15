@@ -53,8 +53,8 @@ export default function DoctorQueue() {
             </span>
             <span className="min-w-0">
               <span className="block text-[2rem] font-semibold leading-none tabular">{st.value}</span>
-              <span className="mt-1 block truncate text-[15px] font-medium text-ink">{st.label}</span>
-              <span className="block truncate text-sm text-muted group-hover:text-brand-700">{st.hint}</span>
+              <span className="mt-1 block break-words text-[15px] font-medium text-ink">{st.label}</span>
+              <span className="block break-words text-sm text-muted group-hover:text-brand-700">{st.hint}</span>
             </span>
           </Link>
         ))}
@@ -115,7 +115,7 @@ export default function DoctorQueue() {
                 <TicketNo ticket={c} size="lg" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-brand-800">{c.status === 'called' ? t('Called') : t('In consultation')}</p>
-                  <p className="truncate text-2xl font-semibold">{p?.full_name}</p>
+                  <p className="break-words text-2xl font-semibold">{p?.full_name}</p>
                   <p className="text-base text-ink-2">{c.reason}</p>
                 </div>
                 <Button size="lg" className="h-14 text-lg" icon={<Play size={20} weight="fill" />} onClick={() => open(c.ticket_id, c.patient_id)}>
@@ -162,7 +162,7 @@ export default function DoctorQueue() {
         ) : (
           <p className="p-8 text-center text-xl text-ink-2">{t('No one is waiting')}</p>
         )}
-        {!online && <p className="border-t border-line bg-danger-soft px-6 py-3 text-base text-danger">Offline: calling patients needs the clinic server. You can still open records you opened recently.</p>}
+        {!online && <p className="border-t border-line bg-danger-soft px-6 py-3 text-base text-danger">{t('Offline: calling patients needs the clinic server. You can still open records you opened recently.')}</p>}
       </Card>
 
       <h2 className="mb-3 text-xl font-semibold">
