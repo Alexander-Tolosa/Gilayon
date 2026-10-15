@@ -79,14 +79,14 @@ To start with Windows and restart if it stops, run `deploy\windows\install-servi
 
 The server makes a backup every night (default 02:00, or at the next start if the PC was off), and the doctor can press **Settings → Back up now**.
 
-- **What is in it:** every record and every scanned page, in one `himsog-YYYYMMDD-HHMMSS.hbk` file, encrypted with AES-256-GCM using `BACKUP_PASSPHRASE`. A backup is read back and every checksum is checked before it counts; a failed one never replaces a good one.
+- **What is in it:** every record and every scanned page, in one `gilayon-YYYYMMDD-HHMMSS.hbk` file (backups made before the rename, `himsog-*.hbk`, are still listed, verified and restored), encrypted with AES-256-GCM using `BACKUP_PASSPHRASE`. A backup is read back and every checksum is checked before it counts; a failed one never replaces a good one.
 - **Where it goes:** `BACKUP_DIR` (the USB drive, for example `E:\GilayonBackups`; if the drive is missing the backup fails and Settings says so) and, when reachable, `BACKUP_OFFSITE_DIR` (a synced or network folder). The newest `BACKUP_KEEP` (default 14) are kept in each. The "changes wait for the off-site backup" counter on every screen drops to 0 only after a real, verified copy.
 - **Keep the passphrase safe and separate.** Without it a backup cannot be opened, and nothing can recover it. Settings shows a warning if backups are not configured, failed, or are over a day old.
 
 ```bash
 npm run backup                              # back up now (stop the server first if using the embedded database)
 npm run backup:list                         # backups in BACKUP_DIR
-npm run backup:verify -- E:\GilayonBackups\himsog-20261014-020000.hbk
+npm run backup:verify -- E:\GilayonBackups\gilayon-20261014-020000.hbk
 npm run backup:restore -- <file> --yes      # replaces ALL records; stop the server first
 ```
 
