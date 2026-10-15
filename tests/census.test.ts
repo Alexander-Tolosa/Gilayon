@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { censusFor, weekRange } from '../src/features/clinic/lib/census'
 import { unreadActivity } from '../src/features/clinic/lib/activity'
 import { buildSeed } from '../src/features/clinic/data/seed'
+import { findDuplicatePairs } from '../src/features/clinic/lib/duplicates'
 import { dayKeyOffset, todayKey } from '../src/features/clinic/lib/helpers'
 
 const t = (day: string, patient_id: string) => ({ day, patient_id })
@@ -74,5 +75,17 @@ describe('the seeded pitch week', () => {
     const week = tickets.filter((x) => x.day >= from && x.day <= todayKey())
     expect(week.length).toBeGreaterThan(new Set(week.map((x) => x.patient_id)).size)
     expect(censusFor(tickets, todayKey())[0].visits).toBeGreaterThan(0)
+  })
+})
+
+describe('the seeded duplicate pair', () => {
+  it('shows one mergeable pair for the demo, and the Jose pair stays separate', () => {
+    const d = buildSeed()
+    const pairs = findDuplicatePairs({ ...d, notDuplicates: [] } as never)
+    const names = pairs.map((p) => [p.personA.full_name, p.personB.full_name].sort().join(' / '))
+    expect(names).toContain('Ma. Teresa Gallego / Maria Teresa Gallego')
+    const gallego = pairs.find((p) => p.personA.full_name.includes('Teresa'))!
+    expect(gallego.blocked).toBe(false)
+    expect(names.some((n) => n.includes('Jose'))).toBe(false)
   })
 })
