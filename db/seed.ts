@@ -59,8 +59,26 @@ export async function seed(db: Db) {
     await tx.insert(t.priorityCategory).values(d.categories)
     await chunked(d.persons, 500, (p) => tx.insert(t.person).values(p))
     await chunked(d.employees, 500, (p) => tx.insert(t.employee).values(p))
+    // The paper cabinet was checked for anyone with a folder or a visit; the rest are left unchecked so the
+    // check-in "Paper folder" step shows in a demo.
+    const seen = new Set([...d.consultations.map((c) => c.patient_id), ...d.tickets.map((k) => k.patient_id)])
+    const paperOf = (x: (typeof d.patients)[number]) => x.paper_status ?? (x.legacy_folder_no ? 'on_file' : seen.has(x.patient_id) ? 'none' : null)
     await chunked(d.patients, 500, (p) =>
-      tx.insert(t.patient).values(p.map((x) => ({ ...x, pwd_id: x.pwd_id ?? null, philhealth_pin: x.philhealth_pin ?? null, legacy_folder_no: x.legacy_folder_no ?? null, hr_flag: x.hr_flag ?? null }))),
+      tx.insert(t.patient).values(
+        p.map((x) => {
+          const paper_status = paperOf(x)
+          return {
+            ...x,
+            pwd_id: x.pwd_id ?? null,
+            philhealth_pin: x.philhealth_pin ?? null,
+            legacy_folder_no: x.legacy_folder_no ?? null,
+            hr_flag: x.hr_flag ?? null,
+            paper_status,
+            paper_checked_at: paper_status ? (x.paper_checked_at ?? x.created_at) : null,
+            paper_checked_by: paper_status ? (x.paper_checked_by ?? 'st-f1') : null,
+          }
+        }),
+      ),
     )
     await chunked(d.relationships, 500, (p) => tx.insert(t.patientRelationship).values(p))
     await chunked(d.familyHistory, 500, (p) => tx.insert(t.familyHistory).values(p.map((x) => ({ ...x, notes: x.notes ?? null }))))

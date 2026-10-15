@@ -12,6 +12,7 @@ import type {
   Employee,
   LabOrder,
   NetworkMode,
+  PaperStatus,
   Patient,
   Person,
   Prescription,
@@ -95,6 +96,8 @@ export type PendingOp = OutboxOp
 export type NewStaffInput = { name: string; role: 'doctor' | 'desk' | 'nurse'; title: string; license_no?: string; ptr_no?: string; services?: ServiceType[]; room?: string; password: string }
 
 export type NewPersonInput = { full_name: string; birthdate: string; sex: Sex; contact: string; civil_status: CivilStatus; philhealth_pin?: string; pwd_id?: string }
+/** Employee details are optional: the HR list is a secondary check, and HR may have nothing to import. */
+export type UnlistedInput = NewPersonInput & { employee_no?: string; office?: string; position?: string }
 
 /** What this computer shows for entries still waiting in its offline queue, applied in the order they were made. */
 function overlayOp(s: Snapshot, op: OutboxOp): Snapshot {
@@ -169,14 +172,21 @@ type Api = {
   staffById: (id?: string) => Staff | undefined
   principalOf: (patientId: string) => { principal: Patient; type: RelationshipType; mdr: boolean } | undefined
   isReturning: (patientId: string) => boolean
-  search: (q: string, limit?: number) => SearchHit[]
+  /** Name, ID or folder number, optionally with a birthdate to tell same-name people apart. */
+  search: (q: string, limit?: number, birthdate?: string) => SearchHit[]
   findDuplicates: (full_name: string, birthdate: string) => Person[]
   touch: (patientId: string) => void
   // front desk
-  verify: (personId: string, entered: { full_name: string; birthdate: string; employee_no?: string; principal_no?: string }) => { ok: boolean; mismatches: string[] }
+  verify: (personId: string, entered: VerifyInput) => { ok: boolean; mismatches: string[] }
   flagForHR: (personId: string, note: string) => void
   completeRecord: (patientId: string, patch: Partial<Patient> & Partial<Person>, reason?: string) => void
+  /** Employee ID, office and position typed by hand. Returns an error message, or null when it was saved. */
+  setEmployeeInfo: (patientId: string, info: { employee_no: string; office: string; position: string }, reason?: string) => Promise<string | null>
+  /** The desk looked in the paper cabinet. Returns an error message, or null when it was saved. */
+  recordPaperCheck: (patientId: string, status: PaperStatus, folderNo?: string) => Promise<string | null>
   createDependent: (principalPatientId: string, input: NewPersonInput, type: RelationshipType, mdr: boolean) => Promise<Patient | null>
+  /** Registers someone who is not in the system yet. A 409 with `duplicate` means a likely duplicate person. */
+  registerUnlisted: (input: UnlistedInput, confirmed?: boolean) => Promise<{ patient?: Patient; error?: string; duplicate?: boolean }>
   issueTicket: (patientId: string, categories: CategoryKey[], service: ServiceType, reason: string) => Promise<QueueTicket | null>
   setTicketStatus: (ticketId: string, status: TicketStatus) => void
   markUrgent: (ticketId: string) => void
@@ -218,6 +228,10 @@ type Api = {
   resetDemo: () => void
   online: boolean
 }
+
+export type IdChecked = 'company_id' | 'government_id' | 'other'
+/** What the desk typed. The employee ID is a secondary check and only compared when the person is on the HR list. */
+export type VerifyInput = { full_name: string; birthdate: string; employee_no?: string; principal_no?: string; id_checked?: IdChecked; paper_match?: boolean; override?: boolean }
 
 export type SearchHit = { person: Person; employee?: Employee; patient?: Patient; principal?: Person; score: number }
 
@@ -514,8 +528,8 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       touch: (patientId) => setRecent((r) => [patientId, ...r.filter((x) => x !== patientId)].slice(0, 12)),
 
       // Search runs on this computer's copy so it stays instant, typo tolerant and works from "recent" offline.
-      search: (q, limit = 8) => {
-        if (!q.trim()) return []
+      search: (q, limit = 8, birthdate) => {
+        if (!q.trim() && !birthdate) return []
         const pool = online ? data.persons : data.persons.filter((p) => recent.includes(patientOfPerson(p.person_id)?.patient_id ?? ''))
         return pool
           .map((p) => {
@@ -523,7 +537,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
             const pt = patientOfPerson(p.person_id)
             const principalRel = pt ? data.relationships.find((r) => r.related_patient_id === pt.patient_id) : undefined
             const principal = principalRel ? personOfPatient(principalRel.patient_id) : undefined
-            return { person: p, employee, patient: pt, principal, score: matchScore(q, p.full_name, [employee?.employee_no ?? '', pt?.patient_no ?? '', pt?.legacy_folder_no ?? '']) }
+            const sameBirth = !!birthdate && p.birthdate === birthdate
+            // A birthdate on its own lists everyone born that day; with a name it lifts the right person above namesakes.
+            const base = q.trim() ? matchScore(q, p.full_name, [employee?.employee_no ?? '', pt?.patient_no ?? '', pt?.legacy_folder_no ?? '']) : sameBirth ? 1 : 0
+            return { person: p, employee, patient: pt, principal, score: base + (q.trim() && sameBirth ? 0.5 : 0) }
           })
           .filter((h) => h.score >= 0.45)
           .sort((a, b) => b.score - a.score || a.person.full_name.localeCompare(b.person.full_name))
@@ -540,15 +557,18 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         const n = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
         if (n(entered.full_name) !== n(p.full_name)) mismatches.push('Full name')
         if (entered.birthdate !== p.birthdate) mismatches.push('Birthdate')
-        if (emp && (entered.employee_no ?? '').trim().toUpperCase() !== emp.employee_no) mismatches.push('Employee ID')
-        if (!emp && entered.principal_no !== undefined) {
+        const enteredEmp = (entered.employee_no ?? '').trim().toUpperCase()
+        if (emp && enteredEmp && enteredEmp !== emp.employee_no) mismatches.push('Employee ID')
+        const enteredPrincipal = (entered.principal_no ?? '').trim().toUpperCase()
+        if (!emp && enteredPrincipal) {
           const pt = patientOfPerson(personId)
           const rel = pt && data.relationships.find((r) => r.related_patient_id === pt.patient_id)
           const principalEmp = rel && employeeOfPerson(personOfPatient(rel.patient_id)?.person_id)
-          if (!principalEmp || entered.principal_no.trim().toUpperCase() !== principalEmp.employee_no) mismatches.push('Employee ID of the principal')
+          if (principalEmp && enteredPrincipal !== principalEmp.employee_no) mismatches.push('Employee ID of the principal')
         }
+        if (entered.paper_match === false) mismatches.push('Paper folder')
         void send('/api/patients/verify', { person_id: personId, ...entered })
-        return { ok: mismatches.length === 0, mismatches }
+        return { ok: mismatches.length === 0 || !!entered.override, mismatches }
       },
 
       flagForHR: (personId, note) => void send('/api/patients/flag', { person_id: personId, note }),
@@ -558,11 +578,35 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         void send(`/api/patients/${patientId}`, { patch: rest, reason }, 'PATCH')
       },
 
+      setEmployeeInfo: async (patientId, info, reason) => {
+        if (!online) return 'Only the clinic server can record this. Reconnect this computer first.'
+        return call(`/api/patients/${patientId}/employee`, { ...info, reason: reason || undefined }, 'PUT')
+      },
+
+      recordPaperCheck: async (patientId, status, folderNo) => {
+        if (!online) return 'Only the clinic server can record this. Reconnect this computer first.'
+        return call(`/api/patients/${patientId}/paper`, { status, folder_no: folderNo || undefined })
+      },
+
       createDependent: async (principalPatientId, input, type, mdr) => {
         if (!online) return null
         const res = await send<{ patient_id: string }>(`/api/patients/${principalPatientId}/dependents`, { person: input, type, mdr })
         if (!res) return null
         return (await refresh())?.patients.find((p) => p.patient_id === res.patient_id) ?? null
+      },
+
+      registerUnlisted: async (input, confirmed) => {
+        if (!online) return { error: 'New records can only be created when this computer is connected.' }
+        try {
+          // The id is ours so a retried request cannot register the person twice.
+          const patient_id = uuid()
+          const out = await api<{ patient_id: string }>('/api/patients/unlisted', { token: tokenRef.current, body: { patient_id, person: input, confirmed } })
+          const snap = await refresh()
+          return { patient: snap?.patients.find((p) => p.patient_id === out.patient_id) }
+        } catch (e) {
+          if (e instanceof ApiError) return { error: e.status === 0 ? 'This computer cannot reach the clinic server.' : e.message, duplicate: e.status === 409 }
+          return { error: 'Something went wrong.' }
+        }
       },
 
       issueTicket: async (patientId, categories, service, reason) => {

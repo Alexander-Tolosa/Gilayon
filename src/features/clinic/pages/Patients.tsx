@@ -8,7 +8,7 @@ import { findDuplicatePairs } from '../lib/duplicates'
 import { ageOf, fmtDay, matchScore } from '../lib/helpers'
 import { useClinic } from '../store/store'
 
-type Filter = 'all' | 'employees' | 'dependents' | 'seniors' | 'pwd' | 'flag'
+type Filter = 'all' | 'employees' | 'dependents' | 'others' | 'seniors' | 'pwd' | 'flag' | 'paper'
 
 export default function Patients() {
   const t = useT()
@@ -33,7 +33,7 @@ export default function Patients() {
         return { pt, per, emp, principal, last: lastVisit.get(pt.patient_id), score }
       })
       .filter((r) => r.score >= 0.45)
-      .filter((r) => (filter === 'employees' ? r.emp : filter === 'dependents' ? !r.emp : filter === 'seniors' ? ageOf(r.per.birthdate) >= 60 : filter === 'pwd' ? r.pt.pwd_id : filter === 'flag' ? r.pt.hr_flag : true))
+      .filter((r) => (filter === 'employees' ? r.emp : filter === 'dependents' ? !r.emp && r.principal : filter === 'others' ? !r.emp && !r.principal : filter === 'seniors' ? ageOf(r.per.birthdate) >= 60 : filter === 'pwd' ? r.pt.pwd_id : filter === 'flag' ? r.pt.hr_flag : filter === 'paper' ? !r.pt.paper_status : true))
       .sort((a, b) => (q ? b.score - a.score : a.per.full_name.localeCompare(b.per.full_name)))
   }, [data, q, filter, online, recent])
 
@@ -46,7 +46,7 @@ export default function Patients() {
 
   return (
     <div>
-      <PageTitle title={t('Patient registry')} sub={`${data.patients.length} patient records · ${data.employees.length} employees on the HR list`} />
+      <PageTitle title={t('Patient registry')} sub={`${data.patients.length} patient records · ${data.employees.length} with employee details`} />
       {dupCount > 0 && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-warn-soft px-5 py-3">
           <p className="text-base text-warn">
@@ -68,9 +68,11 @@ export default function Patients() {
             ['all', 'All'],
             ['employees', 'Employees'],
             ['dependents', 'Dependents'],
+            ['others', 'Other patients'],
             ['seniors', 'Seniors (60+)'],
             ['pwd', 'PWD'],
             ['flag', 'HR flag'],
+            ['paper', 'Paper not checked'],
           ] as [Filter, string][]
         ).map(([f, l]) => (
           <Chip key={f} selected={filter === f} onClick={() => setFilter(f)} className="h-11 text-base">
@@ -96,6 +98,7 @@ export default function Patients() {
                     {r.pt.patient_no}
                     {r.pt.legacy_folder_no && ` · folder ${r.pt.legacy_folder_no}`}
                     {r.pt.hr_flag && <span className="ml-2 rounded-full bg-danger-soft px-2 font-semibold text-danger">HR flag</span>}
+                    {!r.pt.paper_status && <span className="ml-2 rounded-full bg-warn-soft px-2 font-semibold text-warn">{t('Paper not checked')}</span>}
                   </span>
                 </span>
                 <span className="text-base tabular text-ink-2">
@@ -106,10 +109,12 @@ export default function Patients() {
                     <>
                       <span className="font-mono text-brand-800">{r.emp.employee_no}</span> · <span className="break-words">{r.emp.office}</span>
                     </>
-                  ) : (
+                  ) : r.principal ? (
                     <>
-                      {t('Dependent')} of {r.principal?.full_name ?? '—'}
+                      {t('Dependent')} of {r.principal.full_name}
                     </>
+                  ) : (
+                    <span className="text-muted">{t('No employee details')}</span>
                   )}
                 </span>
                 <span className="text-base text-ink-2">{r.last ? fmtDay(r.last) : '—'}</span>

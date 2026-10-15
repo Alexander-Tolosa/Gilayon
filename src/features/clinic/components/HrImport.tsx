@@ -158,6 +158,7 @@ export function HrImportCard() {
       >
         {stage === 'choose' && (
           <div>
+            <p className="mb-3 rounded-2xl bg-canvas px-4 py-3 text-base text-ink-2">{t('The HR list is optional: it is a second check at the desk. If HR keeps paper records, skip this and type employee details at check-in or on the record.')}</p>
             <p className="text-base text-ink-2">
               {t('Export the HR list from Excel as CSV UTF-8 (File > Save As). The first row must be the column names. Needed: employee ID, full name, birthdate and sex. Office, position and contact number are optional.')}
             </p>

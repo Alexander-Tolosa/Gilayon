@@ -116,7 +116,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 
 ## Five-minute demo script (concept §11)
 
-1. **Check in** (front desk, `/clinic/checkin`): search `maria lurdes` (typos are fine). Verify name, birthdate and employee ID against the HR list, then try a wrong birthdate to see the check-in blocked. Mark her **Urgent**, then print the slip.
+1. **Check in** (front desk, `/clinic/checkin`): search `maria lurdes` (typos are fine; add a birthdate to tell same-name people apart). Next is **Check the paper folder**: the patient states name, birthdate and employee ID (if any); the receptionist looks in the cabinet under the surname, records *Folder found* or *No folder*, and says whether the folder's details match. The system compares the same details with the record. An employee ID is only a secondary check, and a mismatch can be continued after checking another ID (recorded in the audit trail). Nobody is issued a queue number before this step. Someone not in the system yet is registered from *Not on the employee list? → New patient*, with optional employee ID, office and position. Then mark her **Urgent** and print the slip.
 2. **Waiting screen** (`/waiting`, open it in a second window): the number shows up in the Urgent lane, ahead of Pregnant/PWD/Senior and Regular.
 3. **Consult and sign** (doctor, *My queue*): *Call next patient*, apply a template, add **Amoxicillin**, and see the Penicillin allergy warning. Switch to another drug, add a medical certificate, then *Save and sign* with PIN `1234`. Print the prescription and certificate on letterhead.
 4. **Void and reissue** (*Documents*): void the prescription with a reason, then reissue it. The new draft shows which document number it replaces.
@@ -129,7 +129,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | --- | --- |
 | `/` | Landing page |
 | `/clinic/login` | Staff sign-in (front desk or doctor) |
-| `/clinic/checkin` | Verified check-in and new/returning patient (front desk) |
+| `/clinic/checkin` | Check-in: search, check the paper folder and identity, records, priority lane (front desk) |
 | `/clinic/queue` | Queue board by lane |
 | `/clinic/patients`, `/clinic/patients/:id` | Registry with typo-tolerant search; patient record (family, old paper records, labs, history of changes) |
 | `/clinic/doctor` | Doctor's queue (doctor only) |
@@ -153,7 +153,8 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | E-signed Rx (several drugs) and medical certificate, PIN + one tap, license and PTR, document number | Consult, `/print/rx`, `/print/mc` |
 | Void with a reason, then reissue | `/clinic/documents` |
 | Daily report, census (patients and visits per day, week, month and year), audit trail | `/clinic/report`, `/clinic/audit` |
-| Scans of old paper records | Check-in and patient record → *Old paper records* |
+| Scans of old paper records | Check-in (paper folder step) and patient record → *Old paper records* |
+| Paper cabinet check; new patients | `/clinic/checkin` → *Check the paper folder*; *Not on the employee list?* → *New patient* |
 | Offline badge on every screen (Online / Clinic network only / Offline) | Top bar of the clinic screens |
 | English and Filipino labels | EN/FIL switch (clinic screens) |
 | Patient summary printout | Patient record → *Print patient summary* |

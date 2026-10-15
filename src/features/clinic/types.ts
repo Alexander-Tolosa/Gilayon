@@ -23,6 +23,8 @@ export type Employee = {
   position: string
 }
 
+export type PaperStatus = 'on_file' | 'none'
+
 export type Patient = {
   patient_id: string
   person_id: string
@@ -34,6 +36,9 @@ export type Patient = {
   created_at: number
   created_by: string
   hr_flag?: string // set when the front desk flags a mismatch for HR
+  paper_status?: PaperStatus // what the desk found in the paper cabinet; absent until someone checks
+  paper_checked_at?: number
+  paper_checked_by?: string
   merged_into?: string // never present in what screens receive: merged records are folded into their survivor
 }
 

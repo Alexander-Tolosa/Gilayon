@@ -36,6 +36,13 @@
       "when": 1791999088190,
       "tag": "0004_session_idle",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792031817466,
+      "tag": "0005_paper_status",
+      "breakpoints": true
     }
   ]
 }

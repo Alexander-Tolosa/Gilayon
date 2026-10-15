@@ -21,6 +21,8 @@ What is left falls into three groups: things that can only be checked on the cli
   - Priority ranks per lane (the current ranks are the team's suggestion).
   - Whether the census should count visits, patients, or both (both are shown today).
   - How long paper folders are kept after scanning.
+  - Whether HR will ever supply an employee list. The HR import is optional: the desk can type employee ID, office and position, and the employee ID is only a secondary check.
+  - Whether paper folders should get a folder number at all: they are filed by name today, so the number is optional and not checked for duplicates.
   - The doctor's signature and PIN policy.
 
 ## 2. Before real patient data goes in

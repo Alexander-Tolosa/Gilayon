@@ -191,6 +191,10 @@ export default function PatientRecord() {
               )}
               <KeyValue k={t('PhilHealth PIN')} v={pt.philhealth_pin ?? '—'} />
               <KeyValue k={t('PWD ID')} v={pt.pwd_id ?? '—'} />
+              <KeyValue
+                k="Paper folder"
+                v={pt.paper_status === 'on_file' ? `On file${pt.paper_checked_at ? ` · checked ${fmtStampOf(pt.paper_checked_at)}` : ''}` : pt.paper_status === 'none' ? 'No folder' : 'Not checked yet'}
+              />
               <KeyValue k={t('Old folder no.')} v={pt.legacy_folder_no ?? '—'} />
               <KeyValue k="Record created" v={`${fmtStampOf(pt.created_at)} by ${pt.created_by === 'import' ? 'HR list import' : creator?.name ?? '—'}`} />
             </dl>
@@ -478,11 +482,14 @@ function LabsTab({ patientId }: { patientId: string }) {
 
 function EditModal({ open, onClose, patientId }: { open: boolean; onClose: () => void; patientId: string }) {
   const t = useT()
-  const { patient, personOfPatient, completeRecord, online } = useClinic()
+  const { patient, personOfPatient, employeeOfPerson, completeRecord, setEmployeeInfo, online } = useClinic()
   const toast = useToast()
   const pt = patient(patientId)!
   const p = personOfPatient(patientId)!
-  const [f, setF] = useState({ full_name: p.full_name, birthdate: p.birthdate, sex: p.sex, contact: p.contact, civil_status: pt.civil_status, philhealth_pin: pt.philhealth_pin ?? '', pwd_id: pt.pwd_id ?? '', legacy_folder_no: pt.legacy_folder_no ?? '', reason: '' })
+  const emp = employeeOfPerson(p.person_id)
+  const [f, setF] = useState({ full_name: p.full_name, birthdate: p.birthdate, sex: p.sex, contact: p.contact, civil_status: pt.civil_status, philhealth_pin: pt.philhealth_pin ?? '', pwd_id: pt.pwd_id ?? '', legacy_folder_no: pt.legacy_folder_no ?? '', employee_no: emp?.employee_no ?? '', office: emp?.office ?? '', position: emp?.position ?? '', reason: '' })
+  const empNo = f.employee_no.trim().toUpperCase()
+  const empChanged = !!empNo && (empNo !== (emp?.employee_no ?? '') || f.office.trim() !== (emp?.office ?? '') || f.position.trim() !== (emp?.position ?? ''))
   return (
     <Modal
       open={open}
@@ -497,8 +504,12 @@ function EditModal({ open, onClose, patientId }: { open: boolean; onClose: () =>
           </Button>
           <Button
             disabled={!online || f.reason.trim().length < 3}
-            onClick={() => {
+            onClick={async () => {
               completeRecord(patientId, { full_name: f.full_name, birthdate: f.birthdate, sex: f.sex, contact: f.contact, civil_status: f.civil_status, philhealth_pin: f.philhealth_pin || undefined, pwd_id: f.pwd_id || undefined, legacy_folder_no: f.legacy_folder_no || undefined }, f.reason.trim())
+              if (empChanged) {
+                const err = await setEmployeeInfo(patientId, { employee_no: empNo, office: f.office, position: f.position }, f.reason.trim())
+                if (err) return toast({ tone: 'warn', title: 'Employee details not saved', body: err })
+              }
               toast({ tone: 'ok', title: 'Details updated', body: 'Both versions are in the history of changes.' })
               onClose()
             }}
@@ -544,6 +555,16 @@ function EditModal({ open, onClose, patientId }: { open: boolean; onClose: () =>
         </Field>
         <Field label={t('Old folder no.')}>
           <Input value={f.legacy_folder_no} onChange={(e) => setF({ ...f, legacy_folder_no: e.target.value })} className="h-12 text-base" />
+        </Field>
+        <p className="text-base font-semibold text-ink-2 sm:col-span-2">{t('Employee details (optional)')}</p>
+        <Field label={t('Employee ID')}>
+          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} placeholder="IPG-0000-0000" className="h-12 font-mono text-base uppercase" />
+        </Field>
+        <Field label={t('Office')}>
+          <Input value={f.office} onChange={(e) => setF({ ...f, office: e.target.value })} className="h-12 text-base" />
+        </Field>
+        <Field label={t('Position')} className="sm:col-span-2">
+          <Input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label="Why are you changing this?" className={cn('sm:col-span-2')}>
           <Textarea value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="e.g. Checked the patient's PhilHealth ID" className="min-h-16 text-base" />
