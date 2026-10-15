@@ -216,6 +216,39 @@ export const scannedPage = pgTable('scanned_page', {
   page_date: text().notNull(),
   uploaded_by: text().notNull(),
   uploaded_at: ms('uploaded_at').notNull(),
+  /** Old clinic folder pages versus reports brought from another clinic or hospital. */
+  category: text().$type<'Old folder' | 'Outside report'>(),
+  /** Where an outside report came from (clinic or hospital name). */
+  source_clinic: text(),
+  report_date: text(),
+})
+
+/**
+ * One scan read by the local OCR + parser, and what the nurse then confirmed. `fields` keeps, per
+ * field, the text the machine read and the value the person confirmed, which is how accuracy is measured.
+ */
+export const recognitionEvent = pgTable('recognition_event', {
+  event_id: text().primaryKey(),
+  patient_id: text(),
+  page_id: text(),
+  status: text().$type<'queued' | 'draft' | 'confirmed' | 'failed'>().notNull(),
+  ocr_engine: text().notNull(),
+  parse_engine: text().notNull(),
+  ocr_ms: integer().notNull(),
+  parse_ms: integer().notNull(),
+  review_ms: integer(),
+  field_count: integer().notNull().default(0),
+  correct_count: integer().notNull().default(0),
+  fields: jsonb().notNull(),
+  created_by: text().notNull(),
+  created_at: ms('created_at').notNull(),
+  confirmed_at: ms('confirmed_at'),
+  /** Photos taken while the clinic server was unreachable: the stored image, when it was taken, and who it is for. */
+  image_file: text(),
+  captured_at: ms('captured_at'),
+  patient_hint: text(),
+  /** Why a queued photo could not be read, when status is 'failed'. */
+  note: text(),
 })
 
 export const auditLog = pgTable(

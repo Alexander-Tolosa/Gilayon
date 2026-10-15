@@ -175,6 +175,9 @@ export type DocumentRow = {
 
 export type ScanKind = 'Chart' | 'Prescription' | 'Lab result' | 'Certificate'
 
+export type ScanCategory = 'Old folder' | 'Outside report'
+export type ScanExtra = { category?: ScanCategory; source_clinic?: string; report_date?: string }
+
 export type ScannedPage = {
   page_id: string
   patient_id: string
@@ -183,6 +186,9 @@ export type ScannedPage = {
   page_date: string
   uploaded_by: string
   uploaded_at: number
+  category?: ScanCategory
+  source_clinic?: string
+  report_date?: string
 }
 
 export type Allergy = { allergy_id: string; patient_id: string; substance: string; reaction: string; severity: 'Mild' | 'Moderate' | 'Severe' }

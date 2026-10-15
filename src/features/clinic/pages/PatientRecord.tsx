@@ -409,6 +409,7 @@ function ScanGrid({ patientId }: { patientId: string }) {
               <ScanImage file={s.file} className="aspect-[3/4] w-full bg-[#f4efe2]" />
               <span className="block px-3 py-2 text-[15px]">
                 <b>{s.kind}</b>
+                {s.category === 'Outside report' && <span className="block text-sm font-medium text-brand-700">Outside report{s.source_clinic ? ` · ${s.source_clinic}` : ''}</span>}
                 <span className="block text-sm text-muted">
                   {fmtDay(s.page_date)} · by {staffById(s.uploaded_by)?.name.split(' ')[0]}
                 </span>

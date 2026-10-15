@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type SecurityStatus, type Snapshot } from '../api-types'
+import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type OpenedScan, type PendingScan, type RecognitionMetrics, type ScanReading, type SecurityStatus, type Snapshot } from '../api-types'
 import { matchScore, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import type { HrImportResult, RawHrRow } from '../lib/hrlist'
@@ -18,6 +18,7 @@ import type {
   Prescription,
   QueueTicket,
   RelationshipType,
+  ScanExtra,
   ScanKind,
   ServiceType,
   Sex,
@@ -103,8 +104,10 @@ export type UnlistedInput = NewPersonInput & { employee_no?: string; office?: st
 function overlayOp(s: Snapshot, op: OutboxOp): Snapshot {
   if (op.kind === 'scan') {
     if (s.scans.some((p) => p.page_id === op.input.page_id)) return s
-    return { ...s, scans: [...s.scans, { page_id: op.input.page_id, patient_id: op.input.patient_id, file: op.input.file, kind: op.input.scan_kind, page_date: op.input.page_date, uploaded_by: op.staff_id, uploaded_at: op.at }] }
+    return { ...s, scans: [...s.scans, { page_id: op.input.page_id, patient_id: op.input.patient_id, file: op.input.file, kind: op.input.scan_kind, page_date: op.input.page_date, category: op.input.category, source_clinic: op.input.source_clinic, report_date: op.input.report_date, uploaded_by: op.staff_id, uploaded_at: op.at }] }
   }
+  // A photo waiting to be read is not part of any record yet, so it changes nothing on screen.
+  if (op.kind === 'folder_scan') return s
   if (op.kind === 'edit_draft') {
     const { doc_kind, id, patch } = op.input
     if (doc_kind === 'rx') {
@@ -190,7 +193,7 @@ type Api = {
   issueTicket: (patientId: string, categories: CategoryKey[], service: ServiceType, reason: string) => Promise<QueueTicket | null>
   setTicketStatus: (ticketId: string, status: TicketStatus) => void
   markUrgent: (ticketId: string) => void
-  uploadScan: (patientId: string, file: string, kind: ScanKind, page_date: string) => Promise<boolean>
+  uploadScan: (patientId: string, file: string, kind: ScanKind, page_date: string, extra?: ScanExtra) => Promise<boolean>
   addFamilyHistory: (patientId: string, relative: string, condition: string, notes?: string) => void
   addAllergy: (patientId: string, substance: string, reaction: string, severity: 'Mild' | 'Moderate' | 'Severe') => void
   linkRelative: (principalPatientId: string, relatedPatientId: string, type: RelationshipType, mdr: boolean) => void
@@ -223,6 +226,15 @@ type Api = {
   exportAudit: () => Promise<string | null>
   setClinicProfile: (profile: ClinicProfile) => Promise<string | null>
   fetchBackups: () => Promise<BackupStatus | null>
+  /** Reads a photo of an old-folder intake form on the clinic server (local OCR, no internet). Returns a message on failure. */
+  scanFolderForm: (file: string) => Promise<{ reading?: ScanReading; error?: string; offline?: boolean }>
+  confirmFolderScan: (eventId: string, body: { patient_id: string; values: Record<string, string>; review_ms: number; file?: string }) => Promise<{ error?: string; added?: number; correct?: number; field_count?: number }>
+  fetchRecognitionMetrics: () => Promise<RecognitionMetrics | null>
+  /** Keeps a photo on this computer when the server cannot be reached; it is sent and read once the server is back. */
+  captureFolderScan: (file: string, patient_hint?: string) => Promise<void>
+  fetchPendingScans: () => Promise<PendingScan[] | null>
+  openPendingScan: (eventId: string) => Promise<{ opened?: OpenedScan; error?: string }>
+  discardPendingScan: (eventId: string) => Promise<string | null>
   fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
   resetDemo: () => void
@@ -635,15 +647,15 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       markUrgent: (ticketId) => void send(`/api/queue/${ticketId}/urgent`),
 
       // Photos of old folders can be taken offline; they wait in the outbox with their own id.
-      uploadScan: async (patientId, file, kind, page_date) => {
+      uploadScan: async (patientId, file, kind, page_date, extra) => {
         const page_id = uuid().replace(/-/g, '')
         const queue = async () => {
-          await enqueue({ kind: 'scan', input: { page_id, patient_id: patientId, file, scan_kind: kind, page_date } })
+          await enqueue({ kind: 'scan', input: { page_id, patient_id: patientId, file, scan_kind: kind, page_date, ...extra } })
           return true
         }
         if (!online) return queue()
         try {
-          await api(`/api/patients/${patientId}/scans`, { token: tokenRef.current, body: { page_id, file, kind, page_date } })
+          await api(`/api/patients/${patientId}/scans`, { token: tokenRef.current, body: { page_id, file, kind, page_date, ...extra } })
           await refresh()
           return true
         } catch (e) {
@@ -744,6 +756,56 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       setStaffActive: (staffId, active) => call(`/api/staff/${staffId}/active`, { active }),
       resetStaffPassword: (staffId, temporary) => call(`/api/staff/${staffId}/password`, { temporary }),
 
+      scanFolderForm: async (file) => {
+        try {
+          return { reading: await api<ScanReading>('/api/recognition/scan', { token: tokenRef.current, body: { file } }) }
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 0) return { offline: true, error: 'The clinic server cannot be reached.' }
+          return { error: e instanceof ApiError ? e.message : 'The scan could not be read.' }
+        }
+      },
+      confirmFolderScan: async (eventId, body) => {
+        try {
+          const out = await api<{ added: number; correct: number; field_count: number }>(`/api/recognition/${eventId}/confirm`, { token: tokenRef.current, body })
+          await refresh()
+          return out
+        } catch (e) {
+          return { error: e instanceof ApiError ? e.message : 'Could not save the confirmed form.' }
+        }
+      },
+      captureFolderScan: async (file, patient_hint) => {
+        const scan_id = uuid()
+        await enqueue({ op_id: scan_id, kind: 'folder_scan', input: { scan_id, file, captured_at: Date.now(), patient_hint } })
+      },
+      fetchPendingScans: async () => {
+        try {
+          return await api<PendingScan[]>('/api/recognition/pending', { token: tokenRef.current })
+        } catch {
+          return null
+        }
+      },
+      openPendingScan: async (eventId) => {
+        try {
+          return { opened: await api<OpenedScan>(`/api/recognition/${eventId}`, { token: tokenRef.current }) }
+        } catch (e) {
+          return { error: e instanceof ApiError ? e.message : 'Could not open this photo.' }
+        }
+      },
+      discardPendingScan: async (eventId) => {
+        try {
+          await api(`/api/recognition/${eventId}/discard`, { token: tokenRef.current, body: {} })
+          return null
+        } catch (e) {
+          return e instanceof ApiError ? e.message : 'Could not discard this photo.'
+        }
+      },
+      fetchRecognitionMetrics: async () => {
+        try {
+          return await api<RecognitionMetrics>('/api/recognition/metrics', { token: tokenRef.current })
+        } catch {
+          return null
+        }
+      },
       fetchBackups: async () => {
         try {
           return await api<BackupStatus>('/api/backups', { token: tokenRef.current })

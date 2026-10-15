@@ -86,3 +86,48 @@ export type SecurityStatus = {
   fingerprint: string | null
   httpsPort: number
 }
+
+/* Scan recognition: reading a paper folder form on the clinic PC (OCR + parser), then confirming it. */
+export type ScanField = {
+  key: string
+  label: string
+  group: 'identity' | 'allergy' | 'family' | 'medicines' | 'visit'
+  raw: string
+  value: string
+  confidence: number
+  review: boolean
+  source: 'rules' | 'llm'
+}
+export type ScanPatientMatch = { patient_id: string; full_name: string; birthdate: string; by: 'name and birthdate' | 'folder number' }
+export type ScanReading = {
+  event_id: string
+  fields: ScanField[]
+  ocr_ms: number
+  parse_ms: number
+  ocr_engine: string
+  parse_engine: string
+  llm: { available: boolean; model: string; reason?: string }
+  match: ScanPatientMatch | null
+  candidates: { patient_id: string; full_name: string; birthdate: string }[]
+}
+export type RecognitionMetrics = {
+  scans: number
+  drafts: number
+  fields: number
+  correct: number
+  accuracy: number
+  machine_ms: number
+  review_ms: number
+  total_ms: number
+  fastest_ms: number
+  perfect: number
+  by_field: { key: string; label: string; total: number; correct: number; accuracy: number }[]
+  by_group: { group: string; total: number; correct: number; accuracy: number }[]
+  recent: { n: number; at: number | null; accuracy: number; seconds: number; machine_ms: number; parse_engine: string }[]
+  engines: string[]
+  llm: { available: boolean; model: string; reason?: string }
+}
+
+/** A photo sent from the offline queue: queued -> read in the background -> waiting for a person to check it. */
+export type PendingScan = { event_id: string; status: 'queued' | 'draft' | 'failed'; captured_at: number; patient_hint: string; note: string; full_name: string }
+export type OpenedScan = ScanReading & { image: string; patient_hint: string }
