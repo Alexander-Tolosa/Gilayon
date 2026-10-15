@@ -438,6 +438,7 @@ function FieldRow({ label, field, value, onChange }: { label: string; field?: Sc
           </span>
         )}
       </div>
+      {field?.note && value === field.value && <p className="mt-1 text-sm text-brand-700">{field.note}</p>}
     </Field>
   )
 }

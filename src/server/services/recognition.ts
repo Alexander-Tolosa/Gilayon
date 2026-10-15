@@ -5,7 +5,8 @@ import { getDb, type Q } from '../db'
 import { notifyChanged } from '../events'
 import { decodeImage, readScan, removeScan, storeScan } from '../files'
 import { ocrImage } from '../recognition/ocr'
-import { llmStatus, mergeLlm, parseWithLlm, parseWithRules, type ParsedField } from '../recognition/parse'
+import { llmStatus, mergeLlm, parseReading, parseWithLlm, type ParsedField } from '../recognition/parse'
+import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
 import { addAllergy, addFamilyHistory, completeRecord, uploadScan } from './records'
 
 /*
@@ -41,18 +42,34 @@ async function findPatient(q: Q, f: Record<string, string>) {
 }
 
 /** OCR, then the parser (and the local model when it is running). Nothing here touches the database. */
-async function readBytes(bytes: Buffer) {
+async function knownPatients(q: Q): Promise<KnownPatient[]> {
+  const rows = await q
+    .select({ patient_id: t.patient.patient_id, full_name: t.person.full_name, birthdate: t.person.birthdate, sex: t.person.sex, contact: t.person.contact, civil_status: t.patient.civil_status, pin: t.patient.philhealth_pin, folder: t.patient.legacy_folder_no, merged: t.patient.merged_into })
+    .from(t.patient)
+    .innerJoin(t.person, eq(t.person.person_id, t.patient.person_id))
+  return rows.filter((r) => !r.merged).map((r) => ({ patient_id: r.patient_id, full_name: r.full_name, birthdate: r.birthdate, sex: r.sex, contact: r.contact, civil_status: r.civil_status, philhealth_pin: r.pin ?? '', folder: r.folder ?? '' }))
+}
+
+async function vocabulary(q: Q) {
+  const [al, fh] = await Promise.all([q.select({ s: t.allergy.substance }).from(t.allergy), q.select({ c: t.familyHistory.condition }).from(t.familyHistory)])
+  const upper = (xs: string[]) => [...new Set(xs.map((x) => x.trim().toUpperCase()).filter(Boolean))]
+  return { ...BASE_VOCABULARY, substances: upper([...BASE_VOCABULARY.substances, ...al.map((a) => a.s)]), conditions: upper([...BASE_VOCABULARY.conditions, ...fh.map((f) => f.c)]) }
+}
+
+async function readBytes(q: Q, bytes: Buffer) {
   const ocr = await ocrImage(bytes)
   if (ocr.lines.length < 4) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
   const t0 = Date.now()
-  let fields = parseWithRules(ocr.lines)
+  let fields = parseReading(ocr)
   let parse_engine = 'Rule reader (local)'
   const llm = await parseWithLlm(ocr.text)
   if (llm) {
     fields = mergeLlm(fields, llm.data)
     parse_engine = `Rule reader + ${llm.model} (Ollama, local)`
   }
-  return { fields, ocr_ms: ocr.ms, parse_ms: Date.now() - t0, ocr_engine: ocr.engine, parse_engine }
+  // Layer 2: correct near-misses against the clinic's own records.
+  fields = snapToKnown(fields, await knownPatients(q), await vocabulary(q)).fields
+  return { fields, ocr_ms: ocr.ms, parse_ms: Date.now() - t0, ocr_engine: ocr.engine, parse_engine: `${parse_engine} + clinic records` }
 }
 
 async function reading(q: Q, ev: { event_id: string; fields: unknown; ocr_ms: number; parse_ms: number; ocr_engine: string; parse_engine: string }) {
@@ -62,7 +79,7 @@ async function reading(q: Q, ev: { event_id: string; fields: unknown; ocr_ms: nu
 }
 
 export async function scanForm(q: Q, actor: Actor, file: string) {
-  const r = await readBytes(decodeImage(file).bytes)
+  const r = await readBytes(q, decodeImage(file).bytes)
   const event_id = uuid()
   await q.insert(t.recognitionEvent).values({ event_id, status: 'draft', ocr_engine: r.ocr_engine, parse_engine: r.parse_engine, ocr_ms: r.ocr_ms, parse_ms: r.parse_ms, fields: r.fields, created_by: actor.staff_id, created_at: nowMs() })
   return reading(q, { event_id, ...r })
@@ -111,7 +128,7 @@ export async function processQueued() {
       const [next] = await db.select().from(t.recognitionEvent).where(eq(t.recognitionEvent.status, 'queued')).orderBy(t.recognitionEvent.created_at).limit(1)
       if (!next?.image_file) break
       try {
-        const r = await readBytes((await readScan(next.image_file)).bytes)
+        const r = await readBytes(db, (await readScan(next.image_file)).bytes)
         await db.update(t.recognitionEvent).set({ status: 'draft', fields: r.fields, ocr_ms: r.ocr_ms, parse_ms: r.parse_ms, ocr_engine: r.ocr_engine, parse_engine: r.parse_engine, note: null }).where(eq(t.recognitionEvent.event_id, next.event_id))
       } catch (e) {
         const note = e instanceof HttpError ? e.message : 'This photo could not be read.'
