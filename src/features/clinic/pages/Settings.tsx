@@ -120,10 +120,11 @@ export default function Settings() {
             </Button>
             <Button
               variant="danger"
-              onClick={() => {
-                resetDemo()
+              onClick={async () => {
+                // Only say it worked when it did: the server refuses unless this is a demo server (GILAYON_ALLOW_RESET=1).
+                const ok = await resetDemo()
                 setReset(false)
-                toast({ tone: 'ok', title: 'Demo data reset' })
+                if (ok) toast({ tone: 'ok', title: 'Demo data reset' })
               }}
             >
               Reset

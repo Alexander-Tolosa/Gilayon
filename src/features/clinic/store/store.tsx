@@ -249,7 +249,8 @@ type Api = {
   discardPendingScan: (eventId: string) => Promise<string | null>
   fetchSecurity: () => Promise<SecurityStatus | null>
   runBackup: () => Promise<string | null>
-  resetDemo: () => void
+  /** Replaces every record with a fresh synthetic seed. Resolves true when the server did it. */
+  resetDemo: () => Promise<boolean>
   online: boolean
 }
 
@@ -909,11 +910,13 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         }
       },
 
-      resetDemo: () => {
+      resetDemo: async () => {
+        // The server refuses on a real clinic database, so nothing local is thrown away until it has agreed.
+        if (!(await send('/api/dev/reset'))) return false
         void dropOps([...pendingRef.current, ...rejected].map((o) => o.op_id))
         setPending([])
         setRecent([])
-        void send('/api/dev/reset')
+        return true
       },
     }
   }, [data, ready, connected, me, network, pending, rejected, recent, online, setNetwork, refresh, clearSession, enqueue])

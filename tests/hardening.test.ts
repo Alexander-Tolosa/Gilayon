@@ -205,3 +205,26 @@ describe('temporary passwords', () => {
     expect((await state(new Request('http://x/api/state', { headers }))).status).toBe(200)
   })
 })
+
+describe('resetting the demo data', () => {
+  const reset = async (env: Record<string, string | undefined>) => {
+    const prev = { ...process.env }
+    Object.assign(process.env, env)
+    const { POST } = await import('../app/api/dev/reset/route')
+    const { token } = await login(db, 'st-d1', 'demo-password')
+    const res = await POST(new Request('http://x/api/dev/reset', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: '{}' }), { params: Promise.resolve({}) } as never)
+    process.env = prev
+    return res
+  }
+
+  it('refuses on a server that is not a demo, so a real clinic database is never wiped by a button', async () => {
+    const res = await reset({ GILAYON_ALLOW_RESET: '0', HIMSOG_ALLOW_RESET: undefined, NEXT_PUBLIC_DEMO: '0' })
+    expect(res.status).toBe(403)
+    expect(await res.json()).toMatchObject({ error: expect.stringContaining('Reset is disabled') })
+  })
+
+  it('is allowed where it is switched on for a rehearsal', async () => {
+    const res = await reset({ GILAYON_ALLOW_RESET: '1', NEXT_PUBLIC_DEMO: '0' })
+    expect(res.status).toBe(200)
+  })
+})
