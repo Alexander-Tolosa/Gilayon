@@ -1,4 +1,4 @@
-import { ArrowRight, Camera, CheckCircle, CloudArrowUp, Cpu, FolderOpen, Lightning, PencilLine, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
+import { ArrowRight, Camera, CheckCircle, CloudArrowUp, Copy, Cpu, FolderOpen, Lightning, PencilLine, Scan, ShieldCheck, Target, Timer, Trash, UploadSimple, Warning, WifiSlash } from '@phosphor-icons/react'
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { Link, useLocation } from 'react-router-dom'
@@ -394,10 +394,9 @@ function Scanner({ onDone }: { onDone: () => void }) {
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="ok" icon={<Lightning size={14} />}>Read in {seconds(reading.ocr_ms + reading.parse_ms)}</Badge>
                 <Badge tone="neutral" icon={<Cpu size={14} />}>{reading.ocr_engine}</Badge>
-                <Badge tone={reading.llm.available ? 'ok' : 'neutral'}>{reading.parse_engine}</Badge>
+                <Badge tone={reading.parse_engine.includes('image reader') ? 'ok' : 'neutral'}>{reading.parse_engine}</Badge>
                 {flagged > 0 && <Badge tone="warn" icon={<Warning size={14} />}>{flagged} to check</Badge>}
               </div>
-              {!reading.llm.available && <p className="mt-2 text-sm text-muted">Language model: {reading.llm.reason}</p>}
               {!reading.parse_engine.includes('image reader') && !fromQueue && (
                 <div className="mt-4 flex flex-col gap-2 border-t border-line pt-4 sm:flex-row sm:items-center sm:justify-between">
                   <p className="max-w-prose text-sm text-ink-2">
@@ -493,6 +492,7 @@ function Scanner({ onDone }: { onDone: () => void }) {
                   </div>
                 )
               })}
+              <OtherLines lines={reading.other} />
               <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
                 <Button size="lg" className="h-14" icon={<CheckCircle size={22} />} disabled={!patientId || busy} onClick={save}>
                   {busy ? 'Saving…' : 'I checked every field. Save to the record'}
@@ -727,7 +727,7 @@ function Accuracy() {
             <li>Accuracy: for each field, the machine's value is compared with the value you confirmed. A field you had to add counts as a miss.</li>
             <li>Speed: machine time is measured by the server; check time runs from when the fields appear until you press save.</li>
             <li>
-              Engines used: {m.engines.join('; ') || 'none yet'}. {m.llm.available ? `Local model ${m.llm.model} is running.` : 'Local language model is off, so the rule reader did the parsing.'}
+              Engines used: {m.engines.join('; ') || 'none yet'}.
             </li>
             <li>Everything runs on the clinic server PC. No scan, text or number on this page leaves the building.</li>
           </ul>
@@ -742,6 +742,47 @@ function Accuracy() {
           </Link>
         </Card>
       </div>
+    </div>
+  )
+}
+
+/**
+ * What the image reader saw on the page that this form has no field for: a page from another clinic, a
+ * second form, anything written in the margin. It is never saved on its own, because no one has checked it
+ * field by field; it is here so the paper is not lost, to be read against the page and copied where it belongs.
+ */
+function OtherLines({ lines }: { lines: string[] }) {
+  const toast = useToast()
+  if (!lines.length) return null
+  const text = lines.join('\n')
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text)
+      toast({ tone: 'ok', title: 'Copied', body: 'Paste it into a note or a consultation.' })
+    } catch {
+      toast({ tone: 'warn', title: 'Could not copy', body: 'Select the text and copy it by hand.' })
+    }
+  }
+  return (
+    <div className="mt-6 rounded-2xl border border-line bg-canvas p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold">Also written on this page</p>
+          <p className="mt-0.5 max-w-prose text-sm text-ink-2">
+            This form has no field for these, so they are not saved. Check them against the paper and copy them where they belong.
+          </p>
+        </div>
+        <Button variant="secondary" size="md" icon={<Copy size={18} />} onClick={() => void copy()}>
+          Copy
+        </Button>
+      </div>
+      <ul className="mt-3 flex flex-col gap-1 border-t border-line pt-3">
+        {lines.map((l, i) => (
+          <li key={i} className="select-text text-base text-ink-2">
+            {l}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

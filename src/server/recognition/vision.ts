@@ -35,7 +35,8 @@ const PROMPT =
   'Return JSON with: folder (FOLDER NO.), full_name (FULL NAME), birthdate (BIRTHDATE as YYYY-MM-DD), sex, civil_status (CIVIL STATUS), contact (CONTACT NO.), ' +
   'philhealth_pin (PHILHEALTH PIN), allergies (each filled line under ALLERGIES, as "substance - reaction - severity"), ' +
   'family_history (each filled line under FAMILY HISTORY, as "relative - condition"), medicines (REGULAR MEDICINES), ' +
-  'visits (each filled line under LAST VISITS, as "date - complaint"). ' +
+  'visits (each filled line under LAST VISITS, as "date - complaint"), ' +
+  'other_text (every other line written or printed on the page that none of the fields above cover, each as "label: answer" exactly as written, so nothing on the page is lost). ' +
   'Use "" or [] for anything left blank on the form. Copy text exactly as written; never guess, correct spelling, translate, or add anything that is not on the page.'
 
 /** Long edge sent to the model. A full-size phone photo would use far more of the model's memory for no gain in accuracy. */

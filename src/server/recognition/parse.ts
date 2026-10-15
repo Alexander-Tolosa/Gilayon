@@ -21,6 +21,7 @@ export type ParsedField = {
   confidence: number
   /** True when the value fails its format check or needed the language model. */
   review: boolean
+  /** 'llm' is no longer produced: it marks events saved before the text model was dropped (see docs/ACCURACY.md). */
   source: 'rules' | 'llm' | 'vision' | 'registry'
   /** Set when the value was changed after reading, and why, so the person verifying can see it. */
   note?: string
@@ -231,27 +232,11 @@ export function parseReading(r: { lines: OcrLine[]; alt: OcrLine[] }): ParsedFie
   return out
 }
 
-/* ---------------------------------------------------------------- optional local language model */
+/* ---------------------------------------------------------------- the local image reader's settings */
 
-export type LlmStatus = { available: boolean; model: string; reason?: string }
 const base = () => (process.env.OLLAMA_URL ?? 'http://127.0.0.1:11434').replace(/\/$/, '')
-/** Where Ollama listens; the image reader (vision.ts) talks to the same server. */
+/** Where Ollama listens; the image reader (vision.ts) talks to it. */
 export const ollamaUrl = base
-const model = () => process.env.OLLAMA_MODEL ?? 'llama3.2:3b'
-
-export async function llmStatus(): Promise<LlmStatus> {
-  if (process.env.OLLAMA_DISABLED === '1') return { available: false, model: model(), reason: 'Turned off (OLLAMA_DISABLED=1).' }
-  try {
-    const res = await fetch(`${base()}/api/tags`, { signal: AbortSignal.timeout(800) })
-    if (!res.ok) return { available: false, model: model(), reason: `Ollama answered ${res.status}.` }
-    const data = (await res.json()) as { models?: { name: string }[] }
-    const want = model()
-    const has = (data.models ?? []).some((m) => m.name === want || m.name.split(':')[0] === want.split(':')[0])
-    return has ? { available: true, model: want } : { available: false, model: want, reason: `Ollama is running but "${want}" is not pulled. Run: ollama pull ${want}` }
-  } catch {
-    return { available: false, model: model(), reason: 'Ollama is not running on this PC (port 11434). Rules-only mode is active.' }
-  }
-}
 
 const schema = {
   type: 'object',
@@ -267,70 +252,14 @@ const schema = {
     family_history: { type: 'array', items: { type: 'string' } },
     medicines: { type: 'string' },
     visits: { type: 'array', items: { type: 'string' } },
+    /** Lines the form's own fields have no room for. Shown to the person scanning, never filed automatically. */
+    other_text: { type: 'array', items: { type: 'string' } },
   },
   required: ['folder', 'full_name', 'birthdate', 'sex', 'civil_status', 'contact', 'philhealth_pin', 'allergies', 'family_history', 'medicines', 'visits'],
 }
 
-/** The fields both language readers are asked for, as JSON. */
+/** The fields the image reader is asked for, as JSON. */
 export const formSchema = schema
-
-const SYSTEM =
-  "You read OCR text from a clinic's old-patient folder form and return JSON. Copy values exactly as written; fix only obvious OCR slips in digits. " +
-  'Dates are YYYY-MM-DD. Use an empty string or empty list for anything not on the form. Never invent or infer medical information. ' +
-  'Allergies are "substance - reaction - severity"; family history is "relative - condition"; visits are "date - complaint".'
-
-/** Asks the local model to read the OCR text. Returns null when it is not reachable or answers badly. */
-export async function parseWithLlm(text: string): Promise<{ data: Record<string, unknown>; ms: number; model: string } | null> {
-  const st = await llmStatus()
-  if (!st.available) return null
-  const t0 = Date.now()
-  try {
-    const res = await fetch(`${base()}/api/chat`, {
-      method: 'POST',
-      signal: AbortSignal.timeout(Number(process.env.OLLAMA_TIMEOUT_MS ?? 45000)),
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: st.model,
-        stream: false,
-        format: schema,
-        options: { temperature: 0, num_ctx: 4096 },
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: text },
-        ],
-      }),
-    })
-    if (!res.ok) return null
-    const body = (await res.json()) as { message?: { content?: string } }
-    return { data: JSON.parse(body.message?.content ?? '{}') as Record<string, unknown>, ms: Date.now() - t0, model: st.model }
-  } catch {
-    return null
-  }
-}
-
-/** Fills only what the rules could not read cleanly. A value the rules read and validated is never replaced. */
-export function mergeLlm(fields: ParsedField[], data: Record<string, unknown>): ParsedField[] {
-  const out = fields.map((f) => ({ ...f }))
-  const str = (v: unknown) => (typeof v === 'string' ? clean(v) : '')
-  for (const spec of IDENTITY) {
-    const f = out.find((x) => x.key === spec.key)
-    const raw = str(data[spec.key])
-    if (!f || !raw) continue
-    const v = spec.fix ? spec.fix(raw) : raw
-    if (!f.review && f.value) continue
-    if (spec.ok(v)) {
-      f.value = v
-      f.confidence = 60
-      f.review = true
-      f.source = 'llm'
-    }
-  }
-  const med = str(data.medicines)
-  if (med && !/^none$/i.test(med) && !out.some((f) => f.key === 'medicines')) {
-    out.push({ key: 'medicines', label: 'Regular medicines', group: 'medicines', raw: '', value: med, confidence: 60, review: true, source: 'llm' })
-  }
-  return out
-}
 
 /* ---------------------------------------------------------------- optional image reader (vision model) */
 
@@ -339,6 +268,12 @@ const TRUSTED_CONFIDENCE = 85
 const VISION_CONFIDENCE = 70
 /** Any CJK or Hangul character is a slip: the form is English and Filipino only. */
 const FOREIGN = /[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/
+/**
+ * The prompt tells the model the shape of each line ("substance - reaction - severity"). On a page with no
+ * such section the model sometimes returns that example instead of an empty list, so it is dropped: it is
+ * the prompt talking back, not anything written on the paper.
+ */
+const PLACEHOLDER = /^(substance\s*-\s*reaction(\s*-\s*severity)?|relative\s*-\s*condition|date\s*-\s*complaint|full\s*name|folder\s*no\.?|civil\s*status|contact\s*no\.?|philhealth\s*pin|birthdate|regular\s*medicines|last\s*visits|allergies|family\s*history)$/i
 
 /** Same dash and spacing habits as the rule reader, so values compare and display alike. */
 const tidy = (v: string) => clean(v).replace(/\s+[\u2013\u2014~]\s+/g, ' - ')
@@ -350,6 +285,24 @@ const tidy = (v: string) => clean(v).replace(/\s+[\u2013\u2014~]\s+/g, ' - ')
  * image reader's value is proposed, always marked for checking, with what the rules saw in the note.
  * A value that fails its format check, or contains characters that are not on the form, is ignored.
  */
+/**
+ * The printed headings of the intake form. Tesseract reads printed text well even where the handwriting
+ * defeats it, so a page with none of them is not this form.
+ */
+const FORM_HEADINGS = /ALLERGIES|FAMILY HISTORY|LAST VISITS|REGULAR MEDICINES|FOLDER NO/i
+
+/**
+ * Drops what the image reader offered for sections the page does not have. Asked for allergies on a form
+ * with no allergy section, the model infers rather than reads: on another clinic's animal-bite record it
+ * turned "Biting Animal: CAT" into an allergy to cats. Identity values stay, flagged for checking, and the
+ * lines themselves are still shown to the person scanning.
+ */
+export function withoutInferredSections(fields: ParsedField[], ocrText: string): ParsedField[] {
+  if (FORM_HEADINGS.test(ocrText)) return fields
+  const SECTIONS = ['allergy', 'family', 'visit', 'medicines']
+  return fields.filter((f) => !(f.source === 'vision' && SECTIONS.includes(f.group)))
+}
+
 export function mergeVision(fields: ParsedField[], data: Record<string, unknown>, model: string): ParsedField[] {
   const str = (v: unknown) => (typeof v === 'string' ? tidy(v) : '')
   const same = (a: string, b: string) => alnum(a).toLowerCase() === alnum(b).toLowerCase()
@@ -358,7 +311,7 @@ export function mergeVision(fields: ParsedField[], data: Record<string, unknown>
   const visits = (Array.isArray(data.visits) ? (data.visits as unknown[]) : []).map(str).filter((v) => !isEmpty(v))
   const out = fields.filter((f) => !((f.group === 'family' || f.group === 'allergy') && visits.some((v) => same(v, f.value)))).map((f) => ({ ...f }))
   const propose = (key: string, label: string, group: ParsedField['group'], value: string, ok: (v: string) => boolean) => {
-    if (!value || isEmpty(value)) return
+    if (!value || isEmpty(value) || PLACEHOLDER.test(value.trim())) return
     const f = out.find((x) => x.key === key)
     if (f?.value && same(f.value, value)) return
     if (FOREIGN.test(value)) {

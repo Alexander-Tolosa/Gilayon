@@ -96,6 +96,7 @@ export type ScanField = {
   value: string
   confidence: number
   review: boolean
+  /** 'llm' only appears on scans saved before the text model was dropped. */
   source: 'rules' | 'llm' | 'vision' | 'registry'
   note?: string
 }
@@ -107,7 +108,8 @@ export type ScanReading = {
   parse_ms: number
   ocr_engine: string
   parse_engine: string
-  llm: { available: boolean; model: string; reason?: string }
+  /** Lines on the page that no field on this form covers. Shown to be read and copied; never saved on their own. */
+  other: string[]
   /** The optional handwriting reader (a local vision model). */
   vision: { available: boolean; model: string; reason?: string }
   match: ScanPatientMatch | null
@@ -128,7 +130,6 @@ export type RecognitionMetrics = {
   by_group: { group: string; total: number; correct: number; accuracy: number }[]
   recent: { n: number; at: number | null; accuracy: number; seconds: number; machine_ms: number; parse_engine: string }[]
   engines: string[]
-  llm: { available: boolean; model: string; reason?: string }
 }
 
 /** A photo sent from the offline queue: queued -> read in the background -> waiting for a person to check it. */

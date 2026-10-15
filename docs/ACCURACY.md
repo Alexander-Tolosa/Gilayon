@@ -49,15 +49,17 @@ npx tsx scripts/run-accuracy.ts --registry --report
 
 ## With the handwriting reader (added 2026-10-15)
 
-The **Read handwriting** button adds a local vision model (Qwen2.5-VL 3B, through Ollama) to the pipeline. Measured on the same kind of 60 synthetic forms, with the clinic records correcting near-misses, on one M5 MacBook with 16 GB, no internet:
+A local vision model (Qwen2.5-VL 3B, through Ollama) reads the picture itself after the OCR, on every scan where it is installed. Measured on the same kind of 60 synthetic forms, with the clinic records correcting near-misses, on one M5 MacBook with 16 GB, no internet:
 
 | Reader | Fields right | Perfect forms | Time per form |
 | --- | ---: | ---: | ---: |
 | Rule reader (above), on this MacBook | 97.2% | 46/60 | 1.7 s |
-| Rule reader plus Llama 3.2 3B text model | 97.2% | 46/60 | 6.0 s |
+| Rule reader plus Llama 3.2 3B text model (removed 2026-10-15) | 97.2% | 46/60 | 6.0 s |
 | Rule reader plus handwriting reader (3B) | 100.0% | 60/60 | 15.0 s |
 | Same, with the larger 7B model (earlier run) | 99.5% | 59/60 | about 23 s |
 
+- **The text model was dropped on 2026-10-15.** It changed no field in 60 forms while adding about 4 seconds, and on a real photographed form it turned garbled OCR letters into a confident, invented patient name. The rule reader and the image reader remain.
+- These are synthetic forms. On the first real photographed form we tried, a different clinic's layout, 1 field of 9 was right: the reader looks for this form's printed labels, so another form has nowhere to put its answers.
 - With the 3B model every condition (clean, photo, dim, hand, messy) scored 100.0%, and every field type scored 100.0%. Medicines went from 78.3% to 100.0%. It needs about 5 GB of memory while loaded.
 - Reproduce with `npx tsx scripts/run-accuracy.ts --registry --vision` (about 30 minutes for 60 forms).
 - The 7B row was measured before the fix that removes visit lines the rules had misfiled under family history, so the two rows are not a fair size comparison. These are synthetic forms with typed handwriting-style fonts; real handwriting will score lower.

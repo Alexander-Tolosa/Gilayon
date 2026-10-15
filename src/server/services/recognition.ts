@@ -5,7 +5,7 @@ import { getDb, type Q } from '../db'
 import { notifyChanged } from '../events'
 import { decodeImage, readScan, removeScan, storeScan } from '../files'
 import { ocrImage, readability } from '../recognition/ocr'
-import { llmStatus, mergeLlm, mergeVision, parseReading, parseWithLlm, type ParsedField } from '../recognition/parse'
+import { mergeVision, parseReading, withoutInferredSections, type ParsedField } from '../recognition/parse'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
 import { readWithVision, visionStatus } from '../recognition/vision'
 import { addAllergy, addFamilyHistory, completeRecord, uploadScan } from './records'
@@ -79,15 +79,13 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
   const t0 = Date.now()
   let fields = parseReading(ocr)
   let parse_engine = 'Rule reader (local)'
-  const llm = await parseWithLlm(ocr.text)
-  if (llm) {
-    fields = mergeLlm(fields, llm.data)
-    parse_engine = `Rule reader + ${llm.model} (Ollama, local)`
-  }
+  /** Lines this form has no field for. Shown to the person scanning so the page is not lost; never filed on its own. */
+  let other: string[] = []
   if (opts.handwriting || auto) {
     try {
       const v = await readWithVision(bytes, { flip: flipped })
       fields = mergeVision(fields, v.data, v.model)
+      other = (Array.isArray(v.data.other_text) ? (v.data.other_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter((x) => x.length > 2).slice(0, 40)
       parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
     } catch (e) {
       // An automatic second reading is a bonus: if it fails, the OCR reading still stands (and the nurse can press Read handwriting to retry).
@@ -95,15 +93,16 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
       if (ocr.lines.length < 4) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
     }
   }
+  fields = withoutInferredSections(fields, ocr.text)
   // Layer 2: correct near-misses against the clinic's own records.
   fields = snapToKnown(fields, await knownPatients(q), await vocabulary(q)).fields
-  return { fields, ocr_ms: ocr.ms, parse_ms: Date.now() - t0, ocr_engine: ocr.engine, parse_engine: `${parse_engine} + clinic records` }
+  return { fields, other, ocr_ms: ocr.ms, parse_ms: Date.now() - t0, ocr_engine: ocr.engine, parse_engine: `${parse_engine} + clinic records` }
 }
 
-async function reading(q: Q, ev: { event_id: string; fields: unknown; ocr_ms: number; parse_ms: number; ocr_engine: string; parse_engine: string }) {
+async function reading(q: Q, ev: { event_id: string; fields: unknown; other?: string[]; ocr_ms: number; parse_ms: number; ocr_engine: string; parse_engine: string }) {
   const fields = ev.fields as ParsedField[]
   const f = Object.fromEntries(fields.map((x) => [x.key, x.value]))
-  return { event_id: ev.event_id, fields, ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, llm: await llmStatus(), vision: await visionStatus(), ...(await findPatient(q, f)) }
+  return { event_id: ev.event_id, fields, other: ev.other ?? [], ocr_ms: ev.ocr_ms, parse_ms: ev.parse_ms, ocr_engine: ev.ocr_engine, parse_engine: ev.parse_engine, vision: await visionStatus(), ...(await findPatient(q, f)) }
 }
 
 /** `replaces` is the draft from this person's first reading of the same page, removed once the second succeeds. */
@@ -329,6 +328,5 @@ export async function recognitionMetrics(q: Q) {
       .reverse()
       .map((r, i) => ({ n: i + 1, at: r.confirmed_at, accuracy: pct(r.correct_count, r.field_count), seconds: Math.round(totalMs(r) / 100) / 10, machine_ms: r.ocr_ms + r.parse_ms, parse_engine: r.parse_engine })),
     engines: [...new Set(rows.map((r) => r.parse_engine))],
-    llm: await llmStatus(),
   }
 }

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { HttpError } from '../src/server/core'
-import { mergeVision, type ParsedField } from '../src/server/recognition/parse'
+import { mergeVision, withoutInferredSections, type ParsedField } from '../src/server/recognition/parse'
 import { readWithVision, visionStatus } from '../src/server/recognition/vision'
 
 const field = (over: Partial<ParsedField>): ParsedField => ({ key: 'medicines', label: 'Regular medicines', group: 'medicines', raw: '', value: '', confidence: 0, review: false, source: 'rules', ...over })
@@ -158,5 +158,37 @@ describe('the handwriting reader', () => {
     await fails(() => json({ error: 'model requires more system memory than is available' }, 500), 502, /out of memory/)
     await fails(() => { throw Object.assign(new Error('timed out'), { name: 'TimeoutError' }) }, 504, /longer than/)
     await fails(() => { throw new Error('socket hang up') }, 503, /stopped answering/)
+  })
+})
+
+describe('answers that come from the prompt rather than the page', () => {
+  it('drops the example line the model echoes when a form has no such section', () => {
+    expect(mergeVision([], { allergies: ['substance - reaction - severity'], family_history: ['relative - condition'], visits: ['date - complaint'] }, MODEL)).toEqual([])
+    // a printed label returned as if it were the answer is also not an answer
+    expect(mergeVision([], { full_name: 'FULL NAME', philhealth_pin: 'PhilHealth PIN' }, MODEL)).toEqual([])
+    // a real line that happens to use the same shape is kept
+    expect(mergeVision([], { allergies: ['PENICILLIN - RASH - MILD'] }, MODEL).map((f) => f.value)).toEqual(['PENICILLIN - RASH - MILD'])
+  })
+})
+
+describe('sections the page does not have', () => {
+  const vision = (key: string, group: ParsedField['group'], value: string) => field({ key, group, value, source: 'vision', review: true, confidence: 70 })
+
+  it('drops allergies, family history, visits and medicines the model inferred from a page with no such section', () => {
+    const fields = [vision('allergy_1', 'allergy', 'CAT - ALLERGY - MILD'), vision('family_1', 'family', 'MOTHER - HYPERTENSION'), vision('visit_1', 'visit', '2024-05-04 - BITE'), vision('medicines', 'medicines', 'PARACETAMOL')]
+    const page = 'ANIMAL BITE TREATMENT CENTER PATIENT RECORD Name: Hospital No. Biting Animal: CAT'
+    expect(withoutInferredSections(fields, page)).toEqual([])
+  })
+
+  it('keeps identity values, which the page does have, and keeps everything the rules read', () => {
+    const name = vision('full_name', 'identity', 'Juan Dela Cruz')
+    const rules = field({ key: 'allergy_1', group: 'allergy', value: 'PENICILLIN - RASH - MILD', confidence: 90 })
+    expect(withoutInferredSections([name, rules], 'Name: Hospital No.')).toEqual([name, rules])
+  })
+
+  it('leaves a real intake form alone: one printed heading is enough', () => {
+    const fields = [vision('allergy_1', 'allergy', 'SULFA - ITCHING - MILD'), vision('visit_1', 'visit', '2024-05-04 - FEVER')]
+    expect(withoutInferredSections(fields, 'FOLDER NO. FULL NAME ALLERGIES FAMILY HISTORY')).toEqual(fields)
+    expect(withoutInferredSections(fields, 'blurred page ... REGULAR MEDICINES ...')).toEqual(fields)
   })
 })

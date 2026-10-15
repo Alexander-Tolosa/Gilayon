@@ -75,38 +75,23 @@ sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keyc
 
 On Android it is **Settings → Security → Encryption & credentials → Install a certificate → CA certificate**.
 
-## 5. Ollama (optional, and skip it if time is short)
+## 5. Ollama and the handwriting reader (optional, and skip it if time is short)
 
-The demo does not need it. Reading the form is done by the text reader and a set of rules, and the measured 93% figure is from those alone. Ollama only fills fields the rules could not read, and the screen says plainly which engines were used.
+The demo does not need it. Reading the form is done by Tesseract and a set of rules, and the measured 93% figure is from those alone. With Ollama installed, a local vision model also looks at the picture itself, which is what reads handwriting.
 
-If you want it:
+### The handwriting reader
 
-```bash
-brew install --cask ollama      # or download from ollama.com
-ollama pull llama3.2:3b         # about 2 GB, needs the internet, so do it beforehand
-```
-
-Ollama starts on its own and listens on `127.0.0.1:11434`. The app finds it with no configuration. On the Scan screen, the badge changes from "Rule reader (local)" to name the model.
-
-A 3B model uses roughly 3 GB of memory while it is working. On an M-series MacBook Pro a form takes a second or two. If the laptop is also running the app and the database, keep an eye on memory during the rehearsal.
-
-To turn it off again for a run: `OLLAMA_DISABLED=1 npm run start:https`.
-
-Measured on an M5 MacBook with 16 GB (60 synthetic forms): this text model made a form take 6 s instead of 1.7 s and changed no field, so it is the first thing to drop if memory or time is tight.
-
-### The handwriting reader (optional, for forms filled in by hand)
-
-A second, separate model that looks at the picture itself. It is used only when someone presses **Read handwriting** on the scan screen, after the normal scan.
+A model that looks at the picture itself, rather than at the text Tesseract found. It runs on every scan once it is installed, and **Read handwriting** on the scan screen asks for it again.
 
 ```bash
 ollama pull qwen2.5vl:3b        # about 3.2 GB, needs the internet, so do it beforehand
 ```
 
-- **Memory:** about 5 GB while it is loaded, on top of the app. On a 16 GB laptop, close other programs, and press the button once during the rehearsal so the model is already loaded on the day.
-- **Time:** about 15 seconds a page (the first read after a restart also loads the model). The screen says it is reading.
+- **Memory:** about 5 GB while it is loaded, on top of the app. On a 16 GB laptop, close other programs, and scan one form during the rehearsal so the model is already loaded on the day.
+- **Time:** about 15 seconds a page on top of the OCR, so roughly 20 seconds in all (the first read after a restart also loads the model). The screen says it is reading.
 - **What it changes:** where Tesseract was unsure, the model's value is proposed and marked **Check**, with a note saying what Tesseract read. Where Tesseract was sure of a value that has a format (a date, a phone number, a PIN), it keeps it and flags the disagreement. Nothing is saved until the nurse confirms every field.
 - **If the model is missing,** the button is greyed out and says `ollama pull qwen2.5vl:3b`.
-- Turn it off with `OLLAMA_DISABLED=1`, or point it at a different model with `OLLAMA_VISION_MODEL`.
+- Turn it off with `OLLAMA_VISION_AUTO=0` (button only) or `OLLAMA_DISABLED=1` (not at all), or point it at a different model with `OLLAMA_VISION_MODEL`.
 
 ## 6. The evening before
 

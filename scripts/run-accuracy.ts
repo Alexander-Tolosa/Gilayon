@@ -2,7 +2,6 @@
   Measures how well the scan reader does on the synthetic test set from make-accuracy-set.mjs.
 
     npx tsx scripts/run-accuracy.ts            rule reader only
-    npx tsx scripts/run-accuracy.ts --llm      rule reader + the local model (needs Ollama running)
     npx tsx scripts/run-accuracy.ts --vision   rule reader + the handwriting reader, a local vision model (about 30 s a form)
 
   Each field is compared with the known answer the same way the live system compares a field with what
@@ -12,12 +11,11 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { ocrImage } from '../src/server/recognition/ocr'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../src/server/recognition/snap'
-import { llmStatus, mergeLlm, mergeVision, parseReading, parseWithLlm } from '../src/server/recognition/parse'
+import { mergeVision, parseReading } from '../src/server/recognition/parse'
 import { readWithVision, visionStatus } from '../src/server/recognition/vision'
 
 type Truth = { id: string; condition: string; folder: string; name: string; birth: string; sex: string; civil: string; contact: string; pin: string; allergies: string[]; family: string[]; meds: string; visits: string[] }
 
-const useLlm = process.argv.includes('--llm')
 const useVision = process.argv.includes('--vision')
 const useRegistry = process.argv.includes('--registry')
 const report = process.argv.includes('--report')
@@ -37,14 +35,6 @@ if (useVision) {
   const st = await visionStatus()
   if (!st.available) {
     console.error(`The handwriting reader is not ready: ${st.reason}`)
-    process.exit(1)
-  }
-  console.log(`Using ${st.model}`)
-}
-if (useLlm) {
-  const st = await llmStatus()
-  if (!st.available) {
-    console.error(`Ollama is not ready: ${st.reason}`)
     process.exit(1)
   }
   console.log(`Using ${st.model}`)
@@ -77,10 +67,6 @@ for (const t of set) {
   const t0 = Date.now()
   const ocr = await ocrImage(buf)
   let fields = parseReading(ocr)
-  if (useLlm) {
-    const llm = await parseWithLlm(ocr.text)
-    if (llm) fields = mergeLlm(fields, llm.data)
-  }
   if (useVision) {
     const v = await readWithVision(buf)
     fields = mergeVision(fields, v.data, v.model)
@@ -117,7 +103,7 @@ process.stdout.write('\n\n')
 const pct = (r: number, t: number) => (t ? ((r / t) * 100).toFixed(1) : '0.0') + '%'
 const total = [...byCond.values()].reduce((a, c) => ({ right: a.right + c.right, total: a.total + c.total, forms: a.forms + c.forms, perfect: a.perfect + c.perfect, ms: a.ms + c.ms }), { right: 0, total: 0, forms: 0, perfect: 0, ms: 0 })
 
-console.log(`Mode: ${useVision ? 'rules + handwriting reader' : useLlm ? 'rules + local model' : 'rules only'}\n`)
+console.log(`Mode: ${useVision ? 'rules + handwriting reader' : 'rules only'}\n`)
 console.log('Condition   Forms  Fields right   Perfect forms   Avg time/form')
 for (const [k, c] of byCond) console.log(`${k.padEnd(10)}  ${String(c.forms).padStart(5)}  ${pct(c.right, c.total).padStart(12)}   ${`${c.perfect}/${c.forms}`.padStart(13)}   ${(c.ms / c.forms / 1000).toFixed(1).padStart(8)} s`)
 console.log(`${'ALL'.padEnd(10)}  ${String(total.forms).padStart(5)}  ${pct(total.right, total.total).padStart(12)}   ${`${total.perfect}/${total.forms}`.padStart(13)}   ${(total.ms / total.forms / 1000).toFixed(1).padStart(8)} s\n`)
@@ -132,13 +118,13 @@ if (report) {
   const lines = [
     '# Scan reading accuracy',
     '',
-    `Measured on ${stamp} over ${total.forms} synthetic forms, ${useLlm ? 'with the local language model' : 'rule reader only'}${useRegistry ? ', checked against the clinic records' : ''}.`,
+    `Measured on ${stamp} over ${total.forms} synthetic forms, rule reader only${useRegistry ? ', checked against the clinic records' : ''}.`,
     '',
     'Reproduce with:',
     '',
     '```bash',
     'node scripts/make-accuracy-set.mjs 12',
-    `npx tsx scripts/run-accuracy.ts${useRegistry ? ' --registry' : ''}${useLlm ? ' --llm' : ''} --report`,
+    `npx tsx scripts/run-accuracy.ts${useRegistry ? ' --registry' : ''} --report`,
     '```',
     '',
     '## Result',
@@ -171,7 +157,7 @@ if (report) {
 }
 
 writeFileSync(
-  `${dir}/result-${useVision ? 'vision' : useLlm ? 'llm' : 'rules'}${useRegistry ? '-registry' : ''}.json`,
-  JSON.stringify({ mode: useLlm ? 'rules + local model' : 'rules only', forms: total.forms, accuracy: total.right / total.total, perfect: total.perfect, avg_ms: total.ms / total.forms, by_condition: Object.fromEntries([...byCond].map(([k, c]) => [k, { forms: c.forms, accuracy: c.right / c.total, perfect: c.perfect, avg_ms: c.ms / c.forms }])), by_field: Object.fromEntries([...byField].map(([k, t]) => [k, t.right / t.total])), misses }, null, 2),
+  `${dir}/result-${useVision ? 'vision' : 'rules'}${useRegistry ? '-registry' : ''}.json`,
+  JSON.stringify({ mode: useVision ? 'rules + handwriting reader' : 'rules only', forms: total.forms, accuracy: total.right / total.total, perfect: total.perfect, avg_ms: total.ms / total.forms, by_condition: Object.fromEntries([...byCond].map(([k, c]) => [k, { forms: c.forms, accuracy: c.right / c.total, perfect: c.perfect, avg_ms: c.ms / c.forms }])), by_field: Object.fromEntries([...byField].map(([k, t]) => [k, t.right / t.total])), misses }, null, 2),
 )
 process.exit(0)
