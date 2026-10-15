@@ -17,6 +17,7 @@ type Truth = { id: string; condition: string; folder: string; name: string; birt
 
 const useLlm = process.argv.includes('--llm')
 const useRegistry = process.argv.includes('--registry')
+const report = process.argv.includes('--report')
 const dir = process.argv.includes('--v2') ? '.data/accuracy-v2' : '.data/accuracy'
 const limit = Number(process.argv.find((a) => a.startsWith('--limit='))?.split('=')[1] ?? 0)
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '')
@@ -109,6 +110,50 @@ console.log('Field                Right')
 for (const [k, t] of [...byField].sort((a, b) => a[1].right / a[1].total - b[1].right / b[1].total)) console.log(`${k.padEnd(18)}  ${pct(t.right, t.total).padStart(7)}  (${t.right}/${t.total})`)
 console.log('\nSample mistakes:')
 for (const m of misses.slice(0, 12)) console.log(`  ${m.id}  ${m.field}: wanted "${m.want}" got "${m.got}"`)
+
+if (report) {
+  const stamp = new Date().toISOString().slice(0, 10)
+  const names: Record<string, string> = { clean: 'Clean scan or flatbed', photo: 'Phone photo, tilted', dim: 'Poor light, low contrast', hand: 'Handwriting (neat, simulated)', messy: 'Handwriting (hurried, simulated)' }
+  const lines = [
+    '# Scan reading accuracy',
+    '',
+    `Measured on ${stamp} over ${total.forms} synthetic forms, ${useLlm ? 'with the local language model' : 'rule reader only'}${useRegistry ? ', checked against the clinic records' : ''}.`,
+    '',
+    'Reproduce with:',
+    '',
+    '```bash',
+    'node scripts/make-accuracy-set.mjs 12',
+    `npx tsx scripts/run-accuracy.ts${useRegistry ? ' --registry' : ''}${useLlm ? ' --llm' : ''} --report`,
+    '```',
+    '',
+    '## Result',
+    '',
+    '| Condition | Forms | Fields read correctly | Forms needing no correction | Time per form |',
+    '| --- | ---: | ---: | ---: | ---: |',
+    ...[...byCond].map(([k, c]) => `| ${names[k] ?? k} | ${c.forms} | ${pct(c.right, c.total)} | ${c.perfect}/${c.forms} | ${(c.ms / c.forms / 1000).toFixed(1)} s |`),
+    `| **All** | **${total.forms}** | **${pct(total.right, total.total)}** | **${total.perfect}/${total.forms}** | **${(total.ms / total.forms / 1000).toFixed(1)} s** |`,
+    '',
+    '## By field',
+    '',
+    '| Field | Read correctly |',
+    '| --- | ---: |',
+    ...[...byField].sort((a, b) => a[1].right / a[1].total - b[1].right / b[1].total).map(([k, t]) => `| ${k} | ${pct(t.right, t.total)} (${t.right}/${t.total}) |`),
+    '',
+    '## How this is measured',
+    '',
+    '- Each field is compared with the known answer the same way the live system compares it with what the nurse confirmed: letters and digits only, case ignored.',
+    '- A field the reader missed, or invented, counts as wrong.',
+    '- Everything runs on one PC with no internet.',
+    '',
+    '## What these numbers are not',
+    '',
+    '- **The forms are synthetic.** They carry no real patient data, and the handwriting rows are simulated with fonts, so they are tidier than a real hand. Treat the handwriting figures as optimistic until real forms are measured.',
+    '- **This is not the accuracy of the saved records.** A nurse or doctor checks every field before anything is written, so the record is right regardless. What this measures is how much typing that check saves.',
+    '',
+  ]
+  writeFileSync('docs/ACCURACY.md', lines.join('\n'))
+  console.log('\nwrote docs/ACCURACY.md')
+}
 
 writeFileSync(
   `${dir}/result-${useLlm ? 'llm' : 'rules'}${useRegistry ? '-registry' : ''}.json`,

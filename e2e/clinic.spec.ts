@@ -295,3 +295,47 @@ test.describe('corrections', () => {
     expect(restored.patients.some((p) => p.patient_id === extraId)).toBe(true)
   })
 })
+
+test.describe('scanning an old folder', () => {
+  test('reads a form, is corrected against the records, and saves once a person confirms', async ({ page }) => {
+    await signIn(page, 'desk')
+    await page.goto('/clinic/scan')
+
+    await page.getByRole('button', { name: 'Villanueva (clean print)' }).click()
+    // Local OCR on the server PC: a few seconds, no internet.
+    await expect(page.getByText(/Read in \d/)).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText('Tesseract 7 (local)')).toBeVisible()
+
+    // The patient was found from the form itself, and the fields came out of the page.
+    await expect(page.getByText('Maria Lourdes Villanueva').first()).toBeVisible()
+    await expect(page.getByText(/Matched by name and birthdate/)).toBeVisible()
+    const birthdate = page.getByRole('textbox', { name: 'Birthdate' })
+    await expect(birthdate).toHaveValue('1968-03-18')
+    await expect(page.getByRole('textbox', { name: 'Allergy 1' })).toHaveValue(/PENICILLIN/)
+
+    // Nothing reaches the record until a person says so.
+    await page.getByRole('button', { name: /I checked every field/ }).click()
+    await expect(page.getByText('Saved to the record')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(/fields were read correctly/)).toBeVisible()
+
+    // The measured numbers come from that confirmation, not from a fixed figure.
+    await page.getByRole('tab', { name: 'Accuracy and speed' }).click()
+    await expect(page.getByText('Field accuracy')).toBeVisible()
+    await expect(page.getByText(/%$/).first()).toBeVisible()
+  })
+
+  test('a correction is kept, and the camera explains itself when there is none', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'camera flags are set for chromium only')
+    await signIn(page, 'desk')
+    await page.goto('/clinic/scan')
+    await page.getByRole('button', { name: 'Dela Cruz (2 allergies)' }).click()
+    await expect(page.getByText(/Read in \d/)).toBeVisible({ timeout: 60_000 })
+
+    const contact = page.getByRole('textbox', { name: 'Contact no.' })
+    await contact.fill('0919 554 2299')
+    await expect(page.getByText('1 corrected so far')).toBeVisible()
+
+    await page.getByRole('button', { name: /I checked every field/ }).click()
+    await expect(page.getByText('Saved to the record')).toBeVisible({ timeout: 30_000 })
+  })
+})

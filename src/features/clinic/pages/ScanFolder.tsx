@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import { Badge, Button, Card, Field, Input, Tabs, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
+import { CameraCapture } from '../components/CameraCapture'
 import type { PendingScan, RecognitionMetrics, ScanField, ScanReading } from '../api-types'
 import { compressImage, fmtDay } from '../lib/helpers'
 import { useClinic } from '../store/store'
@@ -63,6 +64,7 @@ function Scanner({ onDone }: { onDone: () => void }) {
   const [patientId, setPatientId] = useState('')
   const [q, setQ] = useState('')
   const shownAt = useRef(0)
+  const [camera, setCamera] = useState(false)
   const [fromQueue, setFromQueue] = useState(false)
   const [hint, setHint] = useState('')
   const [queue, setQueue] = useState<PendingScan[]>([])
@@ -236,9 +238,13 @@ function Scanner({ onDone }: { onDone: () => void }) {
             ))}
           </ol>
           <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => onFile(e.target.files)} />
+          <CameraCapture open={camera} onClose={() => setCamera(false)} onCapture={(data) => { setCamera(false); void read(data) }} />
           <div className="flex flex-wrap items-center gap-3">
-            <Button size="lg" className="h-14" icon={<Camera size={22} />} disabled={busy} onClick={() => input.current?.click()}>
-              {busy ? 'Reading…' : !online ? 'Photograph the form (saved offline)' : image ? 'Scan another form' : 'Photograph or upload the form'}
+            <Button size="lg" className="h-14" icon={<Camera size={22} />} disabled={busy} onClick={() => setCamera(true)}>
+              {busy ? 'Reading…' : image ? 'Scan another form' : 'Take a picture of the form'}
+            </Button>
+            <Button size="lg" variant="secondary" className="h-14" icon={<UploadSimple size={20} />} disabled={busy} onClick={() => input.current?.click()}>
+              Upload a photo
             </Button>
             <a href="/forms/intake-form-blank.png" target="_blank" rel="noreferrer" className="text-sm font-medium text-brand-700 underline underline-offset-2">
               Blank intake form (print)
