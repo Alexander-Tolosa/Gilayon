@@ -322,7 +322,7 @@ function NotListed({ vitals, onVitals, onBack, onCreated }: { vitals: Vitals; on
         </h2>
         <p className="mt-1 text-base text-ink-2">To tell HR about a missing or wrong entry on their list. The patient can still be registered and seen.</p>
         <Field label="Name and what is wrong" className="mt-4">
-          <Textarea value={hrName} onChange={(e) => setHrName(e.target.value)} placeholder="e.g. Rodel Gaitan, new hire at PEO, not yet on the list" className="text-base" />
+          <Textarea value={hrName} onChange={(e) => setHrName(e.target.value)} className="text-base" />
         </Field>
         <Button
           variant="danger"
@@ -438,7 +438,7 @@ function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () 
             <Input type="date" value={birth} onChange={(e) => (setBirth(e.target.value), reset())} className="h-14 text-lg" />
           </Field>
           <Field label={emp || !principal ? t('Employee ID') : 'Employee ID of the employee they are under'} optional>
-            <Input value={empNo} onChange={(e) => (setEmpNo(e.target.value), reset())} placeholder="IPG-0000-0000" className="h-14 font-mono text-lg uppercase" />
+            <Input value={empNo} onChange={(e) => (setEmpNo(e.target.value), reset())} className="h-14 font-mono text-lg uppercase" />
           </Field>
           <div className="sm:col-span-2">
             <p className="mb-2 text-sm text-muted">{t('ID checked')}</p>
@@ -475,7 +475,7 @@ function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () 
               </div>
             </div>
             <Field label={t('Folder number')} optional>
-              <Input value={folderNo} onChange={(e) => setFolderNo(e.target.value)} placeholder="F-2004-0181" className="h-12 font-mono text-base" />
+              <Input value={folderNo} onChange={(e) => setFolderNo(e.target.value)} className="h-12 font-mono text-base" />
             </Field>
             <div>
               <p className="mb-2 text-lg font-semibold">Scan the paper folder into the system now (you can skip this)</p>

@@ -141,7 +141,7 @@ export function BookingModal({ open, onClose, patientId, asStaff, defaultDoctorI
             </div>
           </Field>
           <Field label="Reason for visit" htmlFor="bk-r" error={error || undefined}>
-            <Textarea id="bk-r" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Follow-up on blood test results" className="min-h-20" />
+            <Textarea id="bk-r" value={reason} onChange={(e) => setReason(e.target.value)} className="min-h-20" />
           </Field>
         </div>
         {time && (

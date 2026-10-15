@@ -72,7 +72,7 @@ export function ScanUploader({ patientId, compact, returnTo, defaultCategory = '
         </Field>
         {outside && (
           <Field label={t('From which clinic or hospital?')} className="min-w-56 flex-1">
-            <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. West Visayas State University Medical Center" maxLength={120} className="h-12 text-base" />
+            <Input value={source} onChange={(e) => setSource(e.target.value)} maxLength={120} className="h-12 text-base" />
           </Field>
         )}
         <Field label={t('Page type')} className="min-w-40">
@@ -117,9 +117,9 @@ export function VitalsFields({ vitals, onChange, className }: { vitals: Vitals; 
       <p className="text-lg font-semibold">{t('Vital signs')}</p>
       <p className="text-base text-ink-2">{t('Taken at the front desk for this visit. The doctor starts from these.')}</p>
       <div className="mt-3 grid grid-cols-2 items-end gap-4 sm:grid-cols-3">
-        {fields.map(([k, label, ph]) => (
+        {fields.map(([k, label]) => (
           <Field key={k} label={label}>
-            <Input value={vitals[k] ?? ''} onChange={(e) => onChange({ ...vitals, [k]: e.target.value })} placeholder={ph} className="h-12 text-base" inputMode={k === 'bp' ? 'text' : 'decimal'} maxLength={k === 'bp' ? 20 : 10} />
+            <Input value={vitals[k] ?? ''} onChange={(e) => onChange({ ...vitals, [k]: e.target.value })} className="h-12 text-base" inputMode={k === 'bp' ? 'text' : 'decimal'} maxLength={k === 'bp' ? 20 : 10} />
           </Field>
         ))}
       </div>
@@ -133,7 +133,6 @@ export function DependentForm({ principalPatientId, onDone, onCancel, vitals, on
   const { createDependent, findDuplicates, personOfPatient, patientOfPerson, online } = useClinic()
   const toast = useToast()
   const principal = personOfPatient(principalPatientId)
-  const surname = principal?.full_name.split(' ').slice(-1)[0] ?? ''
   const [f, setF] = useState<NewPersonInput & { type: RelationshipType; mdr: boolean }>({ full_name: '', birthdate: '', sex: 'Female', contact: principal?.contact ?? '', civil_status: 'Single', philhealth_pin: '', pwd_id: '', type: 'Child', mdr: true })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [ackDup, setAckDup] = useState(false)
@@ -156,7 +155,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel, vitals, on
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t('Full name')} error={errors.full_name} className="sm:col-span-2">
-          <Input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} placeholder={`${t('e.g.')} Ana ${surname}`} className="h-12 text-base" invalid={!!errors.full_name} />
+          <Input value={f.full_name} onChange={(e) => setF({ ...f, full_name: e.target.value })} className="h-12 text-base" invalid={!!errors.full_name} />
         </Field>
         <Field label={t('Birthdate')} error={errors.birthdate} hint={f.birthdate && !errors.birthdate ? `${t('Age')}: ${ageOf(f.birthdate)} ${t('calculated')})` : undefined}>
           <Input type="date" value={f.birthdate} onChange={(e) => setF({ ...f, birthdate: e.target.value })} className="h-12 text-base" invalid={!!errors.birthdate} />
@@ -192,7 +191,7 @@ export function DependentForm({ principalPatientId, onDone, onCancel, vitals, on
           <Input value={f.contact} onChange={(e) => setF({ ...f, contact: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label={t('PhilHealth PIN')} optional>
-          <Input value={f.philhealth_pin} onChange={(e) => setF({ ...f, philhealth_pin: e.target.value })} placeholder="12-345678901-2" className="h-12 text-base" />
+          <Input value={f.philhealth_pin} onChange={(e) => setF({ ...f, philhealth_pin: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label={t('PWD ID')} optional>
           <Input value={f.pwd_id} onChange={(e) => setF({ ...f, pwd_id: e.target.value })} className="h-12 text-base" />
@@ -272,7 +271,7 @@ export function UnlistedForm({ onDone, onCancel, vitals, onVitals }: { onDone: (
     <div className="flex flex-col gap-4">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Field label={t('Full name')} error={errors.full_name} className="sm:col-span-2">
-          <Input value={f.full_name} onChange={(e) => edit({ full_name: e.target.value })} placeholder="e.g. Rodel Gaitan" className="h-12 text-base" invalid={!!errors.full_name} />
+          <Input value={f.full_name} onChange={(e) => edit({ full_name: e.target.value })} className="h-12 text-base" invalid={!!errors.full_name} />
         </Field>
         <Field label={t('Birthdate')} error={errors.birthdate} hint={f.birthdate && !errors.birthdate ? `${t('Age')}: ${ageOf(f.birthdate)} ${t('calculated')})` : undefined}>
           <Input type="date" value={f.birthdate} onChange={(e) => edit({ birthdate: e.target.value })} className="h-12 text-base" invalid={!!errors.birthdate} />
@@ -299,7 +298,7 @@ export function UnlistedForm({ onDone, onCancel, vitals, onVitals }: { onDone: (
           <Input value={f.contact} onChange={(e) => setF({ ...f, contact: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label={t('PhilHealth PIN')} optional>
-          <Input value={f.philhealth_pin} onChange={(e) => setF({ ...f, philhealth_pin: e.target.value })} placeholder="12-345678901-2" className="h-12 text-base" />
+          <Input value={f.philhealth_pin} onChange={(e) => setF({ ...f, philhealth_pin: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label={t('PWD ID')} optional>
           <Input value={f.pwd_id} onChange={(e) => setF({ ...f, pwd_id: e.target.value })} className="h-12 text-base" />
@@ -307,7 +306,7 @@ export function UnlistedForm({ onDone, onCancel, vitals, onVitals }: { onDone: (
         {vitals && onVitals && <VitalsFields vitals={vitals} onChange={onVitals} className="sm:col-span-2" />}
         <p className="text-base font-semibold text-ink-2 sm:col-span-2">{t('Works for the partner company? (optional)')}</p>
         <Field label={t('Employee ID')} optional>
-          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} placeholder="IPG-0000-0000" className="h-12 font-mono text-base uppercase" />
+          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} className="h-12 font-mono text-base uppercase" />
         </Field>
         <Field label={t('Office')} optional>
           <Input value={f.office} onChange={(e) => setF({ ...f, office: e.target.value })} className="h-12 text-base" />

@@ -197,6 +197,7 @@ const FIL: Record<string, string> = {
   'Employee\'s name or employee ID': 'Pangalan o employee ID ng empleyado',
   'Checking against the HR list': 'Tinitingnan sa listahan ng HR',
   'Last visit': 'Huling bisita',
+  'Consulted by': 'Tinignan ni',
   'No dependents linked yet.': 'Wala pang naka-link na dependent.',
   'This ticket': 'Ang tiket na ito',
   'Only the clinic server issues queue numbers. Reconnect this computer first.': 'Ang server ng klinika lang ang nagbibigay ng queue number. Ikonekta muna ang computer na ito.',

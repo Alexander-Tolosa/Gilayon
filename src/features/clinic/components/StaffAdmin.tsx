@@ -197,7 +197,7 @@ export function StaffManager() {
             </Select>
           </Field>
           <Field label={t('Title')}>
-            <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className="h-12 text-base" placeholder={t('e.g. Physician')} />
+            <Input value={draft.title} onChange={(e) => setDraft({ ...draft, title: e.target.value })} className="h-12 text-base" />
           </Field>
           {draft.role === 'doctor' && (
             <>

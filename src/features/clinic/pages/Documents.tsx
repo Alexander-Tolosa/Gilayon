@@ -150,7 +150,7 @@ export default function Documents() {
         }
       >
         <Field label={`${t('Reason')} *`}>
-          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g. Wrong number of rest days" className="text-base" autoFocus />
+          <Textarea value={reason} onChange={(e) => setReason(e.target.value)} className="text-base" autoFocus />
         </Field>
       </Modal>
 

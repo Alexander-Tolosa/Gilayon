@@ -12,7 +12,7 @@ type Filter = 'all' | 'employees' | 'dependents' | 'others' | 'seniors' | 'pwd' 
 
 export default function Patients() {
   const t = useT()
-  const { data, online, recent, touch } = useClinic()
+  const { data, online, recent, touch, staffById } = useClinic()
   const navigate = useNavigate()
   const [q, setQ] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
@@ -20,7 +20,13 @@ export default function Patients() {
 
   const rows = useMemo(() => {
     const lastVisit = new Map<string, string>()
-    for (const c of data.consultations) if ((lastVisit.get(c.patient_id) ?? '') < c.consult_date) lastVisit.set(c.patient_id, c.consult_date)
+    const lastDoctor = new Map<string, { at: number; id: string }>()
+    const doctors = new Map<string, Set<string>>()
+    for (const c of data.consultations) {
+      if ((lastVisit.get(c.patient_id) ?? '') < c.consult_date) lastVisit.set(c.patient_id, c.consult_date)
+      if ((lastDoctor.get(c.patient_id)?.at ?? -1) < c.created_at) lastDoctor.set(c.patient_id, { at: c.created_at, id: c.doctor_id })
+      doctors.set(c.patient_id, (doctors.get(c.patient_id) ?? new Set()).add(c.doctor_id))
+    }
     const principalOf = new Map(data.relationships.map((r) => [r.related_patient_id, r.patient_id]))
     return data.patients
       .filter((p) => online || recent.includes(p.patient_id))
@@ -30,7 +36,7 @@ export default function Patients() {
         const principalId = principalOf.get(pt.patient_id)
         const principal = principalId ? data.persons.find((x) => x.person_id === data.patients.find((z) => z.patient_id === principalId)?.person_id) : undefined
         const score = q ? matchScore(q, per.full_name, [emp?.employee_no ?? '', pt.patient_no, pt.legacy_folder_no ?? '']) : 1
-        return { pt, per, emp, principal, last: lastVisit.get(pt.patient_id), score }
+        return { pt, per, emp, principal, last: lastVisit.get(pt.patient_id), lastDoctor: lastDoctor.get(pt.patient_id)?.id, doctorIds: [...(doctors.get(pt.patient_id) ?? [])], score }
       })
       .filter((r) => r.score >= 0.45)
       .filter((r) => (filter === 'employees' ? r.emp : filter === 'dependents' ? !r.emp && r.principal : filter === 'others' ? !r.emp && !r.principal : filter === 'seniors' ? ageOf(r.per.birthdate) >= 60 : filter === 'pwd' ? r.pt.pwd_id : filter === 'flag' ? r.pt.hr_flag : filter === 'paper' ? !r.pt.paper_status : true))
@@ -81,17 +87,17 @@ export default function Patients() {
         ))}
       </div>
       <Card className="overflow-hidden">
-        <div className="hidden grid-cols-[1.6fr_0.7fr_1.4fr_0.9fr_auto] gap-4 bg-canvas px-6 py-3 text-[15px] font-medium text-muted lg:grid">
+        <div className="hidden grid-cols-[1.6fr_0.7fr_1.4fr_1.2fr_auto] gap-4 bg-canvas px-6 py-3 text-[15px] font-medium text-muted lg:grid">
           <span>{t('Full name')}</span>
           <span>{t('Age')}</span>
           <span>{t('Employee')} / {t('Dependent')}</span>
-          <span>{t('Last visit')}</span>
+          <span>{t('Last visit')} / {t('Consulted by')}</span>
           <span />
         </div>
         <ul className="divide-y divide-line">
           {rows.slice(0, limit).map((r) => (
             <li key={r.pt.patient_id}>
-              <button onClick={() => open(r.pt.patient_id)} className="grid w-full grid-cols-1 items-center gap-1 px-6 py-4 text-left transition hover:bg-brand-50/50 lg:grid-cols-[1.6fr_0.7fr_1.4fr_0.9fr_auto] lg:gap-4">
+              <button onClick={() => open(r.pt.patient_id)} className="grid w-full grid-cols-1 items-center gap-1 px-6 py-4 text-left transition hover:bg-brand-50/50 lg:grid-cols-[1.6fr_0.7fr_1.4fr_1.2fr_auto] lg:gap-4">
                 <span className="min-w-0">
                   <span className="block break-words text-lg font-semibold">{r.per.full_name}</span>
                   <span className="block text-sm text-muted">
@@ -117,7 +123,15 @@ export default function Patients() {
                     <span className="text-muted">{t('No employee details')}</span>
                   )}
                 </span>
-                <span className="text-base text-ink-2">{r.last ? fmtDay(r.last) : '—'}</span>
+                <span className="min-w-0 text-base text-ink-2">
+                  {r.last ? fmtDay(r.last) : '—'}
+                  {r.lastDoctor && (
+                    <span className="block break-words text-sm text-muted" title={r.doctorIds.map((id) => staffById(id)?.name ?? '').filter(Boolean).join(', ')}>
+                      {staffById(r.lastDoctor)?.name ?? ''}
+                      {r.doctorIds.length > 1 && ` +${r.doctorIds.length - 1}`}
+                    </span>
+                  )}
+                </span>
                 <CaretRight size={20} className="hidden text-faint lg:block" />
               </button>
             </li>

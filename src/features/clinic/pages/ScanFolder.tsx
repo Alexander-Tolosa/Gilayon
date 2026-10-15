@@ -298,7 +298,7 @@ function Scanner({ onDone }: { onDone: () => void }) {
           {!online && (
             <div className="mt-4 max-w-md">
               <Field label="Whose folder is it? (optional)" hint="Name or folder number. It helps match the right patient later.">
-                <Input value={hint} onChange={(e) => setHint(e.target.value)} placeholder="e.g. Villanueva, F-2004-0181" maxLength={200} className="h-12 text-base" />
+                <Input value={hint} onChange={(e) => setHint(e.target.value)} maxLength={200} className="h-12 text-base" />
               </Field>
             </div>
           )}
@@ -513,17 +513,15 @@ function Scanner({ onDone }: { onDone: () => void }) {
 /* Typing a correction should be quicker than typing the whole thing: each field offers what it can. */
 const SEXES = ['Female', 'Male']
 const CIVIL = ['Single', 'Married', 'Widowed', 'Separated']
-const HINTS: Record<string, { placeholder?: string; hint?: string; mode?: 'numeric' }> = {
-  folder: { placeholder: 'F-2004-0181', hint: 'The number on the paper folder.' },
-  full_name: { placeholder: 'Given name, middle name, surname' },
-  contact: { placeholder: '0917 482 1093', hint: 'Mobile as 09XX XXX XXXX, or +63 917 482 1093.', mode: 'numeric' },
-  philhealth_pin: { placeholder: '12-345678901-2', hint: 'Twelve digits.', mode: 'numeric' },
-  medicines: { placeholder: 'AMLODIPINE 5MG ONCE DAILY, …' },
+const HINTS: Record<string, { hint?: string; mode?: 'numeric' }> = {
+  folder: { hint: 'The number on the paper folder.' },
+  contact: { hint: 'Mobile as 09XX XXX XXXX, or +63 917 482 1093.', mode: 'numeric' },
+  philhealth_pin: { hint: 'Twelve digits.', mode: 'numeric' },
 }
-const GROUP_HINTS: Record<string, { placeholder: string; hint: string }> = {
-  allergy: { placeholder: 'PENICILLIN - RASH - MODERATE', hint: 'Substance - reaction - severity.' },
-  family: { placeholder: 'MOTHER - HYPERTENSION', hint: 'Relative - condition.' },
-  visit: { placeholder: '2025-11-04 - BACK PAIN', hint: 'Date - complaint.' },
+const GROUP_HINTS: Record<string, { hint: string }> = {
+  allergy: { hint: 'Substance - reaction - severity.' },
+  family: { hint: 'Relative - condition.' },
+  visit: { hint: 'Date - complaint.' },
 }
 
 function FieldRow({
@@ -550,7 +548,7 @@ function FieldRow({
   const unchecked = flagged && value === field?.value
   const listId = useId()
   const hint = HINTS[key] ?? (kind && kind !== 'identity' ? GROUP_HINTS[kind] : undefined)
-  const box = cn('h-12 flex-1 text-base placeholder:italic placeholder:text-faint/70', unchecked && 'border-warn bg-warn-soft')
+  const box = cn('h-12 flex-1 text-base', unchecked && 'border-warn bg-warn-soft')
   const options = key === 'sex' ? SEXES : key === 'civil_status' ? CIVIL : null
 
   return (
@@ -571,7 +569,6 @@ function FieldRow({
               value={value}
               onChange={(e) => onChange(e.target.value)}
               invalid={unchecked}
-              placeholder={hint?.placeholder}
               inputMode={HINTS[key]?.mode}
               list={suggest?.length ? listId : undefined}
               className={box}

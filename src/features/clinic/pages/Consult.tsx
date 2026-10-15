@@ -367,9 +367,9 @@ export default function Consult() {
                       ['height', 'Height (cm)', '165'],
                       ['weight', 'Weight (kg)', '62'],
                     ] as const
-                  ).map(([k, l, ph]) => (
+                  ).map(([k, l]) => (
                     <Field key={k} label={l}>
-                      <Input value={vitals[k]} onChange={(e) => setVitals({ ...vitals, [k]: e.target.value })} placeholder={ph} className="h-12 text-base" inputMode="decimal" />
+                      <Input value={vitals[k]} onChange={(e) => setVitals({ ...vitals, [k]: e.target.value })} className="h-12 text-base" inputMode="decimal" />
                     </Field>
                   ))}
                 </div>
@@ -403,7 +403,7 @@ export default function Consult() {
                     }
                   }}
                   list="diagnoses"
-                  placeholder={t('Type the diagnosis, e.g. Acute bronchitis')}
+                  placeholder={t('Type the diagnosis')}
                   className="h-12 text-base"
                 />
                 <datalist id="diagnoses">
@@ -502,7 +502,7 @@ export default function Consult() {
                   }}
                   list="lab-tests"
                   aria-label={t('Lab test')}
-                  placeholder={t('Type the lab test, e.g. Complete blood count')}
+                  placeholder={t('Type the lab test')}
                   className="h-12 text-base"
                 />
                 <datalist id="lab-tests">

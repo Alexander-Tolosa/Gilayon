@@ -75,9 +75,9 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
                     <DocStatusBadge status={r.status} />
                     {r.document_no && <span className="font-mono text-sm text-danger">{r.document_no}</span>}
                     {r.status === 'voided' && <span className="text-sm text-muted">({r.void_reason})</span>}
-                    <a href={`/print/rx/${r.prescription_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
+                    <button type="button" onClick={() => window.open(`/print/rx/${r.prescription_id}`, '_blank')} className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
                       <Printer size={14} /> {t('Print')}
-                    </a>
+                    </button>
                   </li>
                 ))}
                 {mc.map((d) => (
@@ -94,9 +94,9 @@ export function VisitHistory({ patientId, compact, onCorrect }: { patientId: str
                         <Prohibit size={14} /> {d.void_reason}
                       </span>
                     )}
-                    <a href={`/print/mc/${d.document_id}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
+                    <button type="button" onClick={() => window.open(`/print/mc/${d.document_id}`, '_blank')} className="inline-flex items-center gap-1 text-sm font-semibold text-brand-700">
                       <Printer size={14} /> {t('Print')}
-                    </a>
+                    </button>
                   </li>
                 ))}
                 {labs.map((l) => (

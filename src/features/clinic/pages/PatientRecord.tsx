@@ -372,7 +372,7 @@ function FamilyTab({ patientId, isEmployee }: { patientId: string; isEmployee: b
               <option key={r}>{r}</option>
             ))}
           </Select>
-          <Input value={fh.condition} onChange={(e) => setFh({ ...fh, condition: e.target.value })} placeholder="Condition, e.g. Hypertension" aria-label="Condition" className="h-12 text-base" list="fh-conditions" />
+          <Input value={fh.condition} onChange={(e) => setFh({ ...fh, condition: e.target.value })} placeholder="Condition" aria-label="Condition" className="h-12 text-base" list="fh-conditions" />
           <datalist id="fh-conditions">
             {['Hypertension', 'Type 2 diabetes', 'Asthma', 'Stroke', 'Heart disease', 'Cancer', 'Kidney disease', 'Tuberculosis'].map((c) => (
               <option key={c} value={c} />
@@ -566,7 +566,7 @@ function EditModal({ open, onClose, patientId }: { open: boolean; onClose: () =>
         </Field>
         <p className="text-base font-semibold text-ink-2 sm:col-span-2">{t('Employee details (optional)')}</p>
         <Field label={t('Employee ID')}>
-          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} placeholder="IPG-0000-0000" className="h-12 font-mono text-base uppercase" />
+          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} className="h-12 font-mono text-base uppercase" />
         </Field>
         <Field label={t('Office')}>
           <Input value={f.office} onChange={(e) => setF({ ...f, office: e.target.value })} className="h-12 text-base" />
@@ -575,7 +575,7 @@ function EditModal({ open, onClose, patientId }: { open: boolean; onClose: () =>
           <Input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} className="h-12 text-base" />
         </Field>
         <Field label="Why are you changing this?" className={cn('sm:col-span-2')}>
-          <Textarea value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} placeholder="e.g. Checked the patient's PhilHealth ID" className="min-h-16 text-base" />
+          <Textarea value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} className="min-h-16 text-base" />
         </Field>
       </div>
     </Modal>
