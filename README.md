@@ -1,6 +1,6 @@
 # Gilayon · HMO-Clinic Digital Records
 
-**Gilayon** is Team KasCoders' entry to Hack Iloilo 2026: a working records system for an HMO clinic. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders, and offline mode.
+**Gilayon** is Team KasCoders' entry to Hack Iloilo 2026: a working records system for an HMO clinic. It covers the HMO-Clinic flow from the concept document: verified check-in, priority queue, patient registry, append-only consultations, e-signed prescriptions and medical certificates, void and reissue, a daily report, an audit trail, scans of old paper folders (photographed forms read by local OCR, checked by a person before saving), and offline mode.
 
 Gilayon is a Next.js app with a PostgreSQL backend. The browser UI is a React Router app mounted inside Next.js; the API lives in `app/api/*`.
 
@@ -50,6 +50,7 @@ With no configuration the server uses an embedded PostgreSQL (PGlite) in `./.dat
 | Backups | Nightly encrypted, verified archive of all records and scans with off-site copy, retention, restore tool and a Settings status card. See [Backups](#backups). |
 | Live screens | `GET /api/events` (Server-Sent Events) tells every open screen to refresh, including the public waiting screen (`/api/public/queue`, queue numbers only). |
 | Offline | When this computer cannot reach the server (a real drop, or the demo switch), consultation notes with their draft prescriptions and certificates, edits to drafts, and photos of old folders are kept in the browser's IndexedDB outbox and sent automatically on reconnect through `POST /api/sync`, in order, once each (every entry has its own id). One bad entry never blocks the rest. Queue numbers, signing and whole-database search need the server. Patient records are never stored in the browser: only unsent entries are, per staff member, and they survive a closed tab. The service worker caches the app screens so the app opens with the server down. |
+| Scan old folder | `/clinic/scan`: a photographed intake form is read on the server PC with local Tesseract OCR and a rule parser, optionally helped by a local Ollama model (`OLLAMA_MODEL`, `OLLAMA_URL`; without it the rules do the parsing). Nothing reaches a record until a nurse or doctor verifies the fields. A PC that cannot reach the server keeps the photo in its outbox, and it waits under **Photos waiting** after sync. `recognition_event` keeps what was read next to what was confirmed and feeds the **Accuracy and speed** tab. Measured on 60 synthetic forms: 93% of fields, about 3 to 4 seconds a page; see [`docs/ACCURACY.md`](docs/ACCURACY.md). Real handwriting will score lower. |
 | Scanned pages | Stored as files in `UPLOADS_DIR` (default `./uploads`, include it in the nightly backup). Only real JPG/PNG/WebP images under 2.5 MB are accepted, checked by file signature. They are served only through `GET /api/scans/<id>/file` to signed-in staff, never cached. |
 
 Not built yet: a multi-process event bus (the server is a single process, as on the clinic PC).
@@ -67,7 +68,7 @@ npm run https:renew                                               # new server c
 ```
 
 - **Trust the CA once per PC.** Open `http://<server>:3000/ca.crt`, or use `deploy\windows\trust-ca.ps1` (it shows the fingerprint to compare with Settings > Secure connection before installing). Firefox, phones and tablets import the file by hand; `https:setup` prints the steps.
-- **Keep `certs/himsog-ca.key` on the server only.** Whoever holds it can impersonate the clinic server. `certs/` is git-ignored. If you lose it you can make a new CA, but every PC must trust the new one.
+- **Keep `certs/himsog-ca.key` on the server only** (the file keeps its old name on purpose; renaming it would make every PC trust a new CA). Whoever holds it can impersonate the clinic server. `certs/` is git-ignored. If you lose it you can make a new CA, but every PC must trust the new one.
 - **Renew before it expires.** Server certificates last 825 days (the longest Apple devices accept). Settings shows the days left and warns 30 days ahead. Renewing keeps the same CA, so PCs need no change.
 - **Settings > Secure connection** warns on any screen opened over plain `http://` from another PC.
 - The server also sends `Strict-Transport-Security`, `Content-Security-Policy` (scripts, styles, fonts and API calls only from this server; see `next.config.ts`), `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy` headers.
@@ -90,7 +91,7 @@ npm run backup:verify -- E:\GilayonBackups\gilayon-20261014-020000.hbk
 npm run backup:restore -- <file> --yes      # replaces ALL records; stop the server first
 ```
 
-To rebuild a server after a disk failure: install the app, set `DATABASE_URL`, `UPLOADS_DIR` and `BACKUP_PASSPHRASE` (add `HIMSOG_AUTO_SEED=0` for an embedded database so it is not filled with demo data), then run `backup:restore`. Everyone signs in again afterwards. Do a trial restore on a spare folder once a month: a backup that has never been restored is a hope, not a backup.
+To rebuild a server after a disk failure: install the app, set `DATABASE_URL`, `UPLOADS_DIR` and `BACKUP_PASSPHRASE` (add `GILAYON_AUTO_SEED=0` for an embedded database so it is not filled with demo data), then run `backup:restore`. Everyone signs in again afterwards. Do a trial restore on a spare folder once a month: a backup that has never been restored is a hope, not a backup.
 
 > **Project status and open items:** see [`docs/REMAINING-WORK.md`](docs/REMAINING-WORK.md).
 
@@ -134,6 +135,7 @@ The seed is relative to the day it was created. To start over, go to **Settings 
 | `/clinic/patients`, `/clinic/patients/:id` | Registry with typo-tolerant search; patient record (family, old paper records, labs, history of changes) |
 | `/clinic/doctor` | Doctor's queue (doctor only) |
 | `/clinic/consult/:patientId` | One-screen consultation, Rx, labs, certificate, AI recap (doctor only) |
+| `/clinic/scan` | Scan old folder: photograph, read, verify, save; photos waiting; accuracy tab |
 | `/clinic/documents` | Not yet signed / signed / voided (doctor only) |
 | `/clinic/report` | Printable daily report (doctor only) |
 | `/clinic/audit` | Audit trail with CSV export (doctor only) |
