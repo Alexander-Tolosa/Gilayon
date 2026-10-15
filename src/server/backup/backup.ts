@@ -32,6 +32,7 @@ export const BACKUP_TABLES: PgTable[] = [
   t.prescriptionItem,
   t.document,
   t.scannedPage,
+  t.recognitionEvent,
   t.auditLog,
   t.counter,
   t.meta,

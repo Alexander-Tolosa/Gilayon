@@ -15,7 +15,7 @@ try {
   /* no .env file: environment variables only */
 }
 
-const TABLES = ['client_op', 'session', 'audit_log', 'prescription_item', 'prescription', 'document', 'lab_order', 'diagnosis', 'consultation', 'queue_ticket', 'scanned_page', 'allergy', 'family_history', 'patient_relationship', 'patient', 'employee', 'person', 'priority_category', 'staff', 'counter', 'meta']
+const TABLES = ['client_op', 'session', 'audit_log', 'prescription_item', 'prescription', 'document', 'lab_order', 'diagnosis', 'consultation', 'queue_ticket', 'recognition_event', 'scanned_page', 'allergy', 'family_history', 'patient_relationship', 'patient', 'employee', 'person', 'priority_category', 'staff', 'counter', 'meta']
 
 export const DEMO_PASSWORD = 'demo-password'
 export const DEMO_PIN = '1234'

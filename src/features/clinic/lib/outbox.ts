@@ -1,5 +1,5 @@
 import type { ConsultInput } from '../api-types'
-import type { ScanKind } from '../types'
+import type { ScanCategory, ScanKind } from '../types'
 
 /*
   The outbox holds what a clinic computer entered while it could not reach the server: consultation
@@ -11,7 +11,8 @@ import type { ScanKind } from '../types'
 
 export type OutboxOp = { op_id: string; staff_id: string; at: number } & (
   | { kind: 'consult'; input: ConsultInput }
-  | { kind: 'scan'; input: { page_id: string; patient_id: string; file: string; scan_kind: ScanKind; page_date: string } }
+  | { kind: 'scan'; input: { page_id: string; patient_id: string; file: string; scan_kind: ScanKind; page_date: string; category?: ScanCategory; source_clinic?: string; report_date?: string } }
+  | { kind: 'folder_scan'; input: { scan_id: string; file: string; captured_at: number; patient_hint?: string } }
   | { kind: 'edit_draft'; input: { doc_kind: 'rx' | 'doc'; id: string; patch: Record<string, unknown> } }
 )
 

@@ -4,6 +4,7 @@ import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator'
 import { drizzle as drizzlePg } from 'drizzle-orm/postgres-js'
 import { migrate as migratePg } from 'drizzle-orm/postgres-js/migrator'
 import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core'
+import { mkdirSync } from 'node:fs'
 import postgres from 'postgres'
 import { count } from 'drizzle-orm'
 import * as schema from '../../db/schema'
@@ -31,6 +32,8 @@ async function open(): Promise<Db> {
     return db
   }
   const dir = process.env.PGLITE_DIR ?? './.data/pglite'
+  // PGlite does not create missing parent folders, so a fresh clone has to have ./.data made for it.
+  if (!dir.startsWith('memory://')) mkdirSync(/*turbopackIgnore: true*/ dir, { recursive: true })
   const client = new PGlite(dir)
   const db = drizzlePglite(client, { schema }) as unknown as Db
   await migratePglite(db as never, { migrationsFolder: MIGRATIONS })

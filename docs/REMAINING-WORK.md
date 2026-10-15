@@ -25,6 +25,20 @@ What is left falls into three groups: things that can only be checked on the cli
   - Whether paper folders should get a folder number at all: they are filed by name today, so the number is optional and not checked for duplicates.
   - The doctor's signature and PIN policy.
 
+## 1b. Scan old folder (OCR + local model)
+
+Built: **Scan old folder** (`/clinic/scan`) reads a photographed intake form on the server PC with local Tesseract OCR and a rule parser, fills the fields, and only saves after a nurse or doctor verifies them. `recognition_event` keeps what the machine read next to what was confirmed, which feeds the **Accuracy and speed** tab. The synthetic form and samples are in `public/forms/` (`node scripts/make-intake-forms.mjs` rebuilds them).
+
+- [ ] **Install Ollama on the server PC** and run `ollama pull llama3.2:3b`. Without it the rule reader does the parsing (the screen says so). With it, the model fills fields the rules could not read. Set `OLLAMA_MODEL`/`OLLAMA_URL` if different.
+- [ ] **Measure on real forms.** The 98% figure is from synthetic block-letter forms. Handwriting will be lower; collect 20 real, consented forms and read the numbers off the Accuracy tab.
+- [ ] **Time a nurse typing one folder by hand** and enter it on the Accuracy tab; the "faster than typing" figure uses that number.
+- [ ] Visits and regular medicines are kept with the scan and its confirmation, not as structured records yet.
+
+**Photographing with the server unreachable.** A clinic PC that cannot reach the server still takes photos: each one is kept in that browser's outbox with an optional "whose folder is it" note, goes up with the next sync, is read by the server in the background, and then waits under **Photos waiting** for a person to check it. Nothing reaches a patient record without that check.
+
+- [ ] **Try it on real clinic PCs**, including a deliberate unplugged-network test with several photos queued, then reconnecting.
+- [ ] Photos waiting are held as files in `UPLOADS_DIR/scans` until confirmed or discarded, and the row is in `recognition_event`. Decide how long an unchecked photo may sit there before staff are reminded.
+
 ## 2. Before real patient data goes in
 
 - [x] **HR employee list import screen.** Done: Settings > Import HR list (CSV, column matching, preview, validation, conflicts, duplicates hand-off). Still to do with real data: try it on the clinic's actual export, and add `.xlsx` support only if CSV export proves awkward for HR.

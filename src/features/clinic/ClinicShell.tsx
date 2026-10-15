@@ -12,7 +12,7 @@ import {
   X,
   Queue as QueueIcon,
 } from '@phosphor-icons/react'
-import { Key } from '@phosphor-icons/react'
+import { Key, Scan } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
@@ -52,10 +52,12 @@ function useNav(role: StaffRole): Item[] {
     return [
       { to: '/clinic/checkin', label: 'Check in', icon: UserCirclePlus },
       { to: '/clinic/queue', label: 'Queue board', icon: QueueIcon, badge: waiting || undefined },
+      { to: '/clinic/scan', label: 'Scan old folder', icon: Scan },
       { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     ]
   return [
     { to: '/clinic/doctor', label: 'My queue', icon: Stethoscope, badge: waiting || undefined },
+    { to: '/clinic/scan', label: 'Scan old folder', icon: Scan },
     { to: '/clinic/patients', label: 'Patients', icon: UsersThree },
     { to: '/clinic/documents', label: 'Documents', icon: FileText },
     { to: '/clinic/report', label: 'Daily report', icon: ChartBar },

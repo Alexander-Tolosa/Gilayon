@@ -5,7 +5,7 @@ import { cn } from '../../../shared/lib/utils'
 import { useT } from '../lib/i18n'
 import { ageOf, compressImage, fmtDay, todayKey } from '../lib/helpers'
 import { useClinic, type NewPersonInput, type UnlistedInput } from '../store/store'
-import type { CivilStatus, RelationshipType, ScanKind, Sex } from '../types'
+import type { CivilStatus, RelationshipType, ScanCategory, ScanKind, Sex } from '../types'
 
 /** Attach scans of old paper pages to a record, by upload (or the camera on a tablet). */
 export function ScanUploader({ patientId, compact }: { patientId: string; compact?: boolean }) {
@@ -15,15 +15,22 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
   const input = useRef<HTMLInputElement>(null)
   const [kind, setKind] = useState<ScanKind>('Chart')
   const [date, setDate] = useState('')
+  const [category, setCategory] = useState<ScanCategory>('Old folder')
+  const [source, setSource] = useState('')
   const [busy, setBusy] = useState(false)
+  const outside = category === 'Outside report'
   const onFiles = async (files: FileList | null) => {
     if (!files?.length) return
+    if (outside && !source.trim()) {
+      toast({ tone: 'warn', title: 'Name the clinic or hospital', body: 'Outside reports are filed with the place they came from.' })
+      return
+    }
     setBusy(true)
     let n = 0
     for (const f of Array.from(files)) {
       try {
         const data = await compressImage(f)
-        if (await uploadScan(patientId, data, kind, date || todayKey())) n++
+        if (await uploadScan(patientId, data, kind, date || todayKey(), { category, source_clinic: outside ? source.trim() : undefined, report_date: outside ? date || undefined : undefined })) n++
       } catch {
         toast({ tone: 'warn', title: `${f.name} ${t('is not an image')}`, body: t('Scan pages as JPG or PNG.') })
       }
@@ -35,6 +42,17 @@ export function ScanUploader({ patientId, compact }: { patientId: string; compac
   return (
     <div className={cn('rounded-3xl border-2 border-dashed border-brand-200 bg-brand-50/50 p-5', compact && 'p-4')}>
       <div className="flex flex-wrap items-end gap-3">
+        <Field label={t('Filed as')} className="min-w-44">
+          <Select value={category} onChange={(e) => setCategory(e.target.value as ScanCategory)} className="h-12 text-base">
+            <option value="Old folder">Old folder page</option>
+            <option value="Outside report">Outside clinic report</option>
+          </Select>
+        </Field>
+        {outside && (
+          <Field label={t('From which clinic or hospital?')} className="min-w-56 flex-1">
+            <Input value={source} onChange={(e) => setSource(e.target.value)} placeholder="e.g. West Visayas State University Medical Center" maxLength={120} className="h-12 text-base" />
+          </Field>
+        )}
         <Field label={t('Page type')} className="min-w-40">
           <Select value={kind} onChange={(e) => setKind(e.target.value as ScanKind)} className="h-12 text-base">
             {(['Chart', 'Prescription', 'Lab result', 'Certificate'] as ScanKind[]).map((k) => (

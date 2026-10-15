@@ -1,0 +1,62 @@
+{
+  "sample-villanueva": {
+    "folder": "F-2004-0181",
+    "name": "MARIA LOURDES VILLANUEVA",
+    "birth": "1968-03-18",
+    "sex": "FEMALE",
+    "civil": "MARRIED",
+    "contact": "0917 482 1093",
+    "pin": "12-050318204-7",
+    "allergies": [
+      "PENICILLIN - RASH - MODERATE"
+    ],
+    "family": [
+      "MOTHER - HYPERTENSION",
+      "FATHER - DIABETES"
+    ],
+    "meds": "AMLODIPINE 5MG ONCE DAILY, METFORMIN 500MG TWICE DAILY",
+    "visits": [
+      "2025-11-04 - ELEVATED BLOOD PRESSURE",
+      "2025-06-17 - COUGH AND COLDS"
+    ]
+  },
+  "sample-delacruz": {
+    "folder": "F-2009-0712",
+    "name": "JOSE DELA CRUZ",
+    "birth": "1982-08-09",
+    "sex": "MALE",
+    "civil": "MARRIED",
+    "contact": "0919 554 2210",
+    "pin": "12-090809331-4",
+    "allergies": [
+      "SHRIMP - HIVES - MILD",
+      "IBUPROFEN - SWELLING - SEVERE"
+    ],
+    "family": [
+      "FATHER - HEART DISEASE"
+    ],
+    "meds": "LOSARTAN 50MG ONCE DAILY",
+    "visits": [
+      "2026-01-22 - BACK PAIN",
+      "2025-09-08 - HEADACHE"
+    ]
+  },
+  "sample-sorongon": {
+    "folder": "F-2025-0033",
+    "name": "CARLO SORONGON",
+    "birth": "2002-05-14",
+    "sex": "MALE",
+    "civil": "SINGLE",
+    "contact": "0995 612 0038",
+    "pin": "12-250514006-2",
+    "allergies": [],
+    "family": [
+      "MOTHER - ASTHMA",
+      "GRANDFATHER - STROKE"
+    ],
+    "meds": "NONE",
+    "visits": [
+      "2026-02-10 - PRE-EMPLOYMENT CHECKUP"
+    ]
+  }
+}

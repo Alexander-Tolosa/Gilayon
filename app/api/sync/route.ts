@@ -4,6 +4,7 @@ import { audit, nowMs } from '@/server/core'
 import { route, z } from '@/server/http'
 import { ConsultSchema } from '@/server/schemas'
 import { editDraft, saveConsultation } from '@/server/services/clinical'
+import { processQueued, queueFolderScan } from '@/server/services/recognition'
 import { uploadScan } from '@/server/services/records'
 
 const Op = z.discriminatedUnion('kind', [
@@ -17,6 +18,19 @@ const Op = z.discriminatedUnion('kind', [
       file: z.string(),
       scan_kind: z.enum(['Chart', 'Prescription', 'Lab result', 'Certificate']),
       page_date: z.string(),
+      category: z.enum(['Old folder', 'Outside report']).optional(),
+      source_clinic: z.string().max(120).optional(),
+      report_date: z.string().optional(),
+    }),
+  }),
+  z.object({
+    op_id: z.string().min(1),
+    kind: z.literal('folder_scan'),
+    input: z.object({
+      scan_id: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
+      file: z.string(),
+      captured_at: z.number(),
+      patient_hint: z.string().max(200).optional(),
     }),
   }),
   z.object({
@@ -44,6 +58,7 @@ const Body = z.object({ ops: z.array(Op).max(200) })
  */
 export const POST = route({ roles: ['doctor', 'desk', 'nurse'], body: Body }, async ({ tx, actor, body }) => {
   const applied: string[] = []
+  let queued = false
   const rejected: { op_id: string; reason: string }[] = []
   for (const op of body.ops) {
     const [seen] = await tx.select().from(clientOp).where(eq(clientOp.op_id, op.op_id))
@@ -55,7 +70,10 @@ export const POST = route({ roles: ['doctor', 'desk', 'nurse'], body: Body }, as
             if (actor.role !== 'doctor') throw new Error('Only a doctor can save consultations.')
             await saveConsultation(sp, actor, op.input, { viaSync: true })
           } else if (op.kind === 'scan') {
-            await uploadScan(sp, actor, op.input.patient_id, op.input.file, op.input.scan_kind, op.input.page_date, op.input.page_id)
+            await uploadScan(sp, actor, op.input.patient_id, op.input.file, op.input.scan_kind, op.input.page_date, op.input.page_id, { category: op.input.category, source_clinic: op.input.source_clinic, report_date: op.input.report_date })
+          } else if (op.kind === 'folder_scan') {
+            await queueFolderScan(sp, actor, op.input)
+            queued = true
           } else {
             if (actor.role !== 'doctor') throw new Error('Only a doctor can edit drafts.')
             await editDraft(sp, actor, op.input.doc_kind, op.input.id, op.input.patch)
@@ -70,5 +88,7 @@ export const POST = route({ roles: ['doctor', 'desk', 'nurse'], body: Body }, as
     applied.push(op.op_id)
   }
   if (applied.length) await audit(tx, actor.staff_id, { action: 'sync', table: 'client_op', record: applied[0], summary: `Synced ${applied.length} offline ${applied.length === 1 ? 'entry' : 'entries'}` })
+  // Photos are read after this transaction commits, so OCR never holds the database.
+  if (queued) setTimeout(() => void processQueued(), 300)
   return { applied, rejected }
 })
