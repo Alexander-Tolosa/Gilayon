@@ -66,8 +66,10 @@ test.describe('front desk', () => {
     await page.getByRole('button', { name: 'Maria Lourdes Villanueva', exact: true }).click()
     await page.getByRole('button', { name: /^Maria Lourdes Villanueva .*IPG-2004-0318/ }).click()
     await page.getByRole('button', { name: /Demo: fill from ID/ }).click()
-    await page.getByRole('button', { name: 'Verify', exact: true }).click()
-    await page.getByRole('button', { name: /^Yes, open the record/ }).click()
+    await expect(page.getByRole('heading', { name: 'Check the paper folder' })).toBeVisible()
+    await page.getByRole('button', { name: /^Folder found/ }).click()
+    await page.getByRole('button', { name: 'Details match the paper folder' }).click()
+    await page.getByRole('button', { name: 'Check and continue' }).click()
     await page.getByRole('button', { name: /Next: Priority lane/ }).click()
     await page.getByRole('button', { name: 'Medical', exact: true }).click()
     await page.getByRole('button', { name: 'Follow-up', exact: true }).click()
@@ -76,6 +78,30 @@ test.describe('front desk', () => {
     await expect(page.getByText('Please wait for your number to be called.')).toBeVisible()
     await page.goto('/clinic/queue')
     await expect(page.getByText('Maria Lourdes Villanueva').first()).toBeVisible()
+  })
+
+  test('registers someone who is not on the HR list, checks the paper cabinet and issues a queue number', async ({ page }) => {
+    await signIn(page, 'desk')
+    await page.getByRole('button', { name: 'Not on the employee list?' }).click()
+    await page.getByRole('button', { name: 'New patient', exact: true }).click()
+    await page.getByRole('textbox', { name: 'Full name' }).fill('Zenaida Quirino-Abalos')
+    await page.locator('input[type=date]').fill('1988-02-14')
+    await page.getByRole('textbox', { name: /^Employee ID/ }).fill('IPG-2026-0001')
+    await page.getByRole('button', { name: 'Register person' }).click()
+    await expect(page.getByRole('heading', { name: 'Check the paper folder' })).toBeVisible()
+    // The queue number waits for the cabinet check.
+    await expect(page.getByRole('button', { name: 'Check and continue' })).toBeDisabled()
+    await page.getByRole('button', { name: /^No folder/ }).click()
+    await page.getByRole('button', { name: 'Check and continue' }).click()
+    await page.getByRole('button', { name: /Next: Priority lane/ }).click()
+    await page.getByRole('button', { name: 'Issue queue number' }).click()
+    await expect(page.getByText(/^[URP]-\d{3}$/)).toBeVisible()
+    const state = await serverState(page)
+    const person = state.persons.find((p) => p.full_name === 'Zenaida Quirino-Abalos')!
+    const patient = state.patients.find((p) => p.person_id === person.person_id)!
+    expect(patient.paper_status).toBe('none')
+    expect(state.employees.find((e) => e.person_id === person.person_id)?.employee_no).toBe('IPG-2026-0001')
+    expect(patient.hr_flag).toBeUndefined()
   })
 
   test('the nurse has exactly the receptionist menu', async ({ page }) => {

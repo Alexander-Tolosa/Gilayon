@@ -36,6 +36,13 @@ export const patient = pgTable('patient', {
   created_by: text().notNull(),
   hr_flag: text(),
   /**
+   * What the front desk found when it looked in the paper cabinet (folders are filed by name, so
+   * many have no number). Null means nobody has checked yet; a ticket cannot be issued until someone does.
+   */
+  paper_status: text().$type<'on_file' | 'none'>(),
+  paper_checked_at: ms('paper_checked_at'),
+  paper_checked_by: text(),
+  /**
    * Set when this record was found to be the same person as another and merged into it. Nothing is
    * moved or deleted (signed documents and consultations are immutable): screens simply show the
    * records together under the surviving patient, and a doctor can undo the merge.

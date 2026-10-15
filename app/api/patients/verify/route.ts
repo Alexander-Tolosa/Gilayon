@@ -7,6 +7,9 @@ const Body = z.object({
   birthdate: z.string(),
   employee_no: z.string().optional(),
   principal_no: z.string().optional(),
+  id_checked: z.enum(['company_id', 'government_id', 'other']).optional(),
+  paper_match: z.boolean().optional(),
+  override: z.boolean().optional(),
 })
 
 export const POST = route({ body: Body }, ({ tx, actor, body }) => {

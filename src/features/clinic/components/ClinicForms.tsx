@@ -4,7 +4,7 @@ import { Button, Chip, Field, Input, Select, useToast } from '../../../shared/co
 import { cn } from '../../../shared/lib/utils'
 import { useT } from '../lib/i18n'
 import { ageOf, compressImage, fmtDay, todayKey } from '../lib/helpers'
-import { useClinic, type NewPersonInput } from '../store/store'
+import { useClinic, type NewPersonInput, type UnlistedInput } from '../store/store'
 import type { CivilStatus, RelationshipType, ScanKind, Sex } from '../types'
 
 /** Attach scans of old paper pages to a record, by upload (or the camera on a tablet). */
@@ -155,6 +155,115 @@ export function DependentForm({ principalPatientId, onDone, onCancel }: { princi
         )}
         <Button size="lg" onClick={submit} disabled={!online || (dups.length > 0 && !ackDup)} icon={<CheckCircle size={20} weight="fill" />}>
           {t('Add dependent')}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+/** For someone who is not in the system yet: a paper-only past patient or a walk-in. Employee details are optional. */
+export function UnlistedForm({ onDone, onCancel }: { onDone: (patientId: string, personId: string) => void; onCancel?: () => void }) {
+  const t = useT()
+  const { registerUnlisted, online } = useClinic()
+  const toast = useToast()
+  const [f, setF] = useState<UnlistedInput>({ full_name: '', birthdate: '', sex: 'Female', contact: '', civil_status: 'Single', philhealth_pin: '', pwd_id: '', employee_no: '', office: '', position: '' })
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [dupMessage, setDupMessage] = useState<string | null>(null)
+  const [ackDup, setAckDup] = useState(false)
+  const [serverError, setServerError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async () => {
+    const e: Record<string, string> = {}
+    if (f.full_name.trim().split(/\s+/).length < 2) e.full_name = t('Required field')
+    if (!f.birthdate) e.birthdate = t('Required field')
+    else if (f.birthdate > todayKey()) e.birthdate = t('Birthdate cannot be in the future')
+    setErrors(e)
+    if (Object.keys(e).length) return
+    setBusy(true)
+    setServerError(null)
+    const r = await registerUnlisted(f, ackDup)
+    setBusy(false)
+    if (r.patient) {
+      toast({ tone: 'ok', title: t('Record created'), body: f.full_name })
+      onDone(r.patient.patient_id, r.patient.person_id)
+    } else if (r.duplicate) {
+      setDupMessage(r.error ?? null)
+    } else setServerError(r.error ?? null)
+  }
+  const edit = (patch: Partial<UnlistedInput>) => {
+    setF({ ...f, ...patch })
+    setDupMessage(null)
+    setAckDup(false)
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label={t('Full name')} error={errors.full_name} className="sm:col-span-2">
+          <Input value={f.full_name} onChange={(e) => edit({ full_name: e.target.value })} placeholder="e.g. Rodel Gaitan" className="h-12 text-base" invalid={!!errors.full_name} />
+        </Field>
+        <Field label={t('Birthdate')} error={errors.birthdate} hint={f.birthdate && !errors.birthdate ? `${t('Age')}: ${ageOf(f.birthdate)} ${t('calculated')})` : undefined}>
+          <Input type="date" value={f.birthdate} onChange={(e) => edit({ birthdate: e.target.value })} className="h-12 text-base" invalid={!!errors.birthdate} />
+        </Field>
+        <Field label={t('Sex')}>
+          <div className="flex gap-2">
+            {(['Female', 'Male'] as Sex[]).map((s) => (
+              <Chip key={s} selected={f.sex === s} onClick={() => edit({ sex: s })} className="h-11 flex-1 justify-center text-[15px]">
+                {t(s)}
+              </Chip>
+            ))}
+          </div>
+        </Field>
+        <Field label={t('Civil status')}>
+          <Select value={f.civil_status} onChange={(e) => setF({ ...f, civil_status: e.target.value as CivilStatus })} className="h-12 text-base">
+            {(['Single', 'Married', 'Widowed', 'Separated'] as CivilStatus[]).map((c) => (
+              <option key={c} value={c}>
+                {t(c)}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('Contact')} optional>
+          <Input value={f.contact} onChange={(e) => setF({ ...f, contact: e.target.value })} className="h-12 text-base" />
+        </Field>
+        <Field label={t('PhilHealth PIN')} optional>
+          <Input value={f.philhealth_pin} onChange={(e) => setF({ ...f, philhealth_pin: e.target.value })} placeholder="12-345678901-2" className="h-12 text-base" />
+        </Field>
+        <Field label={t('PWD ID')} optional>
+          <Input value={f.pwd_id} onChange={(e) => setF({ ...f, pwd_id: e.target.value })} className="h-12 text-base" />
+        </Field>
+        <p className="text-base font-semibold text-ink-2 sm:col-span-2">{t('Works for the partner company? (optional)')}</p>
+        <Field label={t('Employee ID')} optional>
+          <Input value={f.employee_no} onChange={(e) => setF({ ...f, employee_no: e.target.value })} placeholder="IPG-0000-0000" className="h-12 font-mono text-base uppercase" />
+        </Field>
+        <Field label={t('Office')} optional>
+          <Input value={f.office} onChange={(e) => setF({ ...f, office: e.target.value })} className="h-12 text-base" />
+        </Field>
+        <Field label={t('Position')} optional className="sm:col-span-2">
+          <Input value={f.position} onChange={(e) => setF({ ...f, position: e.target.value })} className="h-12 text-base" />
+        </Field>
+      </div>
+      {dupMessage && (
+        <div className="rounded-2xl border border-[#fbe2b0] bg-warn-soft p-4" role="alert">
+          <p className="flex items-center gap-2 text-base font-semibold text-warn">
+            <Warning size={20} weight="fill" /> {t('Possible duplicate')}
+          </p>
+          <p className="mt-1 text-[15px] text-ink-2">{dupMessage}</p>
+          <label className="mt-3 flex items-center gap-2 text-[15px] font-medium">
+            <input type="checkbox" checked={ackDup} onChange={(e) => setAckDup(e.target.checked)} className="size-5 accent-brand-600" /> {t('I checked an ID: this is a different person')}
+          </label>
+        </div>
+      )}
+      {serverError && <p className="rounded-2xl bg-danger-soft px-4 py-3 text-base text-danger">{serverError}</p>}
+      <div className="flex flex-wrap justify-end gap-2">
+        {onCancel && (
+          <Button variant="ghost" size="lg" onClick={onCancel}>
+            {t('Cancel')}
+          </Button>
+        )}
+        <Button size="lg" onClick={submit} disabled={!online || busy || (!!dupMessage && !ackDup)} icon={<CheckCircle size={20} weight="fill" />}>
+          {t('Register person')}
         </Button>
       </div>
     </div>

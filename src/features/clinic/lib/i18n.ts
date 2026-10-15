@@ -167,7 +167,7 @@ const FIL: Record<string, string> = {
   'System': 'Sistema',
   'No entries.': 'Walang entry.',
   'Filters and search apply to the entries loaded so far.': 'Ang mga filter at paghahanap ay para sa mga entry na na-load pa lamang.',
-  'Nobody gets a queue number until their identity is checked against the HR list.': 'Walang makakakuha ng queue number hangga\'t hindi napapatunayan ang pagkakakilanlan sa listahan ng HR.',
+  'Nobody gets a queue number until their identity is checked.': 'Walang makakakuha ng queue number hangga\'t hindi napapatunayan ang pagkakakilanlan.',
   'Progress': 'Progreso',
   'Create a dependent linked to an employee': 'Gumawa ng dependent na naka-link sa empleyado',
   'Spouses, children and parents are patients too. Find the employee first.': 'Pasyente rin ang asawa, anak at magulang. Hanapin muna ang empleyado.',

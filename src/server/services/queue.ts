@@ -13,11 +13,13 @@ export async function issueTicket(q: Q, actor: Actor, patientIdIn: string, categ
   if (existing) return existing.ticket_id // retried request
   const patientId = await canonicalPatientId(q, patientIdIn)
   const [row] = await q
-    .select({ birthdate: t.person.birthdate, name: t.person.full_name })
+    .select({ birthdate: t.person.birthdate, name: t.person.full_name, paper: t.patient.paper_status })
     .from(t.patient)
     .innerJoin(t.person, eq(t.person.person_id, t.patient.person_id))
     .where(eq(t.patient.patient_id, patientId))
   if (!row) throw new HttpError(404, 'Patient not found')
+  // Folders are filed by name: someone has to look in the cabinet once before the first queue number.
+  if (!row.paper) throw new HttpError(409, 'Check the paper folder first: say whether a folder is on file or not.')
   const day = todayKey()
   const table = (await q.select().from(t.priorityCategory)) as PriorityCategory[]
   const cats = [...new Set<CategoryKey>([...categories, ...(ageOf(row.birthdate) >= 60 ? (['senior'] as CategoryKey[]) : [])])]
