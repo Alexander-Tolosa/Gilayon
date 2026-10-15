@@ -49,11 +49,11 @@ async function prepare(bytes: Buffer, flip: boolean) {
 }
 
 /** Asks the model to read the form picture. Throws an HttpError with a plain reason when it cannot. */
-export async function readWithVision(bytes: Buffer, opts: { flip?: boolean } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
+export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; timeoutMs?: number } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
   const st = await visionStatus()
   if (!st.available) throw new HttpError(503, st.reason ?? 'The handwriting reader is not available.')
   const t0 = Date.now()
-  const timeout = Number(process.env.OLLAMA_VISION_TIMEOUT_MS ?? 240000)
+  const timeout = opts.timeoutMs ?? Number(process.env.OLLAMA_VISION_TIMEOUT_MS ?? 240000)
   let res: Response
   try {
     res = await fetch(`${ollamaUrl()}/api/chat`, {
@@ -64,8 +64,10 @@ export async function readWithVision(bytes: Buffer, opts: { flip?: boolean } = {
         model: st.model,
         stream: false,
         format: formSchema,
-        // The picture alone is about 4,000 tokens, so the default 4,096-token window would cut it off.
-        options: { temperature: 0, num_ctx: 8192 },
+        // The picture alone is about 4,000 tokens, and the answer now carries the whole page written out, so
+        // the window has to hold both: at 8,192 the JSON came back cut in half and could not be read.
+        // num_predict is a backstop: the schema already bounds the answer, but a model that loops should cost seconds, not minutes.
+        options: { temperature: 0, num_ctx: Number(process.env.OLLAMA_VISION_CTX ?? 16384), num_predict: 2000 },
         messages: [{ role: 'user', content: PROMPT, images: [await prepare(bytes, !!opts.flip)] }],
       }),
     })

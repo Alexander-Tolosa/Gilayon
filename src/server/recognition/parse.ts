@@ -253,7 +253,8 @@ const schema = {
     medicines: { type: 'string' },
     visits: { type: 'array', items: { type: 'string' } },
     /** The whole page written out. Shown to the person scanning to read and copy; never filed automatically. */
-    page_text: { type: 'array', items: { type: 'string' } },
+    // Bounded, and no empty lines: unbounded, the model wrote the page and then kept emitting "" until it timed out (3 of 60 forms).
+    page_text: { type: 'array', maxItems: 60, items: { type: 'string', minLength: 3 } },
   },
   // page_text is required too: left optional, the model skips it on a form whose other fields it could fill.
   required: ['folder', 'full_name', 'birthdate', 'sex', 'civil_status', 'contact', 'philhealth_pin', 'allergies', 'family_history', 'medicines', 'visits', 'page_text'],

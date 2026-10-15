@@ -18,6 +18,7 @@ import {
 import { Link } from 'react-router-dom'
 import type { AppointmentStatus } from '../../features/portal/data/types'
 import { cn, initials } from '../lib/utils'
+import { DatePicker } from './DatePicker'
 
 /* ---------------------------------- Button --------------------------------- */
 
@@ -205,6 +206,10 @@ const inputBase =
 
 export function Input({ className, invalid, ...rest }: InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
   const f = useContext(FieldCtx)
+  // A date field gets a calendar big enough to use; the browser's own is drawn by the system at a size nothing can change.
+  if (rest.type === 'date') {
+    return <DatePicker {...rest} value={rest.value == null ? undefined : String(rest.value)} min={rest.min == null ? undefined : String(rest.min)} max={rest.max == null ? undefined : String(rest.max)} id={rest.id ?? f?.id} aria-describedby={f?.describedBy} className={className} invalid={invalid} base={cn(inputBase, 'h-11')} />
+  }
   return <input id={f?.id} aria-describedby={f?.describedBy} className={cn(inputBase, 'h-11', invalid ? 'border-danger focus:border-danger' : 'border-line-strong focus:border-brand-500', className)} aria-invalid={invalid || undefined} {...rest} />
 }
 

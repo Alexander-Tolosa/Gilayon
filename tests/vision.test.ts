@@ -130,7 +130,7 @@ describe('the handwriting reader', () => {
     expect(r.model).toBe(MODEL)
     const chat = calls.find((c) => c.url.endsWith('/api/chat'))!.body!
     expect(chat.model).toBe(MODEL)
-    expect((chat.options as { num_ctx: number }).num_ctx).toBeGreaterThanOrEqual(8192) // the page alone is ~4,000 tokens
+    expect((chat.options as { num_ctx: number }).num_ctx).toBeGreaterThanOrEqual(16384) // the page is ~4,000 tokens in, and the whole page written out comes back
     expect((chat.messages as { images: string[] }[])[0].images[0]).toMatch(/^\/9j\//) // a JPEG
     expect(chat.format).toMatchObject({ type: 'object' })
   })

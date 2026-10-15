@@ -452,7 +452,10 @@ test.describe('scanning an old folder', () => {
     await page.getByRole('button', { name: 'Villanueva (clean print)' }).click()
     // Local OCR on the server PC: a few seconds, no internet.
     await expect(page.getByText(/Read in \d/)).toBeVisible({ timeout: 60_000 })
-    await expect(page.getByText('Tesseract 7 (local)')).toBeVisible()
+    // The header says in plain words what was read; the engine names are in its tooltip, for support.
+    // (The handwriting reader is off in these tests, see playwright.config.ts, so only typed text was read.)
+    await expect(page.getByText('Typed text only')).toBeVisible()
+    await expect(page.getByTitle(/Tesseract 7 \(local\)/)).toBeVisible()
 
     // The patient was found from the form itself, and the fields came out of the page.
     await expect(page.getByText('Maria Lourdes Villanueva').first()).toBeVisible()

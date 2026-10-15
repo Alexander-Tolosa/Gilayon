@@ -168,3 +168,8 @@
     break-after: page;
   }
 }
+
+/* Dates: the calendar button beside the field replaces the browser's own tiny calendar icon. */
+.date-input::-webkit-calendar-picker-indicator {
+  display: none;
+}

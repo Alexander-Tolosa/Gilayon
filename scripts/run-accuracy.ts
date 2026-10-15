@@ -51,6 +51,7 @@ function expected(t: Truth): Record<string, string> {
 const family = (k: string) => (/_\d+$/.test(k) ? k.replace(/_\d+$/, '') : k)
 
 type Tally = { right: number; total: number }
+const failures: string[] = []
 const byCond = new Map<string, Tally & { forms: number; perfect: number; ms: number }>()
 const byField = new Map<string, Tally>()
 const misses: { id: string; field: string; want: string; got: string }[] = []
@@ -68,8 +69,13 @@ for (const t of set) {
   const ocr = await ocrImage(buf)
   let fields = parseReading(ocr)
   if (useVision) {
-    const v = await readWithVision(buf)
-    fields = mergeVision(fields, v.data, v.model)
+    // A page the model answers badly is one bad form, not a dead run: the OCR reading stands and scores as it is.
+    try {
+      const v = await readWithVision(buf)
+      fields = mergeVision(fields, v.data, v.model)
+    } catch (e) {
+      failures.push(`${t.id}: ${e instanceof Error ? e.message : 'the image reader failed'}`)
+    }
   }
   if (useRegistry) fields = snapToKnown(fields, registry, BASE_VOCABULARY).fields
   const ms = Date.now() - t0
@@ -109,6 +115,7 @@ for (const [k, c] of byCond) console.log(`${k.padEnd(10)}  ${String(c.forms).pad
 console.log(`${'ALL'.padEnd(10)}  ${String(total.forms).padStart(5)}  ${pct(total.right, total.total).padStart(12)}   ${`${total.perfect}/${total.forms}`.padStart(13)}   ${(total.ms / total.forms / 1000).toFixed(1).padStart(8)} s\n`)
 console.log('Field                Right')
 for (const [k, t] of [...byField].sort((a, b) => a[1].right / a[1].total - b[1].right / b[1].total)) console.log(`${k.padEnd(18)}  ${pct(t.right, t.total).padStart(7)}  (${t.right}/${t.total})`)
+if (failures.length) console.log(`\nThe image reader failed on ${failures.length} of ${total.forms} forms (their OCR reading was scored as it stood):\n  ${failures.slice(0, 5).join('\n  ')}`)
 console.log('\nSample mistakes:')
 for (const m of misses.slice(0, 12)) console.log(`  ${m.id}  ${m.field}: wanted "${m.want}" got "${m.got}"`)
 

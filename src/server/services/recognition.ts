@@ -93,7 +93,8 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
   let other: string[] = []
   if (opts.handwriting || auto) {
     try {
-      const v = await readWithVision(bytes, { flip: flipped })
+      // The automatic read gets 90 s, not the 4 minutes of the button: a nurse should never sit that long, and the OCR reading is there to fall back on.
+      const v = await readWithVision(bytes, { flip: flipped, timeoutMs: opts.handwriting ? undefined : 90_000 })
       fields = mergeVision(fields, v.data, v.model)
       other = (Array.isArray(v.data.page_text) ? (v.data.page_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter(hasAnAnswer).slice(0, 60)
       parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
