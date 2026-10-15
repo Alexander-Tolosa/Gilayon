@@ -32,6 +32,12 @@ What is left falls into three groups: things that can only be checked on the cli
 Built: **Scan old folder** (`/clinic/scan`) reads a photographed intake form on the server PC with local Tesseract OCR and a rule parser, fills the fields, and only saves after a nurse or doctor verifies them. `recognition_event` keeps what the machine read next to what was confirmed, which feeds the **Accuracy and speed** tab. The synthetic form and samples are in `public/forms/` (`node scripts/make-intake-forms.mjs` rebuilds them).
 
 - [ ] **Install Ollama on the server PC** and run `ollama pull llama3.2:3b`. Without it the rule reader does the parsing (the screen says so). With it, the model fills fields the rules could not read. Set `OLLAMA_MODEL`/`OLLAMA_URL` if different.
+**Measured on 60 synthetic forms** (`node scripts/make-accuracy-set.mjs`, then `npx tsx scripts/run-accuracy.ts --registry`): 100% of fields on clean scans, tilted phone photos and dim photos; 95% on a hurried script font; 71% on a neat handwriting font; 93% overall, about 3 to 4 seconds a page. Reading a page twice and checking the result against the clinic's own records is what lifted it from 58%.
+
+Two findings worth keeping:
+- A **digit-box form** (one box per character, `--v2`) scored *worse* than the plain form (90% against 93%): separating the characters takes away the word context the reader leans on. The reader still understands boxes and tick boxes, so it is worth retrying on real handwriting, but the plain form stays the default.
+- The handwriting rows are **simulated with fonts**, so they are tidier than a real hand. Treat 71% as optimistic.
+
 - [ ] **Measure on real forms.** The 98% figure is from synthetic block-letter forms. Handwriting will be lower; collect 20 real, consented forms and read the numbers off the Accuracy tab.
 - [ ] **Time a nurse typing one folder by hand** and enter it on the Accuracy tab; the "faster than typing" figure uses that number.
 - [ ] Visits and regular medicines are kept with the scan and its confirmation, not as structured records yet.

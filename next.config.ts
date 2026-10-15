@@ -26,7 +26,7 @@ const csp = [
 
 const config: NextConfig = {
   // PGlite ships WASM + data files that must not be bundled.
-  serverExternalPackages: ['tesseract.js', '@electric-sql/pglite', 'postgres', '@peculiar/x509', 'tsyringe', 'reflect-metadata'],
+  serverExternalPackages: ['tesseract.js', 'sharp', '@electric-sql/pglite', 'postgres', '@peculiar/x509', 'tsyringe', 'reflect-metadata'],
   async headers() {
     return [
       {

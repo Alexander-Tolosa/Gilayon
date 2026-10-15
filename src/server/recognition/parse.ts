@@ -21,7 +21,9 @@ export type ParsedField = {
   confidence: number
   /** True when the value fails its format check or needed the language model. */
   review: boolean
-  source: 'rules' | 'llm'
+  source: 'rules' | 'llm' | 'registry'
+  /** Set when the value was changed after reading, and why, so the person verifying can see it. */
+  note?: string
 }
 
 const clean = (s: string) => s.replace(/[_|~]+/g, ' ').replace(/\s+/g, ' ').trim()
@@ -37,10 +39,45 @@ const validDate = (s: string) => {
   const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
   return d.getFullYear() === Number(m[1]) && d.getMonth() === Number(m[2]) - 1 && d.getDate() === Number(m[3]) && d.getFullYear() > 1900 && d.getTime() <= Date.now()
 }
+/*
+  Form v2 writes every number one character per box, and marks a choice with an X in a box. Separated
+  characters are far easier to read than joined handwriting, so when the label's own rule fails, the
+  digits on that line are collected and laid back into the field's shape.
+*/
+type Boxes = { label: RegExp; digits: number; format: (d: string) => string }
+const BOXES: Record<string, Boxes> = {
+  folder: { label: /F\w{1,3}LDER\s*N[o0]/i, digits: 8, format: (d) => `F-${d.slice(0, 4)}-${d.slice(4)}` },
+  birthdate: { label: /BIRTHDATE/i, digits: 8, format: (d) => `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6)}` },
+  contact: { label: /CONTACT\s*N[o0]/i, digits: 11, format: (d) => `${d.slice(0, 4)} ${d.slice(4, 7)} ${d.slice(7)}` },
+  philhealth_pin: { label: /PHILHEALTH\s*PIN/i, digits: 12, format: (d) => `${d.slice(0, 2)}-${d.slice(2, 11)}-${d.slice(11)}` },
+}
+
+/** Digits on a line after its label, with the slips a boxed digit invites ("l" for 1, "O" for 0) put right. */
+function boxedDigits(line: string, label: RegExp): string {
+  const after = line.replace(new RegExp(`^.*?${label.source}\\s*[:;.]?`, 'i'), '')
+  return after
+    .replace(/[OoDQ]/g, '0')
+    .replace(/[lI|!]/g, '1')
+    .replace(/[Ss]/g, '5')
+    .replace(/[Zz]/g, '2')
+    .replace(/[AaÄ]/g, '4')
+    .replace(/[%]/g, '8')
+    .replace(/[^0-9]/g, '')
+}
+
+/** The option whose box holds a mark. The mark sits just before its own word. */
+function tickedOption(line: string, options: string[]): string | null {
+  for (const o of options) {
+    // "X Female", "x| Female", "(x) Female": a mark, perhaps a leftover box edge, then the word
+    if (new RegExp(String.raw`[x✓*+]\s*[|\])]?\s*${o}\b`, 'i').test(line)) return o
+  }
+  return null
+}
+
 const SEX = ['Female', 'Male']
 const CIVIL = ['Single', 'Married', 'Widowed', 'Separated']
 
-type Spec = { key: string; label: string; re: RegExp; alt?: RegExp; fix?: (v: string) => string; ok: (v: string) => boolean }
+type Spec = { key: string; label: string; re: RegExp; alt?: RegExp; boxes?: Boxes; ticks?: string[]; fix?: (v: string) => string; ok: (v: string) => boolean }
 const IDENTITY: Spec[] = [
   {
     key: 'folder',
@@ -48,6 +85,7 @@ const IDENTITY: Spec[] = [
     re: /F\w{1,3}LDER\s*N[o0]\.?\s*:?\s*([A-Z0-9][A-Z0-9~—–-]*)/i,
     fix: (v) => v.toUpperCase().replace(/[~—–]/g, '-').replace(/^F-?([\dOIL]{4})-?([\dOIL]{3,4})$/, (_m, a: string, b: string) => `F-${digitsFix(a)}-${digitsFix(b)}`),
     ok: (v) => /^F-\d{4}-\d{3,4}$/.test(v),
+    boxes: BOXES.folder,
   },
   { key: 'full_name', label: 'Full name', re: /FULL\s*NAME\s*:?\s*(.+?)$/i, fix: (v) => titleCase(clean(v)), ok: (v) => /^[A-Za-z][A-Za-z .'-]{3,}$/.test(v) && v.includes(' ') },
   {
@@ -56,15 +94,17 @@ const IDENTITY: Spec[] = [
     re: /BIRTHDATE[^:]*:\s*([0-9OIl]{4}\s*[-/.]\s*[0-9OIl]{2}\s*[-/.]\s*[0-9OIl]{2})/i,
     fix: (v) => digitsFix(v).replace(/\s+/g, '').replace(/[/.]/g, '-'),
     ok: validDate,
+    boxes: BOXES.birthdate,
   },
-  { key: 'sex', label: 'Sex', re: /SEX\s*[:;.]?\s*(FEMALE|MALE|F|M)\b/i, fix: (v) => (/^f/i.test(v) ? 'Female' : 'Male'), ok: (v) => SEX.includes(v) },
-  { key: 'civil_status', label: 'Civil status', re: /CIVIL\s*STATUS\s*:?\s*([A-Za-z]+)/i, fix: (v) => titleCase(v), ok: (v) => CIVIL.includes(v) },
+  { key: 'sex', label: 'Sex', re: /SEX\s*[:;.]?\s*(FEMALE|MALE|F|M)\b/i, fix: (v) => (/^f/i.test(v) ? 'Female' : 'Male'), ok: (v) => SEX.includes(v), ticks: SEX },
+  { key: 'civil_status', label: 'Civil status', re: /CIVIL\s*STATUS\s*:?\s*([A-Za-z]+)/i, fix: (v) => titleCase(v), ok: (v) => CIVIL.includes(v), ticks: CIVIL },
   {
     key: 'contact',
     label: 'Contact no.',
     re: /CONTACT\s*N[o0]\.?\s*:?\s*([0-9OIl +-]{7,})/i,
     fix: (v) => digitsFix(v).replace(/\s+/g, ' ').trim(),
     ok: (v) => /^(\+?63|0)\d[\d ]{8,12}$/.test(v),
+    boxes: BOXES.contact,
   },
   {
     key: 'philhealth_pin',
@@ -72,7 +112,9 @@ const IDENTITY: Spec[] = [
     re: /PHILHEALTH\s*PIN\s*:?\s*([0-9OIl~—–-]{10,})/i,
     alt: /(\d{2}\s*[-~—–]\s*\d{9}\s*[-~—–]\s*\d)/,
     fix: (v) => digitsFix(v).replace(/[~—–\s]/g, (c) => (c === ' ' ? '' : '-')),
-    ok: (v) => /^\d{2}-\d{9}-\d$/.test(v) },
+    ok: (v) => /^\d{2}-\d{9}-\d$/.test(v),
+    boxes: BOXES.philhealth_pin,
+  },
 ]
 
 const SECTIONS = { allergy: /^ALLERGIES\b/i, family: /^FAMILY\s*HISTORY\b/i, medicines: /REGULAR\s*MEDICINES/i, visit: /^LAST\s*VISITS?\b/i } as const
@@ -88,16 +130,35 @@ export function parseWithRules(lines: OcrLine[]): ParsedField[] {
   }
 
   for (const spec of IDENTITY) {
-    let found = false
+    let best: { value: string; raw: string; confidence: number } | null = null
     for (const l of lines) {
+      // A marked box beats the words beside it: on a tick row every choice is printed, only one is marked.
+      if (spec.ticks && new RegExp(spec.key === 'sex' ? String.raw`\bSEX\b` : String.raw`CIVIL\s*STATUS`, 'i').test(l.text)) {
+        const t = tickedOption(l.text, spec.ticks)
+        if (t) {
+          best = { value: t, raw: l.text, confidence: l.confidence }
+          break
+        }
+      }
+      // Boxed characters: the count has to come out exactly right, so a wrong guess is simply dropped.
+      if (spec.boxes && spec.boxes.label.test(l.text)) {
+        const d = boxedDigits(l.text, spec.boxes.label)
+        if (d.length === spec.boxes.digits) {
+          const value = spec.boxes.format(d)
+          if (spec.ok(value)) {
+            best = { value, raw: l.text, confidence: l.confidence }
+            break
+          }
+        }
+      }
       const m = spec.re.exec(l.text) ?? spec.alt?.exec(l.text)
-      if (!m) continue
-      const value = spec.fix ? spec.fix(m[1].trim()) : m[1].trim()
-      add({ key: spec.key, label: spec.label, group: 'identity', raw: l.text, value, confidence: l.confidence, ok: spec.ok(value) })
-      found = true
-      break
+      if (m) {
+        const value = spec.fix ? spec.fix(m[1].trim()) : m[1].trim()
+        if (!best || (!spec.ok(best.value) && spec.ok(value))) best = { value, raw: l.text, confidence: l.confidence }
+        if (spec.ok(value)) break
+      }
     }
-    if (!found) add({ key: spec.key, label: spec.label, group: 'identity', raw: '', value: '', confidence: 0, ok: false })
+    add({ key: spec.key, label: spec.label, group: 'identity', raw: best?.raw ?? '', value: best?.value ?? '', confidence: best?.confidence ?? 0, ok: best ? spec.ok(best.value) : false })
   }
 
   const at = (re: RegExp) => lines.findIndex((l) => re.test(l.text))
@@ -145,6 +206,28 @@ export function parseWithRules(lines: OcrLine[]): ParsedField[] {
       })
     }
   }
+  return out
+}
+
+/**
+ * Reads the page both ways and keeps, field by field, the value that passes its format check, or else the
+ * one the OCR was more sure of. A field only one reading found is kept.
+ */
+export function parseReading(r: { lines: OcrLine[]; alt: OcrLine[] }): ParsedField[] {
+  const a = parseWithRules(r.lines)
+  const b = parseWithRules(r.alt)
+  const byKey = new Map(b.map((f) => [f.key, f]))
+  const out: ParsedField[] = []
+  const seen = new Set<string>()
+  for (const f of a) {
+    seen.add(f.key)
+    const g = byKey.get(f.key)
+    if (!g || !g.value) out.push(f)
+    else if (!f.value) out.push(g)
+    else if (f.review !== g.review) out.push(f.review ? g : f)
+    else out.push(g.confidence > f.confidence + 5 ? g : f)
+  }
+  for (const g of b) if (!seen.has(g.key) && g.value) out.push(g)
   return out
 }
 

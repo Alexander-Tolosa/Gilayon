@@ -96,7 +96,8 @@ export type ScanField = {
   value: string
   confidence: number
   review: boolean
-  source: 'rules' | 'llm'
+  source: 'rules' | 'llm' | 'registry'
+  note?: string
 }
 export type ScanPatientMatch = { patient_id: string; full_name: string; birthdate: string; by: 'name and birthdate' | 'folder number' }
 export type ScanReading = {
