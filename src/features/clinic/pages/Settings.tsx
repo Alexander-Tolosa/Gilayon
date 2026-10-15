@@ -32,7 +32,7 @@ export default function Settings() {
           <p className="text-[15px] text-muted">{t("Lower rank is called first. Within the same rank, first come, first served. These are the team's suggestion; the clinic should confirm them.")}</p>
           <ul className="mt-4 flex flex-col gap-2">
             {/* Fixed lane order: the server returns rows in no set order, and an edited row could jump under the cursor. */}
-            {[...data.categories].sort((x, y) => LANE_ORDER.indexOf(x.category_id) - LANE_ORDER.indexOf(y.category_id)).map((c) => (
+            {[...data.categories].filter((c) => c.category_id !== 'urgent').sort((x, y) => LANE_ORDER.indexOf(x.category_id) - LANE_ORDER.indexOf(y.category_id)).map((c) => (
               <li key={c.category_id} className="flex items-center justify-between rounded-2xl bg-canvas px-4 py-3">
                 <LaneBadge category={c.category_id} />
                 <div className="flex items-center gap-2">

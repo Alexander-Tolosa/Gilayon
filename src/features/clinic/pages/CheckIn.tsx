@@ -27,7 +27,6 @@ export default function CheckIn() {
   const [step, setStep] = useState<Step>('search')
   const [personId, setPersonId] = useState<string | null>(null)
   const [ticket, setTicket] = useState<QueueTicket | null>(null)
-  const [fresh, setFresh] = useState(false) // registered a moment ago: the birthdate was just typed
   const { patientOfPerson } = useClinic()
   const patientId = personId ? patientOfPerson(personId)?.patient_id : undefined
 
@@ -40,7 +39,17 @@ export default function CheckIn() {
   const idx = STEPS.findIndex((s) => s.key === step)
   return (
     <div>
-      <PageTitle title={t('Check-in')} sub={t('Nobody gets a queue number until their identity is checked.')} />
+      <PageTitle
+        title={t('Check-in')}
+        sub={t('Nobody gets a queue number until their identity is checked.')}
+        actions={
+          step === 'search' && (
+            <Button size="lg" icon={<UserPlus size={22} />} onClick={() => setStep('notlisted')}>
+              {t('Add Patient')}
+            </Button>
+          )
+        }
+      />
       {step !== 'notlisted' && (
         <ol className="mb-6 grid grid-cols-5 gap-2" aria-label={t('Progress')}>
           {STEPS.map((s, i) => (
@@ -59,10 +68,8 @@ export default function CheckIn() {
             <SearchStep
               onPick={(id) => {
                 setPersonId(id)
-                setFresh(false)
                 setStep('check')
               }}
-              onNotListed={() => setStep('notlisted')}
             />
           )}
           {step === 'notlisted' && (
@@ -70,12 +77,11 @@ export default function CheckIn() {
               onBack={() => setStep('search')}
               onCreated={(pid) => {
                 setPersonId(pid)
-                setFresh(true)
                 setStep('check')
               }}
             />
           )}
-          {step === 'check' && personId && <CheckStep personId={personId} prefillBirth={fresh} onBack={restart} onNext={() => setStep('record')} />}
+          {step === 'check' && personId && <CheckStep personId={personId} onBack={restart} onNext={() => setStep('record')} />}
           {step === 'record' && patientId && <RecordStep patientId={patientId} onBack={() => setStep('check')} onNext={() => setStep('priority')} />}
           {step === 'priority' && patientId && (
             <PriorityStep
@@ -143,7 +149,7 @@ function HitRow({ hit, onPick }: { hit: SearchHit; onPick: () => void }) {
   )
 }
 
-function SearchStep({ onPick, onNotListed }: { onPick: (personId: string) => void; onNotListed: () => void }) {
+function SearchStep({ onPick }: { onPick: (personId: string) => void }) {
   const t = useT()
   const { data, search, online, recent, personOfPatient } = useClinic()
   const [q, setQ] = useState('')
@@ -214,9 +220,6 @@ function SearchStep({ onPick, onNotListed }: { onPick: (personId: string) => voi
           {hits.length === 0 && <p className="rounded-3xl border border-line bg-surface p-6 text-lg text-ink-2">No one on the employee list or in the records matches {q ? `“${q}”` : t('that birthdate')}.</p>}
         </div>
       )}
-      <button onClick={onNotListed} className="flex items-center gap-3 self-start rounded-full border-2 border-dashed border-line-strong px-6 py-4 text-lg font-medium text-ink-2 transition hover:border-brand-400 hover:text-brand-800">
-        <UserPlus size={24} /> {t('Not on the employee list?')}
-      </button>
     </div>
   )
 }
@@ -230,7 +233,7 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
   const [q, setQ] = useState('')
   const [principal, setPrincipal] = useState<string | null>(null)
   const [hrName, setHrName] = useState('')
-  const [mode, setMode] = useState<'dependent' | 'unlisted'>('dependent')
+  const [mode, setMode] = useState<'dependent' | 'unlisted'>('unlisted')
   const hits = useMemo(() => search(q, 6).filter((h) => h.employee), [q, search])
   return (
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[1.4fr_1fr]">
@@ -239,11 +242,11 @@ function NotListed({ onBack, onCreated }: { onBack: () => void; onCreated: (pers
           <ArrowLeft size={18} /> {t('Back')}
         </button>
         <div className="mb-5 flex flex-wrap gap-2" role="tablist" aria-label={t('Not on the employee list?')}>
-          <Chip selected={mode === 'dependent'} onClick={() => setMode('dependent')} className="h-11 text-base">
-            {t('Dependent of an employee')}
-          </Chip>
           <Chip selected={mode === 'unlisted'} onClick={() => setMode('unlisted')} className="h-11 text-base">
             {t('New patient')}
+          </Chip>
+          <Chip selected={mode === 'dependent'} onClick={() => setMode('dependent')} className="h-11 text-base">
+            {t('Dependent of an employee')}
           </Chip>
         </div>
         {mode === 'unlisted' ? (
@@ -338,7 +341,7 @@ const ID_OPTIONS: { key: IdChecked; label: string }[] = [
  * folder in the cabinet under the surname and compares its face sheet, and the system compares the same
  * details with the record. The HR list (employee ID) is only a secondary check.
  */
-function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: string; prefillBirth: boolean; onBack: () => void; onNext: () => void }) {
+function CheckStep({ personId, onBack, onNext }: { personId: string; onBack: () => void; onNext: () => void }) {
   const t = useT()
   const { data, person, employeeOfPerson, patientOfPerson, verify, flagForHR, principalOf, recordPaperCheck, online } = useClinic()
   const toast = useToast()
@@ -348,9 +351,12 @@ function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: strin
   const principal = pt && !emp ? principalOf(pt.patient_id) : undefined
   const principalEmp = principal && employeeOfPerson(principal.principal.person_id)
   const [name, setName] = useState(p.full_name)
-  const [birth, setBirth] = useState(prefillBirth ? p.birthdate : '')
-  const [empNo, setEmpNo] = useState('')
+  // A patient who is already registered arrives with their recorded details filled in; staff only confirm or correct them.
+  const [birth, setBirth] = useState(p.birthdate)
+  const [empNo, setEmpNo] = useState(emp?.employee_no ?? principalEmp?.employee_no ?? '')
   const [idChecked, setIdChecked] = useState<IdChecked | null>(null)
+  // Asked once, on the first visit. A patient whose folder status is already on record is not asked again.
+  const paperKnown = !!pt.paper_status
   const [paper, setPaper] = useState<PaperStatus | null>(pt.paper_status ?? null)
   const [folderNo, setFolderNo] = useState(pt.legacy_folder_no ?? '')
   const [paperMatch, setPaperMatch] = useState<boolean | null>(null)
@@ -358,7 +364,7 @@ function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: strin
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const surname = p.full_name.includes(',') ? p.full_name.split(',')[0] : (p.full_name.trim().split(/\s+/).pop() ?? p.full_name)
-  const ready = !!name.trim() && !!birth && !!paper && (paper !== 'on_file' || paperMatch !== null)
+  const ready = !!name.trim() && !!birth && !!paper && (paperKnown || paper !== 'on_file' || paperMatch !== null)
 
   const finish = async (override: boolean) => {
     if (!paper) return
@@ -368,11 +374,12 @@ function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: strin
       employee_no: emp ? empNo || undefined : undefined,
       principal_no: !emp && empNo ? empNo : undefined,
       id_checked: idChecked ?? undefined,
-      paper_match: paper === 'on_file' ? (paperMatch ?? undefined) : undefined,
+      paper_match: !paperKnown && paper === 'on_file' ? (paperMatch ?? undefined) : undefined,
       override,
     })
     setMismatches(r.ok && !override ? null : r.mismatches)
     if (!r.ok) return
+    if (paperKnown) return onNext()
     setBusy(true)
     setError(null)
     const err = await recordPaperCheck(pt.patient_id, paper, paper === 'on_file' ? folderNo.trim() : undefined)
@@ -431,6 +438,8 @@ function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: strin
           </div>
         </div>
 
+        {!paperKnown && (
+          <>
         <h3 className="mt-7 flex items-center gap-2 text-xl font-semibold">
           <FolderOpen size={24} className="text-brand-600" /> {t('Paper folder')}
         </h3>
@@ -458,6 +467,14 @@ function CheckStep({ personId, prefillBirth, onBack, onNext }: { personId: strin
               <p className="mb-2 text-lg font-semibold">Scan it this visit (optional)</p>
               <ScanUploader patientId={pt.patient_id} compact />
             </div>
+          </div>
+        )}
+          </>
+        )}
+        {paperKnown && paper === 'on_file' && (
+          <div className="mt-7">
+            <p className="mb-2 text-lg font-semibold">Scan it this visit (optional)</p>
+            <ScanUploader patientId={pt.patient_id} compact />
           </div>
         )}
         {error && <p className="mt-4 rounded-2xl bg-danger-soft px-4 py-3 text-base text-danger">{error}</p>}
@@ -542,6 +559,18 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
   const dependents = data.relationships.filter((r) => r.patient_id === patientId)
   const [form, setForm] = useState({ civil_status: pt.civil_status, philhealth_pin: pt.philhealth_pin ?? '', pwd_id: pt.pwd_id ?? '', contact: p.contact })
   const [addDep, setAddDep] = useState(false)
+  const [contactMissing, setContactMissing] = useState(false)
+
+  // A contact number is needed before the visit goes on. Whatever is typed in the form is kept on the way through.
+  const next = () => {
+    if (!form.contact.trim()) {
+      setAnswer('no')
+      setContactMissing(true)
+      return
+    }
+    if (form.contact !== p.contact) completeRecord(patientId, { civil_status: form.civil_status, philhealth_pin: form.philhealth_pin || undefined, pwd_id: form.pwd_id || undefined, contact: form.contact.trim() })
+    onNext()
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -628,8 +657,8 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
                 ))}
               </Select>
             </Field>
-            <Field label={t('Contact')}>
-              <Input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="h-12 text-base" />
+            <Field label={t('Contact')} error={contactMissing && !form.contact.trim() ? t('Required field') : undefined}>
+              <Input value={form.contact} onChange={(e) => setForm({ ...form, contact: e.target.value })} className="h-12 text-base" invalid={contactMissing && !form.contact.trim()} />
             </Field>
             <Field label={t('PhilHealth PIN')} optional>
               <Input value={form.philhealth_pin} onChange={(e) => setForm({ ...form, philhealth_pin: e.target.value })} className="h-12 text-base" />
@@ -673,8 +702,8 @@ function RecordStep({ patientId, onBack, onNext }: { patientId: string; onBack: 
       )}
 
       <div className="flex justify-end">
-        <Button size="lg" className="h-14 px-8 text-lg" onClick={onNext} iconRight={<ArrowRight size={22} weight="bold" />}>
-          {t('Next')}: {t('Priority lane')}
+        <Button size="lg" className="h-14 px-8 text-lg" onClick={next} iconRight={<ArrowRight size={22} weight="bold" />}>
+          {t('Next')}
         </Button>
       </div>
     </div>
@@ -692,12 +721,11 @@ function PriorityStep({ patientId, onBack, onPaper, onIssued }: { patientId: str
   const pt = patient(patientId)!
   const p = personOfPatient(patientId)!
   const senior = ageOf(p.birthdate) >= 60
-  const [urgent, setUrgent] = useState(false)
   const [pregnant, setPregnant] = useState(false)
   const [pwd, setPwd] = useState(!!pt.pwd_id)
   const [service, setService] = useState<ServiceType>('Medical')
   const [reason, setReason] = useState('')
-  const cats: CategoryKey[] = [...(urgent ? (['urgent'] as const) : []), ...(pregnant ? (['pregnant'] as const) : []), ...(pwd ? (['pwd'] as const) : []), ...(senior ? (['senior'] as const) : [])]
+  const cats: CategoryKey[] = [...(pregnant ? (['pregnant'] as const) : []), ...(pwd ? (['pwd'] as const) : []), ...(senior ? (['senior'] as const) : [])]
   const lane: CategoryKey = cats.length ? [...cats].sort((a, b) => rankOf(a, data.categories) - rankOf(b, data.categories))[0] : 'regular'
   const ahead = data.tickets.filter((x) => x.day === todayKey() && x.status === 'waiting' && rankOf(x.category_id, data.categories) <= rankOf(lane, data.categories)).length
 
@@ -718,9 +746,8 @@ function PriorityStep({ patientId, onBack, onPaper, onIssued }: { patientId: str
           <ArrowLeft size={18} /> {t('Back')}
         </button>
         <h2 className="text-2xl font-semibold tracking-tight">{t('Priority lane')}</h2>
-        <p className="text-base text-ink-2">Urgent, pregnant, PWD and senior patients go first. If more than one applies, the highest-ranked lane is used.</p>
+        <p className="text-base text-ink-2">Pregnant, PWD and senior patients go before regular patients. If more than one applies, the highest-ranked lane is used.</p>
         <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {toggle('Urgent', urgent, setUrgent, 'Flagged by staff. Goes to the top of the queue.')}
           {toggle('Pregnant', pregnant, setPregnant, p.sex === 'Female' ? 'Marked at check-in, since it changes over time.' : 'Not applicable', p.sex !== 'Female')}
           {toggle('PWD', pwd, setPwd, pt.pwd_id ? `PWD ID on record: ${pt.pwd_id}` : 'Add the PWD ID to the record after checking it.')}
           {toggle('Senior', senior, () => {}, senior ? `Age ${ageOf(p.birthdate)}, calculated from the birthdate.` : `Age ${ageOf(p.birthdate)}. Senior is 60 or older.`, true)}

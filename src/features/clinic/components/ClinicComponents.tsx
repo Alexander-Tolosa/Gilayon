@@ -41,7 +41,7 @@ export function StatusBadge() {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-14 z-50 w-[22rem] rounded-3xl border border-line bg-surface p-4 shadow-lift">
+          <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} className="absolute right-0 top-14 z-50 w-[22rem] rounded-3xl border border-line bg-surface p-4 text-ink shadow-lift">
             <p className="text-base font-semibold">{t('Connection')}</p>
             <p className="mt-1 text-sm text-muted">
               {network === 'online' && t('Connected to the clinic server and the internet. Off-site backup is up to date.')}
@@ -51,7 +51,7 @@ export function StatusBadge() {
             <p className="mt-4 text-xs font-semibold uppercase tracking-wide text-faint">Demo: simulate this computer's connection</p>
             <div className="mt-2 flex flex-col gap-1.5">
               {(Object.keys(NET) as NetworkMode[]).map((m) => (
-                <button key={m} onClick={() => setNetwork(m)} className={cn('flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-[15px] transition', network === m ? 'bg-brand-50 font-semibold text-brand-800 ring-1 ring-brand-200' : 'hover:bg-mist')}>
+                <button key={m} onClick={() => setNetwork(m)} className={cn('flex items-center gap-3 rounded-2xl px-3 py-3 text-left text-[15px] transition', network === m ? 'bg-brand-50 font-semibold text-brand-800 ring-1 ring-brand-200' : 'text-ink hover:bg-mist')}>
                   <span className={cn('size-2.5 rounded-full', NET[m].dot)} />
                   {m === 'online' ? t('Online') : m === 'lan' ? t('Internet down (clinic network only)') : t('This computer disconnected')}
                 </button>
@@ -164,11 +164,13 @@ export function TextSizeSwitch({ className }: { className?: string }) {
       /* storage blocked: the choice lasts until the page closes */
     }
   }
+  // The same letter at three growing sizes says "small, bigger, biggest" without a label to read.
+  const glyph = { normal: 'text-[15px]', large: 'text-[20px]', larger: 'text-[26px]' } as const
   return (
-    <div className={cn('hidden rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label={t('Text size')}>
+    <div className={cn('hidden items-center rounded-full border border-line-strong bg-surface p-1 sm:flex', className)} role="group" aria-label={t('Text size')}>
       {TEXT_SIZES.map((s) => (
-        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('min-h-11 min-w-11 rounded-full px-2.5 text-[15px] font-semibold transition', size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
-          {s.label}
+        <button key={s.key} onClick={() => pick(s.key)} aria-pressed={size === s.key} aria-label={s.name} title={s.name} className={cn('grid min-h-11 min-w-11 place-items-center rounded-full px-2 font-semibold leading-none transition', glyph[s.key], size === s.key ? 'bg-brand-600 text-white' : 'text-ink-2 hover:bg-mist')}>
+          A
         </button>
       ))}
     </div>

@@ -15,7 +15,7 @@ export function useDailyReport(day: string) {
     const tickets = data.tickets.filter((t) => t.day === day)
     const seen = tickets.filter((t) => t.status === 'done')
     const waits = tickets.filter((t) => t.called_at).map((t) => minutesBetween(t.checked_in_at, t.called_at!))
-    const byLane = (['urgent', 'pregnant', 'pwd', 'senior', 'regular'] as CategoryKey[]).map((c) => ({ lane: c, count: tickets.filter((t) => t.category_id === c).length }))
+    const byLane = (['urgent', 'pregnant', 'pwd', 'senior', 'regular'] as CategoryKey[]).map((c) => ({ lane: c, count: tickets.filter((t) => t.category_id === c).length })).filter((x) => x.lane !== 'urgent' || x.count > 0)
     const consults = data.consultations.filter((c) => c.consult_date === day)
     const complaints = new Map<string, number>()
     for (const c of consults) complaints.set(c.chief_complaint, (complaints.get(c.chief_complaint) ?? 0) + 1)

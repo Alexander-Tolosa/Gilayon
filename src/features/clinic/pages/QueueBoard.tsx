@@ -1,8 +1,8 @@
-import { ArrowCounterClockwise, Monitor, Printer, SignOut, Siren } from '@phosphor-icons/react'
+import { ArrowCounterClockwise, Monitor, Printer, SignOut } from '@phosphor-icons/react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Button, Card, Tabs, useToast } from '../../../shared/components/ui'
+import { Button, Card, Tabs } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, StatusPill, TicketNo } from '../components/ClinicComponents'
@@ -75,8 +75,7 @@ export function TicketRow({ ticket, position, actions, now }: { ticket: QueueTic
 export default function QueueBoard() {
   const t = useT()
   const now = useNow()
-  const { me, markUrgent, setTicketStatus } = useClinic()
-  const toast = useToast()
+  const { me, setTicketStatus } = useClinic()
   const q = useToday()
   const [tab, setTab] = useState<'waiting' | 'active' | 'done' | 'left'>('waiting')
   const lists = { waiting: q.waiting, active: q.active, done: q.done, left: q.left }
@@ -100,8 +99,8 @@ export default function QueueBoard() {
           </>
         }
       />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {(['urgent', 'pregnant', 'senior', 'regular'] as const).map((lane) => {
+      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        {(['pregnant', 'senior', 'regular'] as const).map((lane) => {
           const n = q.waiting.filter((x) => (lane === 'pregnant' ? ['pregnant', 'pwd'].includes(x.category_id) : x.category_id === lane)).length
           return (
             <Card key={lane} className="flex min-w-0 items-center justify-between gap-2 p-4 sm:p-5">
@@ -138,19 +137,6 @@ export default function QueueBoard() {
                   <Button size="md" variant="ghost" icon={<Printer size={16} />} onClick={() => window.open(`/print/ticket/${tk.ticket_id}`, '_blank')}>
                     {t('Print slip')}
                   </Button>
-                  {tab === 'waiting' && tk.category_id !== 'urgent' && (
-                    <Button
-                      size="md"
-                      variant="danger"
-                      icon={<Siren size={16} />}
-                      onClick={() => {
-                        markUrgent(tk.ticket_id)
-                        toast({ tone: 'warn', title: 'Moved to the top', body: 'Urgent tickets are called first.' })
-                      }}
-                    >
-                      {t('Mark urgent')}
-                    </Button>
-                  )}
                   {tab === 'waiting' && (
                     <Button size="md" variant="secondary" icon={<SignOut size={16} />} onClick={() => setTicketStatus(tk.ticket_id, 'left')}>
                       {t('Mark left')}
