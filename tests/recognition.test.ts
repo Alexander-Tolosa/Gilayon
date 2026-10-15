@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { afterAll, describe, expect, it } from 'vitest'
-import { ocrImage } from '../src/server/recognition/ocr'
+import { ocrImage, readability } from '../src/server/recognition/ocr'
 import { parseReading } from '../src/server/recognition/parse'
 import { distance, snapToKnown, type KnownPatient } from '../src/server/recognition/snap'
 
@@ -82,4 +82,21 @@ describe('snapping to the clinic records', () => {
     expect(fields[0].value).toBe('PENICILLIN - RASH - MILD')
     expect(fields[1].value).toBe('MOTHER - HYPERTENSION')
   })
+})
+
+describe('a mirrored picture', () => {
+  it('scores badly as it stands and well the other way round, which is how the server spots it', async () => {
+    const sharp = (await import('sharp')).default
+    const mirrored = await sharp(readFileSync('public/forms/sample-villanueva.png')).flop().png().toBuffer()
+
+    const asIs = await ocrImage(mirrored)
+    const flipped = await ocrImage(mirrored, { flip: true })
+    expect(readability(asIs)).toBeLessThan(60)
+    expect(readability(flipped)).toBeGreaterThan(80)
+
+    // Read the right way round, the form comes back in full.
+    const f = Object.fromEntries(snapToKnown(parseReading(flipped), registry).fields.map((x) => [x.key, x.value]))
+    expect(f.full_name).toBe('Maria Lourdes Villanueva')
+    expect(f.birthdate).toBe('1968-03-18')
+  }, 60000)
 })

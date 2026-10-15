@@ -13,12 +13,12 @@ npx tsx scripts/run-accuracy.ts --registry --report
 
 | Condition | Forms | Fields read correctly | Forms needing no correction | Time per form |
 | --- | ---: | ---: | ---: | ---: |
-| Clean scan or flatbed | 12 | 100.0% | 12/12 | 2.8 s |
-| Phone photo, tilted | 12 | 100.0% | 12/12 | 3.1 s |
-| Poor light, low contrast | 12 | 100.0% | 12/12 | 2.8 s |
-| Handwriting (neat, simulated) | 12 | 71.0% | 0/12 | 2.8 s |
-| Handwriting (hurried, simulated) | 12 | 95.2% | 4/12 | 3.0 s |
-| **All** | **60** | **93.0%** | **40/60** | **2.9 s** |
+| Clean scan or flatbed | 12 | 100.0% | 12/12 | 2.5 s |
+| Phone photo, tilted | 12 | 100.0% | 12/12 | 2.8 s |
+| Poor light, low contrast | 12 | 100.0% | 12/12 | 2.5 s |
+| Handwriting (neat, simulated) | 12 | 71.0% | 0/12 | 2.4 s |
+| Handwriting (hurried, simulated) | 12 | 95.2% | 4/12 | 2.9 s |
+| **All** | **60** | **93.0%** | **40/60** | **2.6 s** |
 
 ## By field
 

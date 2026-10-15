@@ -16,8 +16,9 @@ const DARK = 150
 
 type Gray = { data: Uint8Array; w: number; h: number }
 
-async function toGray(buf: Buffer, width: number, angle = 0): Promise<Gray> {
+async function toGray(buf: Buffer, width: number, angle = 0, flip = false): Promise<Gray> {
   let img = sharp(buf, { failOn: 'none' }).rotate() // honours the phone's own orientation tag
+  if (flip) img = img.flop()
   if (angle) img = img.rotate(angle, { background: '#ffffff' })
   const { data, info } = await img.grayscale().resize({ width }).raw().toBuffer({ resolveWithObject: true })
   return { data: new Uint8Array(data), w: info.width, h: info.height }
@@ -57,8 +58,8 @@ function straightness(g: Gray, angleDeg: number, ink: number): number {
 }
 
 /** Tilt in degrees (positive = clockwise) that straightens the page, searched over +-5 degrees. */
-export async function findTilt(buf: Buffer): Promise<number> {
-  const g = await toGray(buf, 600)
+export async function findTilt(buf: Buffer, opts?: { flip?: boolean }): Promise<number> {
+  const g = await toGray(buf, 600, 0, opts?.flip)
   // Ink is whatever is clearly darker than the paper, so a dim photo or a grey desk does not fool the search.
   const [lo, hi] = range(g.data)
   const ink = lo + 0.4 * (hi - lo)
@@ -117,13 +118,14 @@ function removeRules(g: Gray) {
   }
 }
 
-export type PrepareOptions = { rules?: boolean; tilt?: boolean }
+/** `flip` mirrors the picture left to right, for a camera whose driver hands over a mirrored view. */
+export type PrepareOptions = { rules?: boolean; tilt?: boolean; flip?: boolean }
 
 /** Returns a clean grayscale PNG ready for OCR. Falls back to the original image if anything fails. */
 export async function prepareImage(buf: Buffer, opts: PrepareOptions = {}): Promise<Buffer> {
   try {
-    const tilt = opts.tilt === false ? 0 : await findTilt(buf)
-    const g = await toGray(buf, WIDTH, Math.abs(tilt) >= 0.3 ? tilt : 0)
+    const tilt = opts.tilt === false ? 0 : await findTilt(buf, opts)
+    const g = await toGray(buf, WIDTH, Math.abs(tilt) >= 0.3 ? tilt : 0, opts.flip)
     // even out the light: stretch the 1st to 99th percentile of brightness to the full range
     const [lo, hi] = range(g.data)
     if (hi - lo > 40) for (let i = 0; i < g.data.length; i++) g.data[i] = Math.max(0, Math.min(255, Math.round(((g.data[i] - lo) * 255) / (hi - lo))))

@@ -4,7 +4,7 @@ import { audit, HttpError, nowMs, uuid, type Actor } from '../core'
 import { getDb, type Q } from '../db'
 import { notifyChanged } from '../events'
 import { decodeImage, readScan, removeScan, storeScan } from '../files'
-import { ocrImage } from '../recognition/ocr'
+import { ocrImage, readability } from '../recognition/ocr'
 import { llmStatus, mergeLlm, parseReading, parseWithLlm, type ParsedField } from '../recognition/parse'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
 import { addAllergy, addFamilyHistory, completeRecord, uploadScan } from './records'
@@ -57,7 +57,13 @@ async function vocabulary(q: Q) {
 }
 
 async function readBytes(q: Q, bytes: Buffer) {
-  const ocr = await ocrImage(bytes)
+  let ocr = await ocrImage(bytes)
+  // Some cameras hand over a mirrored picture. It still produces rows, but they are nonsense and the
+  // engine is barely sure of any of them, so a poor score is worth the cost of reading it the other way round.
+  if (readability(ocr) < 60) {
+    const mirrored = await ocrImage(bytes, { flip: true })
+    if (readability(mirrored) > readability(ocr)) ocr = mirrored
+  }
   if (ocr.lines.length < 4) throw new HttpError(422, 'Could not read any text on this image. Retake it flat, in good light, with the whole form in view.')
   const t0 = Date.now()
   let fields = parseReading(ocr)

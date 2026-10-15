@@ -1,4 +1,4 @@
-import { Camera, VideoCamera, X } from '@phosphor-icons/react'
+import { Camera, FlipHorizontal, VideoCamera, X } from '@phosphor-icons/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Button, Modal, Select, useToast } from '../../../shared/components/ui'
 
@@ -12,6 +12,21 @@ import { Button, Modal, Select, useToast } from '../../../shared/components/ui'
 */
 
 const WANT_WIDTH = 2560 // ask for the most the camera has; the reader wants small print to be legible
+const MIRROR_KEY = 'gilayon-camera-mirror'
+
+/*
+  Some cameras, and some laptop drivers, hand over a mirrored picture: writing on the page comes out
+  backwards, which the reader cannot make sense of. There is no way to ask the camera which it is doing,
+  so the person is given a switch. It turns the preview and the saved picture together, so what they
+  line up is what gets read, and the choice is remembered on this computer.
+*/
+const savedMirror = () => {
+  try {
+    return localStorage.getItem(MIRROR_KEY) === '1'
+  } catch {
+    return false // storage can be blocked; not mirroring is the usual case
+  }
+}
 
 export function CameraCapture({ open, onClose, onCapture }: { open: boolean; onClose: () => void; onCapture: (dataUrl: string) => void }) {
   const video = useRef<HTMLVideoElement>(null)
@@ -29,6 +44,17 @@ export function CameraCapture({ open, onClose, onCapture }: { open: boolean; onC
     : error
   const [ready, setReady] = useState(false)
   const [size, setSize] = useState('')
+  const [mirror, setMirror] = useState(savedMirror)
+
+  const toggleMirror = () => {
+    const next = !mirror
+    setMirror(next)
+    try {
+      localStorage.setItem(MIRROR_KEY, next ? '1' : '0')
+    } catch {
+      /* the switch still works for this session */
+    }
+  }
 
   /** Releases the camera. Pure, so the effect below can call it without starting another render. */
   const stop = useCallback(() => {
@@ -95,6 +121,10 @@ export function CameraCapture({ open, onClose, onCapture }: { open: boolean; onC
     canvas.height = v.videoHeight
     const ctx = canvas.getContext('2d')
     if (!ctx) return
+    if (mirror) {
+      ctx.translate(canvas.width, 0)
+      ctx.scale(-1, 1)
+    }
     ctx.drawImage(v, 0, 0)
     // 0.92 keeps the small print sharp; the reader works from this image, not a thumbnail.
     const data = canvas.toDataURL('image/jpeg', 0.92)
@@ -134,13 +164,19 @@ export function CameraCapture({ open, onClose, onCapture }: { open: boolean; onC
         <>
           <div className="relative overflow-hidden rounded-2xl bg-brand-950">
             {/* A4 is taller than it is wide: the guide shows where the page should sit. */}
-            <video ref={video} playsInline muted className="mx-auto block max-h-[60dvh] w-full object-contain" />
+            <video ref={video} playsInline muted style={mirror ? { transform: 'scaleX(-1)' } : undefined} className="mx-auto block max-h-[60dvh] w-full object-contain" />
             <div className="pointer-events-none absolute inset-6 rounded-xl border-2 border-dashed border-white/50" />
             {!ready && (
               <p className="absolute inset-0 grid place-items-center text-base text-white">
                 <VideoCamera size={28} className="animate-pulse" />
               </p>
             )}
+          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button variant="secondary" size="sm" icon={<FlipHorizontal size={18} />} onClick={toggleMirror}>
+              {mirror ? 'Stop flipping' : 'Flip left to right'}
+            </Button>
+            <span className="text-sm text-muted">Use this if the writing on the page comes out backwards.</span>
           </div>
           {devices.length > 1 && (
             <Select value={deviceId} onChange={(e) => void start(e.target.value)} className="mt-4 h-12 text-base" aria-label="Which camera">

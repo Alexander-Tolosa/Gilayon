@@ -45,6 +45,15 @@ function regroup(blocks: RawBlock[]): OcrLine[] {
     .filter((l) => l.text)
 }
 
+/**
+ * How sure the engine was of the page, weighted by how much text each row carries. A page the wrong way
+ * round still produces rows, but they are nonsense and score very low, which is what gives it away.
+ */
+export function readability(r: OcrResult): number {
+  const chars = r.lines.reduce((a, l) => a + l.text.length, 0)
+  return chars ? Math.round(r.lines.reduce((a, l) => a + l.confidence * l.text.length, 0) / chars) : 0
+}
+
 let worker: Promise<Worker> | null = null
 let queue: Promise<unknown> = Promise.resolve()
 
