@@ -1,9 +1,11 @@
-import { Bell, CheckCircle, ClipboardText, FileText, Megaphone, Play, UsersThree, Warning } from '@phosphor-icons/react'
+import { Bell, CheckCircle, ClipboardText, FileText, Megaphone, Play, Scan, UsersThree, Warning } from '@phosphor-icons/react'
 import type { Icon } from '@phosphor-icons/react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Button, Card, useToast } from '../../../shared/components/ui'
 import { PageTitle } from '../ClinicShell'
 import { LaneBadge, TicketNo } from '../components/ClinicComponents'
+import { ScanDocument } from '../components/ScanDocument'
 import { useT } from '../lib/i18n'
 import { unreadActivity } from '../lib/activity'
 import { ageOf, fmtMinutes, fmtStampOf, minutesBetween, ticketLabel } from '../lib/helpers'
@@ -14,6 +16,7 @@ export default function DoctorQueue() {
   const t = useT()
   const now = useNow()
   const navigate = useNavigate()
+  const [scanDoc, setScanDoc] = useState(false)
   const toast = useToast()
   const { me, data, personOfPatient, callTicket, startConsult, online, staffById, markAuditSeen } = useClinic()
   const q = useToday()
@@ -41,7 +44,16 @@ export default function DoctorQueue() {
 
   return (
     <div>
-      <PageTitle title={t('My queue')} sub={`${me?.name} · ${me?.room} · ${services.map((s) => t(s)).join(', ')} · ${seenToday} ${t('seen today')}`} />
+      <PageTitle
+        title={t('My queue')}
+        sub={`${me?.name} · ${me?.room} · ${services.map((s) => t(s)).join(', ')} · ${seenToday} ${t('seen today')}`}
+        actions={
+          <Button size="lg" variant="secondary" icon={<Scan size={20} />} onClick={() => setScanDoc(true)}>
+            {t('Scan with AI')}
+          </Button>
+        }
+      />
+      <ScanDocument open={scanDoc} onClose={() => setScanDoc(false)} />
 
       {current.length > 0 && (
         <div className="mb-5 flex flex-col gap-3">

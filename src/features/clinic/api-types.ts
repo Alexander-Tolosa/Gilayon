@@ -117,6 +117,17 @@ export type ScanReading = {
   match: ScanPatientMatch | null
   candidates: { patient_id: string; full_name: string; birthdate: string }[]
 }
+/** One page read for filing in a patient's record (a certificate, lab result, dental report or prescription). */
+export type DocumentReading = {
+  text: string[]
+  date: string
+  issued_by: string
+  title: string
+  name_on_page: string
+  /** null when the page names nobody, so there was nothing to compare with the patient. */
+  name_matches: boolean | null
+  patient_name: string
+}
 export type RecognitionMetrics = {
   scans: number
   drafts: number

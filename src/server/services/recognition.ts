@@ -7,8 +7,10 @@ import { decodeImage, readScan, removeScan, storeScan } from '../files'
 import { ocrImage, readability } from '../recognition/ocr'
 import { mergeVision, parseReading, withoutInferredSections, type ParsedField } from '../recognition/parse'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../recognition/snap'
-import { readWithVision, visionStatus } from '../recognition/vision'
-import { addAllergy, addFamilyHistory, completeRecord, uploadScan } from './records'
+import { readDocumentWithVision, readWithVision, visionStatus, type DocumentKind } from '../recognition/vision'
+import { matchScore } from '../../features/clinic/lib/helpers'
+import { addAllergy, addFamilyHistory, completeRecord, patientName, uploadScan } from './records'
+import { canonicalPatientId } from './merge'
 
 /*
   Reads a scanned old-patient folder form on this PC and records how well it did.
@@ -67,6 +69,12 @@ function hasAnAnswer(line: string) {
   return answer.replace(/\[?\b(blank|none|n\/?a|empty)\b\]?/gi, '').replace(/[^a-z0-9]/gi, '').length > 0
 }
 
+/** The page as separate lines. The model sometimes returns the whole page as one string with line breaks in it. */
+function pageLines(raw: unknown, max: number) {
+  const items = Array.isArray(raw) ? (raw as unknown[]) : []
+  return items.flatMap((x) => (typeof x === 'string' ? x.split(/\r?\n/) : [])).map((l) => l.trim()).filter(hasAnAnswer).slice(0, max)
+}
+
 /**
  * The picture is also read by the local vision model whenever it is installed (`OLLAMA_VISION_AUTO=0` turns that off), because
  * Tesseract alone misreads handwriting. `handwriting` asks for it explicitly: then a failure is reported instead of skipped.
@@ -96,7 +104,7 @@ async function readBytes(q: Q, bytes: Buffer, opts: { handwriting?: boolean } = 
       // The automatic read gets 90 s, not the 4 minutes of the button: a nurse should never sit that long, and the OCR reading is there to fall back on.
       const v = await readWithVision(bytes, { flip: flipped, timeoutMs: opts.handwriting ? undefined : 90_000 })
       fields = mergeVision(fields, v.data, v.model)
-      other = (Array.isArray(v.data.page_text) ? (v.data.page_text as unknown[]) : []).map((x) => (typeof x === 'string' ? x.trim() : '')).filter(hasAnAnswer).slice(0, 60)
+      other = pageLines(v.data.page_text, 60)
       parse_engine = `${parse_engine} + ${v.model} (image reader, Ollama, local)`
     } catch (e) {
       // An automatic second reading is a bonus: if it fails, the OCR reading still stands (and the nurse can press Read handwriting to retry).
@@ -340,4 +348,49 @@ export async function recognitionMetrics(q: Q) {
       .map((r, i) => ({ n: i + 1, at: r.confirmed_at, accuracy: pct(r.correct_count, r.field_count), seconds: Math.round(totalMs(r) / 100) / 10, machine_ms: r.ocr_ms + r.parse_ms, parse_engine: r.parse_engine })),
     engines: [...new Set(rows.map((r) => r.parse_engine))],
   }
+}
+
+/* ------------------------------------------------------------ any other page filed in a patient's record */
+
+const FOREIGN_TEXT = /[\u3000-\u9fff\uac00-\ud7af\uff00-\uffef]/
+const REAL_DATE = (v: string) => {
+  const g = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v)
+  if (!g) return false
+  const d = new Date(Number(g[1]), Number(g[2]) - 1, Number(g[3]))
+  return d.getMonth() === Number(g[2]) - 1 && d.getTime() <= Date.now() && Number(g[1]) >= 1900
+}
+
+export type DocumentReading = {
+  /** The page's own lines, as the reader wrote them. Shown for the doctor to correct; filed with the page. */
+  text: string[]
+  /** The date the page is dated, only when it is a real date that is not in the future. */
+  date: string
+  issued_by: string
+  title: string
+  /** The name the page is about, as written on it. */
+  name_on_page: string
+  /** True or false when the page names someone; null when it names nobody, so there is nothing to compare. */
+  name_matches: boolean | null
+  patient_name: string
+}
+
+/**
+ * Reads a photographed certificate, lab result, dental report or prescription, for the doctor to check and then file
+ * with the patient. Nothing is filed here. The page is compared with the patient it is meant for, because the worst
+ * mistake is a result filed in the wrong person's record.
+ */
+export async function readDocument(q: Q, file: string, kind: DocumentKind, patientIdIn: string): Promise<DocumentReading> {
+  const patientId = await canonicalPatientId(q, patientIdIn)
+  const patient_name = await patientName(q, patientId)
+  const { bytes } = decodeImage(file)
+  const v = await readDocumentWithVision(bytes, kind)
+  const str = (x: unknown) => (typeof x === 'string' ? x.trim() : '')
+  const clean = (x: unknown) => (FOREIGN_TEXT.test(str(x)) ? '' : str(x))
+  const text = pageLines(v.data.page_text, 80).filter((l) => !FOREIGN_TEXT.test(l))
+  const name_on_page = clean(v.data.patient_name)
+  // "SANTOS, MARIA" and "Maria Santos" are the same name: the comparison looks at the words, not their order. A page with a
+  // name that is only slightly off (handwriting) is still the same person; a different name is not.
+  const name_matches = name_on_page && hasAnAnswer(name_on_page) ? matchScore(name_on_page.replace(/,/g, ' '), patient_name, []) >= 0.7 : null
+  const date = clean(v.data.document_date)
+  return { text, date: REAL_DATE(date) ? date : '', issued_by: clean(v.data.issued_by), title: clean(v.data.title), name_on_page, name_matches, patient_name }
 }

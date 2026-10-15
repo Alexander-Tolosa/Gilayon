@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type OpenedScan, type PendingScan, type RecognitionMetrics, type ScanReading, type SecurityStatus, type Snapshot } from '../api-types'
+import { DEFAULT_CLINIC, type AuditPage, type BackupStatus, type ClinicProfile, type ConsultInput, type DocumentReading, type OpenedScan, type PendingScan, type RecognitionMetrics, type ScanReading, type SecurityStatus, type Snapshot } from '../api-types'
 import { matchScore, normName, todayKey, uuid } from '../lib/helpers'
 import { ApiError, api, forgetBlobUrls, readEvents } from '../lib/api'
 import type { HrImportResult, RawHrRow } from '../lib/hrlist'
@@ -238,6 +238,8 @@ type Api = {
   /** Reads a photo of an old-folder intake form on the clinic server (local OCR, no internet). Returns a message on failure. */
   /** `handwriting` also runs the local vision model; `replaces` is the earlier draft of the same page. */
   scanFolderForm: (file: string, opts?: { handwriting?: boolean; replaces?: string }) => Promise<{ reading?: ScanReading; error?: string; offline?: boolean }>
+  /** Reads one photographed page for the doctor to check before it is filed. Nothing is saved. */
+  readDocumentScan: (file: string, kind: ScanKind, patientId: string) => Promise<{ reading?: DocumentReading; error?: string }>
   confirmFolderScan: (eventId: string, body: { patient_id: string; values: Record<string, string>; review_ms: number; file?: string }) => Promise<{ error?: string; added?: number; correct?: number; field_count?: number }>
   fetchRecognitionMetrics: () => Promise<RecognitionMetrics | null>
   /** Keeps a photo on this computer when the server cannot be reached; it is sent and read once the server is back. */
@@ -794,6 +796,14 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
         } catch (e) {
           if (e instanceof ApiError && e.status === 0) return { offline: true, error: 'The clinic server cannot be reached.' }
           return { error: e instanceof ApiError ? e.message : 'The scan could not be read.' }
+        }
+      },
+      readDocumentScan: async (file, kind, patientId) => {
+        try {
+          return { reading: await api<DocumentReading>('/api/recognition/document', { token: tokenRef.current, body: { file, kind, patient_id: patientId } }) }
+        } catch (e) {
+          if (e instanceof ApiError && e.status === 0) return { error: 'The clinic server cannot be reached. Scan with AI needs it.' }
+          return { error: e instanceof ApiError ? e.message : 'The page could not be read.' }
         }
       },
       confirmFolderScan: async (eventId, body) => {

@@ -231,7 +231,7 @@ export const scannedPage = pgTable('scanned_page', {
   page_id: text().primaryKey(),
   patient_id: text().notNull().references(() => patient.patient_id),
   file: text().notNull(), // data URL of an upload, or "sample:<n>" for seeded pages
-  kind: text().$type<'Chart' | 'Prescription' | 'Lab result' | 'Certificate'>().notNull(),
+  kind: text().$type<'Chart' | 'Prescription' | 'Lab result' | 'Certificate' | 'Dental'>().notNull(),
   page_date: text().notNull(),
   uploaded_by: text().notNull(),
   uploaded_at: ms('uploaded_at').notNull(),
@@ -240,6 +240,8 @@ export const scannedPage = pgTable('scanned_page', {
   /** Where an outside report came from (clinic or hospital name). */
   source_clinic: text(),
   report_date: text(),
+  /** What the image reader read off the page (Scan with AI), checked by the doctor before it was filed. Null for plain uploads. */
+  ocr_text: text(),
 })
 
 /**

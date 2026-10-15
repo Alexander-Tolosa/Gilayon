@@ -185,10 +185,10 @@ export type DocumentRelease = {
   released_at: number
 }
 
-export type ScanKind = 'Chart' | 'Prescription' | 'Lab result' | 'Certificate'
+export type ScanKind = 'Chart' | 'Prescription' | 'Lab result' | 'Certificate' | 'Dental'
 
 export type ScanCategory = 'Old folder' | 'Outside report'
-export type ScanExtra = { category?: ScanCategory; source_clinic?: string; report_date?: string }
+export type ScanExtra = { category?: ScanCategory; source_clinic?: string; report_date?: string; text?: string }
 
 export type ScannedPage = {
   page_id: string
@@ -201,6 +201,8 @@ export type ScannedPage = {
   category?: ScanCategory
   source_clinic?: string
   report_date?: string
+  /** The text read off the page when it was filed with Scan with AI. */
+  ocr_text?: string
 }
 
 export type Allergy = { allergy_id: string; patient_id: string; substance: string; reaction: string; severity: 'Mild' | 'Moderate' | 'Severe' }

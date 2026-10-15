@@ -16,7 +16,7 @@ const Op = z.discriminatedUnion('kind', [
       page_id: z.string().regex(/^[A-Za-z0-9-]{8,64}$/),
       patient_id: z.string().min(1),
       file: z.string(),
-      scan_kind: z.enum(['Chart', 'Prescription', 'Lab result', 'Certificate']),
+      scan_kind: z.enum(['Chart', 'Prescription', 'Lab result', 'Certificate', 'Dental']),
       page_date: IsoDate,
       category: z.enum(['Old folder', 'Outside report']).optional(),
       source_clinic: z.string().max(120).optional(),

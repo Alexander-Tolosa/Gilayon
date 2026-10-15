@@ -1,13 +1,14 @@
-import { ArrowLeft, Flag, LockKey, PencilSimple, Plus, Printer, Warning, X } from '@phosphor-icons/react'
+import { ArrowLeft, Copy, Flag, LockKey, PencilSimple, Plus, Printer, Scan, Warning, X } from '@phosphor-icons/react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Badge, Button, Card, Chip, Field, Input, KeyValue, Modal, Select, Tabs, Textarea, useDialogFocus, useToast } from '../../../shared/components/ui'
 import { cn } from '../../../shared/lib/utils'
 import { AgeSex, ScanImage } from '../components/ClinicComponents'
+import { ScanDocument } from '../components/ScanDocument'
 import { useT } from '../lib/i18n'
 import { ageOf, fmtDay, fmtStampOf, matchScore } from '../lib/helpers'
 import { useClinic } from '../store/store'
-import type { CivilStatus, Sex } from '../types'
+import type { CivilStatus, ScannedPage, Sex } from '../types'
 import { VisitHistory } from '../components/History'
 import { DependentForm, ScanUploader } from '../components/ClinicForms'
 
@@ -23,6 +24,7 @@ export default function PatientRecord() {
   const [undoError, setUndoError] = useState('')
   const [tab, setTab] = useState<Tab>('overview')
   const [edit, setEdit] = useState(false)
+  const [scanDoc, setScanDoc] = useState(false)
   const navigate = useNavigate()
   const pt = patient(id)
   const p = personOfPatient(id)
@@ -85,6 +87,7 @@ export default function PatientRecord() {
           <Input value={undoReason} onChange={(e) => setUndoReason(e.target.value)} className="h-12 text-base" invalid={!!undoError} />
         </Field>
       </Modal>
+      {doctor && <ScanDocument open={scanDoc} onClose={() => setScanDoc(false)} patientId={id} />}
       <Link to="/clinic/patients" className="mb-4 inline-flex items-center gap-2 text-base font-medium text-ink-2 hover:text-ink">
         <ArrowLeft size={18} /> {t('Patient registry')}
       </Link>
@@ -117,6 +120,11 @@ export default function PatientRecord() {
             <Button variant="secondary" size="lg" icon={<PencilSimple size={20} />} onClick={() => setEdit(true)}>
               {t('Edit details')}
             </Button>
+            {doctor && (
+              <Button variant="secondary" size="lg" icon={<Scan size={20} />} onClick={() => setScanDoc(true)}>
+                {t('Scan with AI')}
+              </Button>
+            )}
             <Button variant="secondary" size="lg" icon={<Printer size={20} />} onClick={() => window.open(`/print/summary/${id}`, '_blank')}>
               {t('Print patient summary')}
             </Button>
@@ -411,6 +419,7 @@ function ScanGrid({ patientId }: { patientId: string }) {
               <ScanImage file={s.file} className="aspect-[3/4] w-full bg-[#f4efe2]" />
               <span className="block px-3 py-2 text-[15px]">
                 <b>{s.kind}</b>
+                {s.ocr_text && <span className="ml-1.5 rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-700">Text read</span>}
                 {s.category === 'Outside report' && <span className="block text-sm font-medium text-brand-700">Outside report{s.source_clinic ? ` · ${s.source_clinic}` : ''}</span>}
                 <span className="block text-sm text-muted">
                   {fmtDay(s.page_date)} · by {staffById(s.uploaded_by)?.name.split(' ')[0]}
@@ -425,10 +434,41 @@ function ScanGrid({ patientId }: { patientId: string }) {
           <button className="absolute right-6 top-6 grid size-12 place-items-center rounded-full bg-white" aria-label="Close">
             <X size={22} />
           </button>
-          <ScanImage file={current.file} className="max-h-[85dvh] w-auto max-w-full rounded-xl bg-[#f4efe2]" />
+          <div className="flex max-h-[88dvh] w-full max-w-6xl flex-col items-center gap-4 lg:flex-row lg:items-start lg:justify-center">
+            <ScanImage file={current.file} className="max-h-[60dvh] w-auto max-w-full rounded-xl bg-[#f4efe2] lg:max-h-[85dvh]" />
+            {current.ocr_text && <ScanText page={current} />}
+          </div>
         </ScanLightbox>
       )}
     </>
+  )
+}
+
+/** The text the reader took off a page when it was filed with Scan with AI, checked by the doctor then. Clicking it does not close the viewer. */
+function ScanText({ page }: { page: ScannedPage }) {
+  const toast = useToast()
+  const { staffById } = useClinic()
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(page.ocr_text ?? '')
+      toast({ tone: 'ok', title: 'Copied', body: 'Paste it into a note or a consultation.' })
+    } catch {
+      toast({ tone: 'warn', title: 'Could not copy', body: 'Select the text and copy it by hand.' })
+    }
+  }
+  return (
+    <aside className="flex max-h-[85dvh] w-full max-w-md shrink-0 flex-col rounded-2xl bg-surface p-5 shadow-lift" onClick={(e) => e.stopPropagation()} aria-label="Text read from this page">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold">Text read from this page</p>
+          <p className="text-sm text-muted">Read by the clinic computer and checked by {staffById(page.uploaded_by)?.name ?? 'the doctor'} when it was filed.</p>
+        </div>
+        <Button size="sm" variant="secondary" icon={<Copy size={16} />} onClick={() => void copy()}>
+          Copy
+        </Button>
+      </div>
+      <pre className="mt-3 overflow-y-auto whitespace-pre-wrap break-words border-t border-line pt-3 font-mono text-[15px] leading-relaxed text-ink select-text">{page.ocr_text}</pre>
+    </aside>
   )
 }
 

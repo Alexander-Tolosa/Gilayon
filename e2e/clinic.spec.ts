@@ -549,3 +549,82 @@ test.describe('scanning an old folder', () => {
     await expect(page.getByText('Saved to the record')).toBeVisible({ timeout: 30_000 })
   })
 })
+
+test.describe('scan with AI for other documents', () => {
+  /** Stands in for the model, which is not part of these tests: the page reads as `reading`. */
+  async function reads(page: Page, reading: Record<string, unknown>) {
+    await page.route('**/api/recognition/document', (route) => route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(reading) }))
+  }
+  const lab = {
+    text: ['CBC', 'Hemoglobin: 128 g/L', 'WBC: 6.2'],
+    date: '2026-09-30',
+    issued_by: 'Iloilo Doctors Hospital',
+    title: 'Laboratory result',
+    name_on_page: 'Maria Lourdes Villanueva',
+    name_matches: true,
+    patient_name: 'Maria Lourdes Villanueva',
+  }
+
+  async function openFromDashboard(page: Page) {
+    await signIn(page, 'doctor')
+    await page.getByRole('button', { name: 'Scan with AI' }).click()
+    await page.getByRole('textbox', { name: 'Search for the patient' }).fill('Maria Lourdes Vill')
+    await page.getByRole('button', { name: /^Maria Lourdes Villanueva/ }).click()
+    await page.getByRole('button', { name: 'Lab result' }).click()
+    await page.locator('[role=dialog] input[type=file]').setInputFiles('public/forms/sample-villanueva.png')
+  }
+
+  test('files a lab result in the patient record from the dashboard, with the text the doctor checked', async ({ page }) => {
+    await reads(page, lab)
+    await openFromDashboard(page)
+
+    await expect(page.getByText('The name on the page matches Maria Lourdes Villanueva.')).toBeVisible()
+    // What was read is editable: the doctor corrects it before it is filed.
+    const text = page.getByRole('textbox', { name: /^Text read from the page/ })
+    await expect(text).toHaveValue('CBC\nHemoglobin: 128 g/L\nWBC: 6.2')
+    await text.fill('CBC\nHemoglobin: 126 g/L\nWBC: 6.2')
+    await page.getByRole('button', { name: /^Attach to Maria/ }).click()
+    await expect(page.getByText('Attached to Maria Lourdes Villanueva')).toBeVisible()
+
+    // It is in the record, marked as read, with the corrected text beside the page.
+    await page.goto('/clinic/patients')
+    await page.getByRole('textbox', { name: 'Search patients' }).fill('Villanueva')
+    await page.getByRole('button', { name: /^Maria Lourdes Villanueva HMO/ }).click()
+    await page.getByRole('tab', { name: /^Old paper records/ }).click()
+    await page.locator('li button', { hasText: 'Text read' }).first().click()
+    await expect(page.getByLabel('Text read from this page')).toContainText('Hemoglobin: 126 g/L')
+  })
+
+  test('a page that names someone else cannot be filed until the doctor says it is this patient', async ({ page }) => {
+    await reads(page, { ...lab, name_on_page: 'NAVARRO, THEODORE', name_matches: false })
+    await openFromDashboard(page)
+
+    await expect(page.getByText(/This page names/)).toBeVisible()
+    const attach = page.getByRole('button', { name: /^Attach to Maria/ })
+    await expect(attach).toBeDisabled()
+    await page.getByLabel('It is this patient. File it anyway.').check()
+    await expect(attach).toBeEnabled()
+    await page.getByLabel('It is this patient. File it anyway.').uncheck()
+    await expect(attach).toBeDisabled()
+  })
+
+  test('opened from a patient record it is already for that patient, and the photo can be filed when the reader fails', async ({ page }) => {
+    await page.route('**/api/recognition/document', (route) => route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'The handwriting model is not installed. Run: ollama pull qwen2.5vl:3b' }) }))
+    await signIn(page, 'doctor')
+    await page.goto('/clinic/patients')
+    await page.getByRole('textbox', { name: 'Search patients' }).fill('Villanueva')
+    await page.getByRole('button', { name: /^Maria Lourdes Villanueva HMO/ }).click()
+    await page.getByRole('button', { name: 'Scan with AI' }).first().click()
+    await expect(page.getByText('For Maria Lourdes Villanueva')).toBeVisible()
+    await page.getByRole('button', { name: 'Dental' }).click()
+    await page.locator('[role=dialog] input[type=file]').setInputFiles('public/forms/sample-villanueva.png')
+
+    await expect(page.getByText(/model is not installed/)).toBeVisible()
+    // An outside report is filed with the place it came from, and the screen says so instead of doing nothing.
+    await page.getByRole('button', { name: 'Attach the photo without reading it' }).click()
+    await expect(page.getByText('Name the clinic or hospital the page came from')).toBeVisible()
+    await page.getByLabel('From which clinic or hospital?').fill('Dental Care Iloilo')
+    await page.getByRole('button', { name: 'Attach the photo without reading it' }).click()
+    await expect(page.getByText('Attached to Maria Lourdes Villanueva')).toBeVisible()
+  })
+})

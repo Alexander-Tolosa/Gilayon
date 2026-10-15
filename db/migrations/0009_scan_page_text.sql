@@ -1,0 +1,1 @@
+ALTER TABLE "scanned_page" ADD COLUMN "ocr_text" text;

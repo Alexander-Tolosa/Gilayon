@@ -273,7 +273,7 @@ export async function addAllergy(q: Q, actor: Actor, patientIdIn: string, substa
   await audit(q, actor.staff_id, { action: 'create', table: 'allergy', record: patientId, summary: `Recorded allergy to ${substance} for ${await patientName(q, patientId)}` })
 }
 
-export type ScanExtra = { category?: 'Old folder' | 'Outside report'; source_clinic?: string; report_date?: string }
+export type ScanExtra = { category?: 'Old folder' | 'Outside report'; source_clinic?: string; report_date?: string; text?: string }
 
 /** The scan is written to disk first; if anything after it fails, the file is removed again. */
 export async function uploadScan(q: Q, actor: Actor, patientIdIn: string, file: string, kind: ScanKind, page_date: string, pageId?: string, extra?: ScanExtra) {
@@ -283,7 +283,7 @@ export async function uploadScan(q: Q, actor: Actor, patientIdIn: string, file: 
   if (dup) return page_id // retried upload (offline sync)
   const stored = await storeScan(file, page_id)
   try {
-    await q.insert(t.scannedPage).values({ page_id, patient_id: patientId, file: stored, kind, page_date, uploaded_by: actor.staff_id, uploaded_at: nowMs(), category: extra?.category ?? null, source_clinic: extra?.source_clinic?.trim() || null, report_date: extra?.report_date || null })
+    await q.insert(t.scannedPage).values({ page_id, patient_id: patientId, file: stored, kind, page_date, uploaded_by: actor.staff_id, uploaded_at: nowMs(), category: extra?.category ?? null, source_clinic: extra?.source_clinic?.trim() || null, report_date: extra?.report_date || null, ocr_text: extra?.text?.trim() || null })
     const from = extra?.category === 'Outside report' && extra.source_clinic?.trim() ? ` from ${extra.source_clinic.trim()}` : ''
     await audit(q, actor.staff_id, { action: 'upload', table: 'scanned_page', record: patientId, summary: `Attached a scanned ${kind.toLowerCase()} page${from} to ${await patientName(q, patientId)}'s record` })
   } catch (e) {

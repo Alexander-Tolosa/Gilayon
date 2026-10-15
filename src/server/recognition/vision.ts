@@ -49,7 +49,7 @@ async function prepare(bytes: Buffer, flip: boolean) {
 }
 
 /** Asks the model to read the form picture. Throws an HttpError with a plain reason when it cannot. */
-export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; timeoutMs?: number } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
+export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; timeoutMs?: number; prompt?: string; schema?: object } = {}): Promise<{ data: Record<string, unknown>; ms: number; model: string }> {
   const st = await visionStatus()
   if (!st.available) throw new HttpError(503, st.reason ?? 'The handwriting reader is not available.')
   const t0 = Date.now()
@@ -63,12 +63,12 @@ export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; time
       body: JSON.stringify({
         model: st.model,
         stream: false,
-        format: formSchema,
+        format: opts.schema ?? formSchema,
         // The picture alone is about 4,000 tokens, and the answer now carries the whole page written out, so
         // the window has to hold both: at 8,192 the JSON came back cut in half and could not be read.
         // num_predict is a backstop: the schema already bounds the answer, but a model that loops should cost seconds, not minutes.
         options: { temperature: 0, num_ctx: Number(process.env.OLLAMA_VISION_CTX ?? 16384), num_predict: 2000 },
-        messages: [{ role: 'user', content: PROMPT, images: [await prepare(bytes, !!opts.flip)] }],
+        messages: [{ role: 'user', content: opts.prompt ?? PROMPT, images: [await prepare(bytes, !!opts.flip)] }],
       }),
     })
   } catch (e) {
@@ -89,3 +89,44 @@ export async function readWithVision(bytes: Buffer, opts: { flip?: boolean; time
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new HttpError(502, 'The handwriting reader gave an answer that could not be understood. Try again.')
   return { data: data as Record<string, unknown>, ms: Date.now() - t0, model: st.model }
 }
+
+/*
+  Any other page a doctor files in a patient's record: a medical certificate, a lab result, a dental report,
+  a prescription. There are no fields to fill, so the reader is asked only what is needed to file the page
+  and to catch a page that belongs to someone else: who it names, when it is dated, who issued it, and the
+  text itself.
+*/
+
+export type DocumentKind = 'Certificate' | 'Lab result' | 'Dental' | 'Prescription' | 'Chart'
+
+const KIND_WORDS: Record<DocumentKind, string> = {
+  Certificate: 'a medical certificate',
+  'Lab result': 'a laboratory result',
+  Dental: 'a dental report or dental record',
+  Prescription: 'a prescription',
+  Chart: 'a page from a patient chart or another medical document',
+}
+
+export const documentSchema = {
+  type: 'object',
+  properties: {
+    patient_name: { type: 'string' },
+    document_date: { type: 'string' },
+    issued_by: { type: 'string' },
+    title: { type: 'string' },
+    // Bounded and with no empty lines, or the model keeps emitting "" after the last real line until it times out.
+    page_text: { type: 'array', maxItems: 80, items: { type: 'string', minLength: 3 } },
+  },
+  required: ['patient_name', 'document_date', 'issued_by', 'title', 'page_text'],
+}
+
+const documentPrompt = (kind: DocumentKind) =>
+  `This is a photo of ${KIND_WORDS[kind]}. Read it exactly as written, including handwriting and stamps. ` +
+  'Return JSON with: patient_name (the name of the patient the page is about, as written), ' +
+  'document_date (the date the page is dated, as YYYY-MM-DD; "" if there is none), ' +
+  'issued_by (the clinic, hospital or doctor that issued it, as written), ' +
+  'title (the heading of the document, as written), ' +
+  'page_text (the whole page written out top to bottom, every line that has writing on it, each as "label: answer" when it has a label, exactly as written). ' +
+  'Use "" for anything that is not on the page. Copy text exactly as written; never guess, correct spelling, translate, or add anything that is not on the page.'
+
+export const readDocumentWithVision = (bytes: Buffer, kind: DocumentKind) => readWithVision(bytes, { prompt: documentPrompt(kind), schema: documentSchema, timeoutMs: 120_000 })

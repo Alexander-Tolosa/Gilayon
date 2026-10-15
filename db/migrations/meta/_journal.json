@@ -64,6 +64,13 @@
       "when": 1792067197839,
       "tag": "0008_ticket_vitals",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792081532059,
+      "tag": "0009_scan_page_text",
+      "breakpoints": true
     }
   ]
 }

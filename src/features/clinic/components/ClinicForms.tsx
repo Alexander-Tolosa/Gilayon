@@ -77,7 +77,7 @@ export function ScanUploader({ patientId, compact, returnTo, defaultCategory = '
         )}
         <Field label={t('Page type')} className="min-w-40">
           <Select value={kind} onChange={(e) => setKind(e.target.value as ScanKind)} className="h-12 text-base">
-            {(['Chart', 'Prescription', 'Lab result', 'Certificate'] as ScanKind[]).map((k) => (
+            {(['Chart', 'Prescription', 'Lab result', 'Certificate', 'Dental'] as ScanKind[]).map((k) => (
               <option key={k} value={k}>{t(k)}</option>
             ))}
           </Select>
