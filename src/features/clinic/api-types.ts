@@ -96,7 +96,7 @@ export type ScanField = {
   value: string
   confidence: number
   review: boolean
-  source: 'rules' | 'llm' | 'registry'
+  source: 'rules' | 'llm' | 'vision' | 'registry'
   note?: string
 }
 export type ScanPatientMatch = { patient_id: string; full_name: string; birthdate: string; by: 'name and birthdate' | 'folder number' }
@@ -108,6 +108,8 @@ export type ScanReading = {
   ocr_engine: string
   parse_engine: string
   llm: { available: boolean; model: string; reason?: string }
+  /** The optional handwriting reader (a local vision model). */
+  vision: { available: boolean; model: string; reason?: string }
   match: ScanPatientMatch | null
   candidates: { patient_id: string; full_name: string; birthdate: string }[]
 }

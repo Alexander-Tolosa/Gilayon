@@ -235,7 +235,8 @@ type Api = {
   setClinicProfile: (profile: ClinicProfile) => Promise<string | null>
   fetchBackups: () => Promise<BackupStatus | null>
   /** Reads a photo of an old-folder intake form on the clinic server (local OCR, no internet). Returns a message on failure. */
-  scanFolderForm: (file: string) => Promise<{ reading?: ScanReading; error?: string; offline?: boolean }>
+  /** `handwriting` also runs the local vision model; `replaces` is the earlier draft of the same page. */
+  scanFolderForm: (file: string, opts?: { handwriting?: boolean; replaces?: string }) => Promise<{ reading?: ScanReading; error?: string; offline?: boolean }>
   confirmFolderScan: (eventId: string, body: { patient_id: string; values: Record<string, string>; review_ms: number; file?: string }) => Promise<{ error?: string; added?: number; correct?: number; field_count?: number }>
   fetchRecognitionMetrics: () => Promise<RecognitionMetrics | null>
   /** Keeps a photo on this computer when the server cannot be reached; it is sent and read once the server is back. */
@@ -786,9 +787,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
       setStaffActive: (staffId, active) => call(`/api/staff/${staffId}/active`, { active }),
       resetStaffPassword: (staffId, temporary) => call(`/api/staff/${staffId}/password`, { temporary }),
 
-      scanFolderForm: async (file) => {
+      scanFolderForm: async (file, opts) => {
         try {
-          return { reading: await api<ScanReading>('/api/recognition/scan', { token: tokenRef.current, body: { file } }) }
+          return { reading: await api<ScanReading>('/api/recognition/scan', { token: tokenRef.current, body: { file, ...(opts?.handwriting ? { reader: 'handwriting', replaces: opts.replaces } : {}) } }) }
         } catch (e) {
           if (e instanceof ApiError && e.status === 0) return { offline: true, error: 'The clinic server cannot be reached.' }
           return { error: e instanceof ApiError ? e.message : 'The scan could not be read.' }

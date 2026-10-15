@@ -3,6 +3,7 @@
 
     npx tsx scripts/run-accuracy.ts            rule reader only
     npx tsx scripts/run-accuracy.ts --llm      rule reader + the local model (needs Ollama running)
+    npx tsx scripts/run-accuracy.ts --vision   rule reader + the handwriting reader, a local vision model (about 30 s a form)
 
   Each field is compared with the known answer the same way the live system compares a field with what
   the nurse confirmed (letters and digits only, case ignored). A field the reader missed, or invented, counts as wrong.
@@ -11,11 +12,13 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { ocrImage } from '../src/server/recognition/ocr'
 import { BASE_VOCABULARY, snapToKnown, type KnownPatient } from '../src/server/recognition/snap'
-import { llmStatus, mergeLlm, parseReading, parseWithLlm } from '../src/server/recognition/parse'
+import { llmStatus, mergeLlm, mergeVision, parseReading, parseWithLlm } from '../src/server/recognition/parse'
+import { readWithVision, visionStatus } from '../src/server/recognition/vision'
 
 type Truth = { id: string; condition: string; folder: string; name: string; birth: string; sex: string; civil: string; contact: string; pin: string; allergies: string[]; family: string[]; meds: string; visits: string[] }
 
 const useLlm = process.argv.includes('--llm')
+const useVision = process.argv.includes('--vision')
 const useRegistry = process.argv.includes('--registry')
 const report = process.argv.includes('--report')
 const dir = process.argv.includes('--v2') ? '.data/accuracy-v2' : '.data/accuracy'
@@ -30,6 +33,14 @@ const set = limit ? truth.filter((_, i) => i % Math.ceil(truth.length / limit) =
 // Every other person's record is in the registry too, so a wrong name must still be told apart from a right one.
 const registry: KnownPatient[] = truth.map((t) => ({ patient_id: t.id, full_name: title(t.name), birthdate: t.birth, sex: title(t.sex), contact: t.contact, civil_status: title(t.civil), philhealth_pin: t.pin, folder: t.folder }))
 
+if (useVision) {
+  const st = await visionStatus()
+  if (!st.available) {
+    console.error(`The handwriting reader is not ready: ${st.reason}`)
+    process.exit(1)
+  }
+  console.log(`Using ${st.model}`)
+}
 if (useLlm) {
   const st = await llmStatus()
   if (!st.available) {
@@ -70,6 +81,10 @@ for (const t of set) {
     const llm = await parseWithLlm(ocr.text)
     if (llm) fields = mergeLlm(fields, llm.data)
   }
+  if (useVision) {
+    const v = await readWithVision(buf)
+    fields = mergeVision(fields, v.data, v.model)
+  }
   if (useRegistry) fields = snapToKnown(fields, registry, BASE_VOCABULARY).fields
   const ms = Date.now() - t0
   const got = Object.fromEntries(fields.filter((f) => f.value).map((f) => [f.key, f.value]))
@@ -102,7 +117,7 @@ process.stdout.write('\n\n')
 const pct = (r: number, t: number) => (t ? ((r / t) * 100).toFixed(1) : '0.0') + '%'
 const total = [...byCond.values()].reduce((a, c) => ({ right: a.right + c.right, total: a.total + c.total, forms: a.forms + c.forms, perfect: a.perfect + c.perfect, ms: a.ms + c.ms }), { right: 0, total: 0, forms: 0, perfect: 0, ms: 0 })
 
-console.log(`Mode: ${useLlm ? 'rules + local model' : 'rules only'}\n`)
+console.log(`Mode: ${useVision ? 'rules + handwriting reader' : useLlm ? 'rules + local model' : 'rules only'}\n`)
 console.log('Condition   Forms  Fields right   Perfect forms   Avg time/form')
 for (const [k, c] of byCond) console.log(`${k.padEnd(10)}  ${String(c.forms).padStart(5)}  ${pct(c.right, c.total).padStart(12)}   ${`${c.perfect}/${c.forms}`.padStart(13)}   ${(c.ms / c.forms / 1000).toFixed(1).padStart(8)} s`)
 console.log(`${'ALL'.padEnd(10)}  ${String(total.forms).padStart(5)}  ${pct(total.right, total.total).padStart(12)}   ${`${total.perfect}/${total.forms}`.padStart(13)}   ${(total.ms / total.forms / 1000).toFixed(1).padStart(8)} s\n`)
@@ -156,7 +171,7 @@ if (report) {
 }
 
 writeFileSync(
-  `${dir}/result-${useLlm ? 'llm' : 'rules'}${useRegistry ? '-registry' : ''}.json`,
+  `${dir}/result-${useVision ? 'vision' : useLlm ? 'llm' : 'rules'}${useRegistry ? '-registry' : ''}.json`,
   JSON.stringify({ mode: useLlm ? 'rules + local model' : 'rules only', forms: total.forms, accuracy: total.right / total.total, perfect: total.perfect, avg_ms: total.ms / total.forms, by_condition: Object.fromEntries([...byCond].map(([k, c]) => [k, { forms: c.forms, accuracy: c.right / c.total, perfect: c.perfect, avg_ms: c.ms / c.forms }])), by_field: Object.fromEntries([...byField].map(([k, t]) => [k, t.right / t.total])), misses }, null, 2),
 )
 process.exit(0)
