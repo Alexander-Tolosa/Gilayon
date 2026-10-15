@@ -6,7 +6,7 @@ import { Badge, Button, Card, Field, Input, Textarea, useToast } from '../../../
 import { cn } from '../../../shared/lib/utils'
 import { AgeSex, LaneBadge, PinModal } from '../components/ClinicComponents'
 import { useT } from '../lib/i18n'
-import { ageOf, fmtDay, todayKey, uuid } from '../lib/helpers'
+import { ageOf, fmtDay, fmtTimeOf, todayKey, uuid } from '../lib/helpers'
 import { ALLERGY_CLASS, COMPLAINTS, DRUGS, FREQUENCIES, LAB_TESTS } from '../data/reference'
 import { useClinic, type ConsultInput } from '../store/store'
 import type { ServiceType } from '../types'
@@ -67,9 +67,22 @@ export default function Consult() {
   // A new visit starts from the vital signs the front desk took at check-in.
   // Opened without a queue link (from the record): use the patient's open ticket from today, if there is one.
   const openTicket = ticket ?? data.tickets.find((x) => x.patient_id === patientId && x.day === todayKey() && ['waiting', 'called', 'in_consult'].includes(x.status))
-  const base = original?.vitals ?? openTicket?.vitals
+  // Any of today's tickets for this patient that has readings is the next best: the visit may be opened from the record, or after the ticket moved on.
+  const deskTicket = [ticket, openTicket, ...data.tickets.filter((x) => x.patient_id === patientId && x.day === todayKey()).sort((a, b) => b.checked_in_at - a.checked_in_at)].find((x) => x?.vitals && Object.values(x.vitals).some(Boolean))
+  const base = original?.vitals ?? deskTicket?.vitals
   const startVitals: Vitals = { bp: base?.bp ?? '', temperature: base?.temperature ?? '', pulse: base?.pulse ?? '', respiration: base?.respiration ?? '', height: base?.height ?? '', weight: base?.weight ?? '' }
   const [vitals, setVitals] = useState<Vitals>(d0?.vitals ?? startVitals)
+  // The form copies the front desk's readings when it opens. If they arrive later (the page was opened before the data
+  // synced) or a saved draft has blank boxes, fill the blanks now. A box with something in it is never touched.
+  const deskReadings = JSON.stringify(base ?? {})
+  useEffect(() => {
+    const desk = JSON.parse(deskReadings) as Partial<Vitals>
+    setVitals((v) => {
+      const keys = (Object.keys(startVitals) as (keyof Vitals)[]).filter((k) => !v[k] && desk[k])
+      return keys.length ? { ...v, ...Object.fromEntries(keys.map((k) => [k, desk[k]])) } : v
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deskReadings])
   const [dx, setDx] = useState<{ description: string; icd10_code: string }[]>(d0?.dx ?? (original ? data.diagnoses.filter((d) => d.consultation_id === original.consultation_id).map(({ description, icd10_code }) => ({ description, icd10_code })) : []))
   const [dxQuery, setDxQuery] = useState('')
   const [labQuery, setLabQuery] = useState('')
@@ -357,6 +370,13 @@ export default function Consult() {
             {service !== 'Dental' && (
               <div>
                 <p className="mb-1.5 text-[13px] font-medium text-ink-2">{t('Vital signs')}</p>
+                <p className="mb-2 text-sm text-muted">
+                  {original
+                    ? 'Copied from the visit being corrected. Change a box if it was wrong.'
+                    : deskTicket
+                      ? `Taken at the front desk at ${fmtTimeOf(deskTicket.checked_in_at)}. Change a box if you measured it again.`
+                      : 'The front desk took no readings for this visit. Enter them here if you measured them.'}
+                </p>
                 <div className="grid grid-cols-2 items-end gap-3 sm:grid-cols-3">
                   {(
                     [

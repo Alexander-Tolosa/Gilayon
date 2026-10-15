@@ -203,6 +203,31 @@ test.describe('front desk', () => {
     await expect(page.getByRole('textbox', { name: /^Respiration rate/ })).toHaveValue('18')
     await expect(page.getByRole('textbox', { name: /^Height/ })).toHaveValue('158')
     await expect(page.getByRole('textbox', { name: /^Weight/ })).toHaveValue('55')
+    await expect(page.getByText(/Taken at the front desk at/)).toBeVisible()
+
+    // A saved draft with a blank box does not hide the desk's reading: the box fills in again on reopening,
+    // and what the doctor typed is kept.
+    await page.getByRole('textbox', { name: /^Blood pressure/ }).fill('')
+    await page.getByRole('textbox', { name: /^Treatment notes/ }).fill('rest and fluids')
+    page.on('dialog', (d) => void d.accept()) // typing a note makes closing the page ask first
+    await page.reload()
+    await expect(page.getByRole('textbox', { name: /^Treatment notes/ })).toHaveValue('rest and fluids')
+    await expect(page.getByRole('textbox', { name: /^Blood pressure/ })).toHaveValue('118/76')
+  })
+
+  test('a visit with no readings from the front desk says so, instead of showing silent empty boxes', async ({ page }) => {
+    await signIn(page, 'doctor')
+    // Demo patients have no readings: nobody at the desk took any for them.
+    const patientId = await page.evaluate(async () => {
+      const token = JSON.parse(sessionStorage.getItem('himsog-token') ?? 'null')
+      const res = await fetch('/api/state', { headers: { Authorization: `Bearer ${token}` } })
+      const st = (await res.json()) as { persons: { person_id: string; full_name: string }[]; patients: { patient_id: string; person_id: string }[] }
+      const person = st.persons.find((x) => x.full_name === 'Edgardo Villanueva')!
+      return st.patients.find((x) => x.person_id === person.person_id)!.patient_id
+    })
+    await page.goto(`/clinic/consult/${patientId}`)
+    await expect(page.getByText(/The front desk took no readings for this visit/)).toBeVisible()
+    await expect(page.getByRole('textbox', { name: /^Blood pressure/ })).toHaveValue('')
   })
 
   test('the nurse has exactly the receptionist menu', async ({ page }) => {
