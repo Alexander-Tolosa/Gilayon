@@ -121,7 +121,7 @@ function Sidebar({ role, onNavigate }: { role: StaffRole; onNavigate?: () => voi
           {/* Side by side when both labels fit; a longer label (Filipino) moves to its own row instead of breaking. */}
           <div className="mt-3 flex flex-wrap gap-1.5">
             <button onClick={() => setPw(true)} title={t('Change password')} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-2 text-[14px] font-medium text-ink-2 transition hover:border-brand-300 hover:text-brand-700">
-              <Key size={18} className="shrink-0" /> Password
+              <Key size={18} className="shrink-0" /> {t('Password')}
             </button>
             <button onClick={signOut} title={t('Sign out')} className="flex min-h-10 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-full border border-line bg-surface px-2 text-[14px] font-medium text-ink-2 transition hover:border-danger/40 hover:text-danger">
               <SignOut size={18} className="shrink-0" /> {t('Sign out')}

@@ -173,6 +173,16 @@ export function buildSeed(): ClinicData {
   addPatient(jdc1, { civil_status: 'Married', philhealth_pin: philhealth(), legacy_folder_no: 'F-2009-0712' })
   addPatient(jdc2, { philhealth_pin: philhealth() })
 
+  // A real duplicate for the Possible duplicates screen: the same woman registered twice, once from the
+  // HR list with her old paper folder and once at the desk under a shortened first name. Same birthdate
+  // and sex, similar name, and only one is on the HR list, so staff can merge them.
+  const mtg1 = addPerson({ full_name: 'Maria Teresa Gallego', birthdate: `${thisYear - 38}-03-17`, sex: 'Female', contact: '0917 402 9915' })
+  const mtg2 = addPerson({ full_name: 'Ma. Teresa Gallego', birthdate: `${thisYear - 38}-03-17`, sex: 'Female', contact: '0917 402 9915' })
+  usedNames.add(mtg1.full_name).add(mtg2.full_name)
+  employees.push({ employee_id: id('emp'), person_id: mtg1.person_id, employee_no: 'IPG-2014-0286', office: "Provincial Assessor's Office", position: 'Administrative Aide VI' })
+  addPatient(mtg1, { civil_status: 'Married', philhealth_pin: philhealth(), legacy_folder_no: 'F-2014-0391' })
+  addPatient(mtg2, { civil_status: 'Married' })
+
   // A new hire with no clinic history yet.
   const newHire = addPerson({ full_name: 'Carlo Sorongon', birthdate: `${thisYear - 24}-05-14`, sex: 'Male', contact: '0995 612 0038' })
   usedNames.add(newHire.full_name)
