@@ -254,6 +254,9 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   const [recent, setRecent] = useState<string[]>(() => ss.get<string[]>(S_RECENT, []))
   const tokenRef = useRef(token)
   const networkRef = useRef(network)
+  // Counts refreshes so a slow, older response (for example the public queue requested before sign-in)
+  // can never overwrite newer records that arrived first.
+  const refreshSeq = useRef(0)
   // Keep the refs in step with state after each commit (not during render), before any effect runs.
   useLayoutEffect(() => {
     tokenRef.current = token
@@ -275,19 +278,25 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
   /** Pulls the latest records. Signed out, it pulls only the public queue (waiting screen, sign-in page). */
   const refresh = useCallback(async (): Promise<Snapshot | null> => {
     if (networkRef.current === 'offline') return null
+    const seq = ++refreshSeq.current
     try {
       if (tokenRef.current) {
         const snap = await api<Snapshot>('/api/state', { token: tokenRef.current })
-        setShared(snap)
-        setReady(true)
-        setConnected(true)
+        if (seq === refreshSeq.current) {
+          setShared(snap)
+          setReady(true)
+          setConnected(true)
+        }
         return snap
       }
       const pub = await api<Pick<Snapshot, 'tickets' | 'categories' | 'staff' | 'clinic' | 'demo'>>('/api/public/queue')
       const snap = { ...EMPTY, ...pub }
-      setShared(snap)
-      setReady(true)
-      setConnected(true)
+      // Signed in while this was in flight: the public queue has no patient ids and must not replace the records.
+      if (seq === refreshSeq.current && !tokenRef.current) {
+        setShared(snap)
+        setReady(true)
+        setConnected(true)
+      }
       return snap
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) {
@@ -504,6 +513,10 @@ export function ClinicProvider({ children }: { children: ReactNode }) {
           const res = await api<{ token: string; staff_id: string; idle_minutes?: number }>('/api/auth/login', { body: { staff_id: staffId, password } })
           ss.set(S_IDLE, res.idle_minutes ?? DEFAULT_IDLE_MINUTES)
           tokenRef.current = res.token
+          // Until this person's own records arrive, screens must not show the public queue as if it were
+          // them: it has no patient ids, so a button pressed in that gap would open "no patient".
+          setShared(EMPTY)
+          setReady(false)
           setSession(res.staff_id)
           setToken(res.token)
           return null
